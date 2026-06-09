@@ -1,0 +1,152 @@
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Modal,
+  Paper,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+  Tooltip
+} from "@mantine/core";
+import { useForm } from "@mantine/form";
+import { notifications } from "@mantine/notifications";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Clock, LogIn, LogOut, Plus } from "lucide-react";
+import { useState } from "react";
+import { getApiErrorMessage } from "../../api/axios";
+import { attendanceApi, employeesApi } from "../../api/endpoints";
+import { formatDate, formatDateTime } from "../../api/format";
+import type { AttendanceRecord } from "../../api/types";
+import { DataTable } from "../../components/DataTable";
+import { PageHeader } from "../../components/PageHeader";
+import { PermissionGate } from "../../components/PermissionGate";
+import { useTranslation } from "../../i18n";
+import { useAuthStore } from "../../store/auth";
+
+type AttendancePageProps = {
+  scope: "all" | "team";
+};
+
+export function AttendancePage({ scope }: AttendancePageProps) {
+  const { te, tx } = useTranslation();
+  const queryClient = useQueryClient();
+  const [opened, setOpened] = useState(false);
+  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const hasEmployeeProfile = useAuthStore((state) => Boolean(state.user?.employeeId));
+  const listQuery = useQuery({
+    queryKey: ["attendance", scope, employeeId],
+    queryFn: () =>
+      scope === "team"
+        ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, limit: 50 })
+        : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, limit: 50 })
+  });
+  const employeeQuery = useQuery({
+    queryKey: ["attendance-employees", scope],
+    queryFn: () => scope === "team" ? employeesApi.team({ limit: 100 }) : employeesApi.list({ limit: 100 })
+  });
+
+  const form = useForm({
+    initialValues: {
+      employeeId: "",
+      workDate: "",
+      recordedAt: "",
+      recordType: "CHECK_IN",
+      note: ""
+    }
+  });
+
+  const checkInMutation = useMutation({
+    mutationFn: attendanceApi.checkIn,
+    onSuccess: () => {
+      notifications.show({ color: "green", message: tx("Checked in") });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+    },
+    onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
+  });
+  const checkOutMutation = useMutation({
+    mutationFn: attendanceApi.checkOut,
+    onSuccess: () => {
+      notifications.show({ color: "green", message: tx("Checked out") });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+    },
+    onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
+  });
+  const adminCreateMutation = useMutation({
+    mutationFn: (values: typeof form.values) =>
+      attendanceApi.adminCreate({
+        ...values,
+        employeeId: Number(values.employeeId),
+        recordedAt: new Date(values.recordedAt).toISOString()
+    }),
+    onSuccess: () => {
+      notifications.show({ color: "green", message: tx("Attendance adjustment created") });
+      queryClient.invalidateQueries({ queryKey: ["attendance"] });
+      setOpened(false);
+    },
+    onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
+  });
+
+  const employeeOptions = (employeeQuery.data?.items ?? []).map((item) => ({
+    value: String(item.id),
+    label: `${item.employeeCode} - ${item.fullName}`
+  }));
+
+  return (
+    <Stack gap="md">
+      <PageHeader
+        title={scope === "team" ? "Team Attendance" : "Attendance"}
+        description={scope === "team" ? "Review attendance records for your team." : "Review and adjust attendance records."}
+        actions={
+          <Group>
+            {hasEmployeeProfile ? (
+              <>
+                <PermissionGate permissions={["ATTENDANCE_CHECK_IN"]}>
+                  <Button leftSection={<LogIn size={16} />} variant="light" onClick={() => checkInMutation.mutate()} loading={checkInMutation.isPending}>{tx("Check-in")}</Button>
+                </PermissionGate>
+                <PermissionGate permissions={["ATTENDANCE_CHECK_OUT"]}>
+                  <Button leftSection={<LogOut size={16} />} variant="light" onClick={() => checkOutMutation.mutate()} loading={checkOutMutation.isPending}>{tx("Check-out")}</Button>
+                </PermissionGate>
+              </>
+            ) : null}
+            {scope === "all" ? <Button leftSection={<Plus size={16} />} onClick={() => setOpened(true)}>{tx("Adjustment")}</Button> : null}
+          </Group>
+        }
+      />
+      <Paper withBorder radius="md" p="md" className="filter-bar">
+        <Select label={tx("Employee")} placeholder={tx("All employees")} data={employeeOptions} clearable value={employeeId} onChange={setEmployeeId} />
+      </Paper>
+      <DataTable<AttendanceRecord>
+        data={listQuery.data?.items ?? []}
+        loading={listQuery.isLoading}
+        error={listQuery.error ? getApiErrorMessage(listQuery.error) : null}
+        total={listQuery.data?.meta.total}
+        limit={listQuery.data?.meta.limit}
+        page={listQuery.data?.meta.page}
+        columns={[
+          { key: "employee", label: "Employee", render: (item) => <Stack gap={0}><Text fw={700}>{item.employee.fullName}</Text><Text size="xs" c="dimmed">{item.employee.employeeCode}</Text></Stack> },
+          { key: "date", label: "Work date", render: (item) => formatDate(item.workDate) },
+          { key: "type", label: "Type", render: (item) => <Badge color={item.recordType === "CHECK_IN" ? "green" : item.recordType === "CHECK_OUT" ? "blue" : "yellow"}>{te(item.recordType)}</Badge> },
+          { key: "time", label: "Recorded at", render: (item) => formatDateTime(item.recordedAt) },
+          { key: "source", label: "Source", render: (item) => item.source },
+          { key: "note", label: "Note", render: (item) => item.note ?? "-" },
+          { key: "icon", label: "", render: () => <Tooltip label={tx("Attendance record")}><ActionIcon variant="subtle"><Clock size={16} /></ActionIcon></Tooltip> }
+        ]}
+      />
+      <Modal opened={opened} onClose={() => setOpened(false)} title={tx("Attendance adjustment")}>
+        <form onSubmit={form.onSubmit((values) => adminCreateMutation.mutate(values))}>
+          <Stack>
+            <Select label={tx("Employee")} data={employeeOptions} required {...form.getInputProps("employeeId")} />
+            <TextInput label={tx("Work date")} type="date" required {...form.getInputProps("workDate")} />
+            <TextInput label={tx("Recorded at")} type="datetime-local" required {...form.getInputProps("recordedAt")} />
+            <Select label={tx("Record type")} data={["CHECK_IN", "CHECK_OUT", "ADJUSTMENT"].map((value) => ({ value, label: te(value) }))} required {...form.getInputProps("recordType")} />
+            <TextInput label={tx("Reason")} required {...form.getInputProps("note")} />
+            <Button type="submit" loading={adminCreateMutation.isPending}>{tx("Save adjustment")}</Button>
+          </Stack>
+        </form>
+      </Modal>
+    </Stack>
+  );
+}
