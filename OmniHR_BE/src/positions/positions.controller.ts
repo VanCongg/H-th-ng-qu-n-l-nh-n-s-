@@ -26,8 +26,14 @@ export class PositionsController {
 
   @Permissions("POSITION_READ")
   @Get()
-  findAll(@Query("search") search?: string) {
-    return this.positionsService.findAll(search);
+  findAll(
+    @Query("search") search?: string,
+    @Query("departmentId") departmentId?: string
+  ) {
+    return this.positionsService.findAll(
+      search,
+      departmentId ? Number(departmentId) : undefined
+    );
   }
 
   @Permissions("POSITION_READ")

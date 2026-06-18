@@ -1,48 +1,52 @@
 import { AuthUser, RequestContext } from "../common/types";
 import { AdminCreateAttendanceDto, AdminUpdateAttendanceDto } from "./dto/admin-attendance.dto";
+import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
 import { AttendanceService } from "./attendance.service";
 export declare class AttendanceController {
     private readonly attendanceService;
     constructor(attendanceService: AttendanceService);
-    checkIn(user: AuthUser, context: RequestContext): Promise<{
+    checkIn(dto: AttendanceActionDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         createdByUser: {
             id: number;
@@ -59,53 +63,62 @@ export declare class AttendanceController {
         createdAt: Date;
         updatedAt: Date;
         employeeId: number;
+        createdByUserId: number | null;
+        shift: import(".prisma/client").$Enums.AttendanceShift | null;
+        note: string | null;
         workDate: Date;
         recordType: import(".prisma/client").$Enums.AttendanceRecordType;
         recordedAt: Date;
-        note: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        address: string | null;
+        attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+        distanceMeters: number | null;
         source: string;
         isAdjustment: boolean;
-        createdByUserId: number | null;
         updatedByUserId: number | null;
     }>;
-    checkOut(user: AuthUser, context: RequestContext): Promise<{
+    checkOut(dto: AttendanceActionDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         createdByUser: {
             id: number;
@@ -122,54 +135,63 @@ export declare class AttendanceController {
         createdAt: Date;
         updatedAt: Date;
         employeeId: number;
+        createdByUserId: number | null;
+        shift: import(".prisma/client").$Enums.AttendanceShift | null;
+        note: string | null;
         workDate: Date;
         recordType: import(".prisma/client").$Enums.AttendanceRecordType;
         recordedAt: Date;
-        note: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        address: string | null;
+        attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+        distanceMeters: number | null;
         source: string;
         isAdjustment: boolean;
-        createdByUserId: number | null;
         updatedByUserId: number | null;
     }>;
     findAll(query: AttendanceQueryDto): Promise<{
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             createdByUser: {
                 id: number;
@@ -186,13 +208,19 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: number;
+            createdByUserId: number | null;
+            shift: import(".prisma/client").$Enums.AttendanceShift | null;
+            note: string | null;
             workDate: Date;
             recordType: import(".prisma/client").$Enums.AttendanceRecordType;
             recordedAt: Date;
-            note: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+            distanceMeters: number | null;
             source: string;
             isAdjustment: boolean;
-            createdByUserId: number | null;
             updatedByUserId: number | null;
         })[];
         meta: {
@@ -205,41 +233,44 @@ export declare class AttendanceController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             createdByUser: {
                 id: number;
@@ -256,13 +287,19 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: number;
+            createdByUserId: number | null;
+            shift: import(".prisma/client").$Enums.AttendanceShift | null;
+            note: string | null;
             workDate: Date;
             recordType: import(".prisma/client").$Enums.AttendanceRecordType;
             recordedAt: Date;
-            note: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+            distanceMeters: number | null;
             source: string;
             isAdjustment: boolean;
-            createdByUserId: number | null;
             updatedByUserId: number | null;
         })[];
         meta: {
@@ -275,41 +312,44 @@ export declare class AttendanceController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             createdByUser: {
                 id: number;
@@ -326,13 +366,19 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: number;
+            createdByUserId: number | null;
+            shift: import(".prisma/client").$Enums.AttendanceShift | null;
+            note: string | null;
             workDate: Date;
             recordType: import(".prisma/client").$Enums.AttendanceRecordType;
             recordedAt: Date;
-            note: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+            distanceMeters: number | null;
             source: string;
             isAdjustment: boolean;
-            createdByUserId: number | null;
             updatedByUserId: number | null;
         })[];
         meta: {
@@ -345,41 +391,44 @@ export declare class AttendanceController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             createdByUser: {
                 id: number;
@@ -396,13 +445,19 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             employeeId: number;
+            createdByUserId: number | null;
+            shift: import(".prisma/client").$Enums.AttendanceShift | null;
+            note: string | null;
             workDate: Date;
             recordType: import(".prisma/client").$Enums.AttendanceRecordType;
             recordedAt: Date;
-            note: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            address: string | null;
+            attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+            distanceMeters: number | null;
             source: string;
             isAdjustment: boolean;
-            createdByUserId: number | null;
             updatedByUserId: number | null;
         })[];
         meta: {
@@ -414,41 +469,44 @@ export declare class AttendanceController {
     adminCreate(dto: AdminCreateAttendanceDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         createdByUser: {
             id: number;
@@ -465,53 +523,62 @@ export declare class AttendanceController {
         createdAt: Date;
         updatedAt: Date;
         employeeId: number;
+        createdByUserId: number | null;
+        shift: import(".prisma/client").$Enums.AttendanceShift | null;
+        note: string | null;
         workDate: Date;
         recordType: import(".prisma/client").$Enums.AttendanceRecordType;
         recordedAt: Date;
-        note: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        address: string | null;
+        attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+        distanceMeters: number | null;
         source: string;
         isAdjustment: boolean;
-        createdByUserId: number | null;
         updatedByUserId: number | null;
     }>;
     adminUpdate(id: number, dto: AdminUpdateAttendanceDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         createdByUser: {
             id: number;
@@ -528,13 +595,19 @@ export declare class AttendanceController {
         createdAt: Date;
         updatedAt: Date;
         employeeId: number;
+        createdByUserId: number | null;
+        shift: import(".prisma/client").$Enums.AttendanceShift | null;
+        note: string | null;
         workDate: Date;
         recordType: import(".prisma/client").$Enums.AttendanceRecordType;
         recordedAt: Date;
-        note: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        address: string | null;
+        attendanceStatus: import(".prisma/client").$Enums.AttendanceStatus | null;
+        distanceMeters: number | null;
         source: string;
         isAdjustment: boolean;
-        createdByUserId: number | null;
         updatedByUserId: number | null;
     }>;
 }

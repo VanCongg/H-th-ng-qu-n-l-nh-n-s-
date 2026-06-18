@@ -32,9 +32,6 @@ let RolesGuard = class RolesGuard {
         if (!user) {
             throw new api_error_1.ApiError(common_2.HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
         }
-        if (user.roles.includes("ADMIN")) {
-            return true;
-        }
         const allowed = requiredRoles.some((role) => user.roles.includes(role));
         if (!allowed) {
             throw new api_error_1.ApiError(common_2.HttpStatus.FORBIDDEN, "Forbidden", "FORBIDDEN");

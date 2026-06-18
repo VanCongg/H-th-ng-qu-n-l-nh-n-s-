@@ -27,9 +27,16 @@ export function AuditLogsPage() {
   const { tx } = useTranslation();
   const [action, setAction] = useState<string | null>(null);
   const [entityType, setEntityType] = useState("");
+  const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["audit-logs", action, entityType],
-    queryFn: () => auditLogsApi.list({ action, entityType: entityType || undefined, limit: 100 })
+    queryKey: ["audit-logs", action, entityType, page],
+    queryFn: () =>
+      auditLogsApi.list({
+        action,
+        entityType: entityType || undefined,
+        page,
+        limit: 20
+      })
   });
 
   return (
@@ -37,8 +44,24 @@ export function AuditLogsPage() {
       <PageHeader title="Audit Logs" description="Review important system actions." />
       <Paper withBorder radius="md" p="md" className="filter-bar">
         <Group align="flex-end">
-          <Select label={tx("Action")} data={actionOptions.map((value) => ({ value, label: tx(value) }))} clearable value={action} onChange={setAction} />
-          <TextInput label={tx("Entity type")} value={entityType} onChange={(event) => setEntityType(event.currentTarget.value)} />
+          <Select
+            label={tx("Action")}
+            data={actionOptions.map((value) => ({ value, label: tx(value) }))}
+            clearable
+            value={action}
+            onChange={(value) => {
+              setAction(value);
+              setPage(1);
+            }}
+          />
+          <TextInput
+            label={tx("Entity type")}
+            value={entityType}
+            onChange={(event) => {
+              setEntityType(event.currentTarget.value);
+              setPage(1);
+            }}
+          />
         </Group>
       </Paper>
       <DataTable<AuditLog>
@@ -48,6 +71,7 @@ export function AuditLogsPage() {
         total={query.data?.meta.total}
         limit={query.data?.meta.limit}
         page={query.data?.meta.page}
+        onPageChange={setPage}
         columns={[
           { key: "time", label: "Time", render: (item) => formatDateTime(item.createdAt) },
           { key: "action", label: "Action", render: (item) => <Badge variant="light">{tx(item.action)}</Badge> },

@@ -26,8 +26,8 @@ let PositionsController = class PositionsController {
     constructor(positionsService) {
         this.positionsService = positionsService;
     }
-    findAll(search) {
-        return this.positionsService.findAll(search);
+    findAll(search, departmentId) {
+        return this.positionsService.findAll(search, departmentId ? Number(departmentId) : undefined);
     }
     findOne(id) {
         return this.positionsService.findOne(id);
@@ -47,8 +47,9 @@ __decorate([
     (0, permissions_decorator_1.Permissions)("POSITION_READ"),
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)("search")),
+    __param(1, (0, common_1.Query)("departmentId")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], PositionsController.prototype, "findAll", null);
 __decorate([

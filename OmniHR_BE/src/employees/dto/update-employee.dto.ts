@@ -7,7 +7,7 @@ import {
   IsString,
   MaxLength
 } from "class-validator";
-import { EmployeeStatus } from "@prisma/client";
+import { CareerLevel, EmployeeStatus } from "@prisma/client";
 
 export class UpdateEmployeeDto {
   @IsOptional()
@@ -24,6 +24,11 @@ export class UpdateEmployeeDto {
   @IsEmail()
   @MaxLength(160)
   companyEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000000)
+  avatarUrl?: string | null;
 
   @IsOptional()
   @IsEmail()
@@ -54,4 +59,8 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsInt()
   positionId?: number | null;
+
+  @IsOptional()
+  @IsEnum(CareerLevel)
+  careerLevel?: CareerLevel;
 }

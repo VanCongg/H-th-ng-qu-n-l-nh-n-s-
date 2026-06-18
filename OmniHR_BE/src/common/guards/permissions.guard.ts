@@ -23,10 +23,6 @@ export class PermissionsGuard implements CanActivate {
       throw new ApiError(HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
     }
 
-    if (user.roles.includes("ADMIN")) {
-      return true;
-    }
-
     const allowed = requiredPermissions.some((permission) =>
       user.permissions.includes(permission)
     );

@@ -51,10 +51,16 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const api_error_1 = require("../common/api-error");
 const audit_service_1 = require("../common/services/audit.service");
 const access_control_service_1 = require("../common/services/access-control.service");
+const prisma_where_1 = require("../common/prisma-where");
+const position_role_1 = require("../common/position-role");
 const utils_1 = require("../common/utils");
 const employeeInclude = {
     department: true,
     position: true,
+    employeeSkills: {
+        include: { skill: true },
+        orderBy: [{ skill: { code: "asc" } }]
+    },
     user: {
         include: {
             userRoles: { include: { role: true } }
@@ -117,7 +123,7 @@ let EmployeesService = class EmployeesService {
             await this.accessControl.ensureCanReadEmployee(user, id);
         }
         const employee = await this.prisma.employee.findFirst({
-            where: { id, deletedAt: null },
+            where: (0, prisma_where_1.currentEmployeeWhere)({ id }),
             include: employeeInclude
         });
         if (!employee) {
@@ -134,16 +140,11 @@ let EmployeesService = class EmployeesService {
     async create(dto, actor, context) {
         const companyEmail = dto.companyEmail.toLowerCase();
         await this.ensureEmailAvailable(companyEmail);
-        await this.ensureDepartmentAndPosition(dto.departmentId, dto.positionId);
+        const references = await this.ensureDepartmentAndPosition(dto.departmentId, dto.positionId);
         const birthDate = (0, utils_1.toDateOnly)(dto.birthDate);
         const defaultPassword = (0, utils_1.formatDateDdMmYyyy)(birthDate);
         const passwordHash = await bcrypt.hash(defaultPassword, this.saltRounds());
-        const employeeRole = await this.prisma.role.findUnique({
-            where: { name: "EMPLOYEE" }
-        });
-        if (!employeeRole) {
-            throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
-        }
+        const roles = await this.rolesForPosition(references.position);
         const result = await this.prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
                 data: {
@@ -152,10 +153,10 @@ let EmployeesService = class EmployeesService {
                     passwordHash,
                     mustChangePassword: true,
                     userRoles: {
-                        create: {
-                            roleId: employeeRole.id,
+                        create: roles.map((role) => ({
+                            roleId: role.id,
                             assignedBy: actor.id
-                        }
+                        }))
                     }
                 }
             });
@@ -164,6 +165,7 @@ let EmployeesService = class EmployeesService {
                     employeeCode: dto.employeeCode,
                     fullName: dto.fullName,
                     companyEmail,
+                    avatarUrl: dto.avatarUrl,
                     personalEmail: dto.personalEmail,
                     phone: dto.phone,
                     birthDate,
@@ -171,6 +173,7 @@ let EmployeesService = class EmployeesService {
                     status: dto.status ?? client_1.EmployeeStatus.ACTIVE,
                     departmentId: dto.departmentId,
                     positionId: dto.positionId,
+                    careerLevel: dto.careerLevel ?? client_1.CareerLevel.FRESHER,
                     userId: user.id
                 },
                 include: employeeInclude
@@ -211,32 +214,35 @@ let EmployeesService = class EmployeesService {
     }
     async update(id, dto, actor, context) {
         const oldValue = await this.prisma.employee.findFirst({
-            where: { id, deletedAt: null },
+            where: (0, prisma_where_1.currentEmployeeWhere)({ id }),
             include: employeeInclude
         });
         if (!oldValue) {
             throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Employee not found", "EMPLOYEE_NOT_FOUND");
         }
-        await this.ensureDepartmentAndPosition(dto.departmentId, dto.positionId);
+        const effectiveDepartmentId = dto.departmentId === undefined ? oldValue.departmentId : dto.departmentId;
+        const effectivePositionId = dto.positionId === undefined ? oldValue.positionId : dto.positionId;
+        const references = await this.ensureDepartmentAndPosition(effectiveDepartmentId, effectivePositionId);
         if (dto.companyEmail && dto.companyEmail.toLowerCase() !== oldValue.companyEmail) {
             await this.ensureEmailAvailable(dto.companyEmail.toLowerCase(), id, oldValue.userId);
         }
         const employee = await this.prisma.$transaction(async (tx) => {
-            const updated = await tx.employee.update({
+            await tx.employee.update({
                 where: { id },
                 data: {
                     employeeCode: dto.employeeCode,
                     fullName: dto.fullName,
                     companyEmail: dto.companyEmail?.toLowerCase(),
+                    avatarUrl: dto.avatarUrl,
                     personalEmail: dto.personalEmail,
                     phone: dto.phone,
                     birthDate: dto.birthDate ? (0, utils_1.toDateOnly)(dto.birthDate) : undefined,
                     hireDate: dto.hireDate ? (0, utils_1.toDateOnly)(dto.hireDate) : undefined,
                     status: dto.status,
                     departmentId: dto.departmentId,
-                    positionId: dto.positionId
-                },
-                include: employeeInclude
+                    positionId: dto.positionId,
+                    careerLevel: dto.careerLevel
+                }
             });
             if (dto.companyEmail && oldValue.userId) {
                 await tx.user.update({
@@ -247,7 +253,13 @@ let EmployeesService = class EmployeesService {
                     }
                 });
             }
-            return updated;
+            if (dto.positionId !== undefined && oldValue.userId) {
+                await this.syncManagerRoleForPosition(tx, oldValue.userId, references.position, actor.id);
+            }
+            return tx.employee.findUniqueOrThrow({
+                where: { id },
+                include: employeeInclude
+            });
         });
         await this.audit.log({
             userId: actor.id,
@@ -267,6 +279,7 @@ let EmployeesService = class EmployeesService {
         const employee = await this.prisma.employee.update({
             where: { id: user.employeeId },
             data: {
+                avatarUrl: dto.avatarUrl,
                 personalEmail: dto.personalEmail,
                 phone: dto.phone
             },
@@ -304,11 +317,22 @@ let EmployeesService = class EmployeesService {
                     where: { id: oldValue.userId },
                     data: {
                         isActive: false,
+                        deletedAt: deleted.deletedAt,
                         refreshTokenHash: null,
                         refreshTokenVersion: { increment: 1 }
                     }
                 });
             }
+            await tx.employeeManager.updateMany({
+                where: {
+                    isActive: true,
+                    OR: [{ employeeId: id }, { managerId: id }]
+                },
+                data: {
+                    isActive: false,
+                    endDate: (0, utils_1.toDateOnly)(deleted.deletedAt ?? new Date())
+                }
+            });
             return deleted;
         });
         await this.audit.log({
@@ -323,7 +347,7 @@ let EmployeesService = class EmployeesService {
     }
     async resetPassword(id, actor, context) {
         const employee = await this.prisma.employee.findFirst({
-            where: { id, deletedAt: null },
+            where: (0, prisma_where_1.currentEmployeeWhere)({ id }),
             include: { user: true }
         });
         if (!employee || !employee.user) {
@@ -357,7 +381,7 @@ let EmployeesService = class EmployeesService {
     }
     async setUserActive(id, isActive, actor, context) {
         const employee = await this.prisma.employee.findFirst({
-            where: { id, deletedAt: null },
+            where: (0, prisma_where_1.currentEmployeeWhere)({ id }),
             include: { user: true }
         });
         if (!employee?.user) {
@@ -383,19 +407,24 @@ let EmployeesService = class EmployeesService {
     }
     buildWhere(query) {
         return {
-            deletedAt: null,
+            AND: [
+                (0, prisma_where_1.currentEmployeeWhere)(),
+                ...(query.search
+                    ? [
+                        {
+                            OR: [
+                                { fullName: { contains: query.search, mode: "insensitive" } },
+                                { employeeCode: { contains: query.search, mode: "insensitive" } },
+                                { companyEmail: { contains: query.search, mode: "insensitive" } }
+                            ]
+                        }
+                    ]
+                    : [])
+            ],
             departmentId: query.departmentId,
             positionId: query.positionId,
             status: query.status,
-            ...(query.search
-                ? {
-                    OR: [
-                        { fullName: { contains: query.search, mode: "insensitive" } },
-                        { employeeCode: { contains: query.search, mode: "insensitive" } },
-                        { companyEmail: { contains: query.search, mode: "insensitive" } }
-                    ]
-                }
-                : {})
+            careerLevel: query.careerLevel
         };
     }
     async ensureEmailAvailable(companyEmail, employeeId, userId) {
@@ -418,6 +447,7 @@ let EmployeesService = class EmployeesService {
         }
     }
     async ensureDepartmentAndPosition(departmentId, positionId) {
+        let position;
         if (departmentId) {
             const department = await this.prisma.department.findFirst({
                 where: { id: departmentId, deletedAt: null },
@@ -428,14 +458,57 @@ let EmployeesService = class EmployeesService {
             }
         }
         if (positionId) {
-            const position = await this.prisma.position.findFirst({
+            position = await this.prisma.position.findFirst({
                 where: { id: positionId, deletedAt: null },
-                select: { id: true }
+                select: { id: true, code: true, name: true, departmentId: true }
             });
             if (!position) {
                 throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Position not found", "POSITION_NOT_FOUND");
             }
+            if (!departmentId) {
+                throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Department is required when selecting a position", "VALIDATION_ERROR");
+            }
+            if (position.departmentId && position.departmentId !== departmentId) {
+                throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Position does not belong to selected department", "VALIDATION_ERROR");
+            }
         }
+        else if (positionId === null) {
+            position = null;
+        }
+        return { position };
+    }
+    async rolesForPosition(position) {
+        const roleNames = (0, position_role_1.isManagerPosition)(position)
+            ? ["EMPLOYEE", "MANAGER"]
+            : ["EMPLOYEE"];
+        const roles = await this.prisma.role.findMany({
+            where: { name: { in: roleNames } },
+            select: { id: true, name: true }
+        });
+        if (roles.length !== roleNames.length) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
+        }
+        return roles;
+    }
+    async syncManagerRoleForPosition(tx, userId, position, actorId) {
+        const managerRole = await tx.role.findUnique({
+            where: { name: "MANAGER" },
+            select: { id: true }
+        });
+        if (!managerRole) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
+        }
+        if ((0, position_role_1.isManagerPosition)(position)) {
+            await tx.userRole.upsert({
+                where: { userId_roleId: { userId, roleId: managerRole.id } },
+                create: { userId, roleId: managerRole.id, assignedBy: actorId },
+                update: {}
+            });
+            return;
+        }
+        await tx.userRole.deleteMany({
+            where: { userId, roleId: managerRole.id }
+        });
     }
     safeEmployee(employee) {
         const cloned = JSON.parse(JSON.stringify(employee));

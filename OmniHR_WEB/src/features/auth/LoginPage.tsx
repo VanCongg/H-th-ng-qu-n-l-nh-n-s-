@@ -1,5 +1,4 @@
 import {
-  Anchor,
   Button,
   Center,
   Group,
@@ -8,19 +7,20 @@ import {
   Stack,
   Text,
   TextInput,
-  ThemeIcon,
   Title
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation } from "@tanstack/react-query";
-import { Building2, LogIn, ShieldCheck, Users } from "lucide-react";
+import { LogIn, ShieldCheck, Users } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { authApi } from "../../api/endpoints";
+import { BrandLogo } from "../../components/BrandLogo";
 import { useTranslation } from "../../i18n";
 import { useAuthStore } from "../../store/auth";
+import type { RoleName } from "../../api/types";
 
 type LoginLocationState = {
   from?: {
@@ -48,15 +48,11 @@ export function LoginPage() {
 
   const mutation = useMutation({
     mutationFn: (values: typeof form.values) =>
-      authApi.login(values.usernameOrEmail, values.password),
+      authApi.login(values.usernameOrEmail.trim(), values.password),
     onSuccess: (session) => {
       setSession(session);
       const from = (location.state as LoginLocationState | null)?.from?.pathname;
-      if (session.user.roles.includes("EMPLOYEE")) {
-        navigate("/employee-web-notice", { replace: true });
-        return;
-      }
-      navigate(from || "/app/dashboard", { replace: true });
+      navigate(postLoginPath(session.user.roles, from), { replace: true });
     },
     onError: (error) => {
       notifications.show({
@@ -67,35 +63,44 @@ export function LoginPage() {
   });
 
   useEffect(() => {
-    if (user?.roles.includes("ADMIN") || user?.roles.includes("MANAGER")) {
-      navigate("/app/dashboard", { replace: true });
+    if (user) {
+      navigate(postLoginPath(user.roles), { replace: true });
     }
   }, [navigate, user]);
 
   return (
     <Center mih="100vh" p="md" className="login-screen">
-      <Paper withBorder radius="md" className="login-panel">
+      <Paper withBorder radius="xl" className="login-panel">
         <div className="login-visual">
-          <Stack gap="xl">
-            <Group gap="sm">
-              <ThemeIcon size={44} radius="md" color="blue" variant="filled">
-                <Building2 size={24} />
-              </ThemeIcon>
-              <Stack gap={2}>
-                <Title order={1}>OmniHR</Title>
-                <Text c="dimmed">{tx("Core HR workspace")}</Text>
-              </Stack>
+          <div className="login-slides" aria-hidden="true">
+            <span className="login-slide login-slide-1" />
+            <span className="login-slide login-slide-2" />
+            <span className="login-slide login-slide-3" />
+          </div>
+          <Stack gap="xl" className="login-visual-content">
+            <Group gap="lg" className="login-brand">
+              <BrandLogo className="brand-logo--login" />
+              <Title order={1} className="login-brand-title">
+                OmniHR
+              </Title>
             </Group>
+          </Stack>
+          <Stack gap="md" className="login-visual-bottom">
             <Stack gap="sm" className="login-points">
-              <Group gap="sm">
+              <Group gap="sm" className="login-slogan-row">
                 <ShieldCheck size={18} />
-                <Text size="sm">{tx("RBAC, permissions, and manager scope")}</Text>
+                <Text>{tx("People first. Clarity every day.")}</Text>
               </Group>
-              <Group gap="sm">
+              <Group gap="sm" className="login-slogan-row">
                 <Users size={18} />
-                <Text size="sm">{tx("Employees, teams, attendance, and leave")}</Text>
+                <Text>{tx("Better data, stronger teams.")}</Text>
               </Group>
             </Stack>
+            <Group gap={8} className="login-slide-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </Group>
           </Stack>
         </div>
 
@@ -103,40 +108,66 @@ export function LoginPage() {
           className="login-form"
           onSubmit={form.onSubmit((values) => mutation.mutate(values))}
         >
-          <Stack gap="lg">
-            <Stack gap={4}>
+          <Stack gap="xl" className="login-form-inner">
+            <Stack gap={4} className="login-form-heading">
               <Title order={2}>{tx("Login")}</Title>
               <Text c="dimmed" size="sm">
                 {tx("Use your system account to continue.")}
               </Text>
             </Stack>
             <TextInput
+              size="md"
+              radius="xl"
               label={tx("Username or email")}
               placeholder="superadmin"
               {...form.getInputProps("usernameOrEmail")}
             />
             <PasswordInput
+              size="md"
+              radius="xl"
               label={tx("Password")}
               placeholder={tx("Password")}
               {...form.getInputProps("password")}
             />
             <Button
               type="submit"
+              size="md"
+              radius="xl"
               leftSection={<LogIn size={17} />}
               loading={mutation.isPending}
               fullWidth
             >
               {tx("Login")}
             </Button>
-            <Text size="xs" c="dimmed">
-              API:{" "}
-              <Anchor href={import.meta.env.VITE_API_BASE_URL} target="_blank">
-                {import.meta.env.VITE_API_BASE_URL}
-              </Anchor>
-            </Text>
           </Stack>
         </form>
       </Paper>
     </Center>
   );
+}
+
+function postLoginPath(roles: RoleName[], from?: string) {
+  if (from && canReturnToPath(roles, from)) {
+    return from;
+  }
+  if (roles.includes("ADMIN")) {
+    return "/admin/dashboard";
+  }
+  if (roles.includes("MANAGER")) {
+    return "/app/dashboard";
+  }
+  return "/employee-web-notice";
+}
+
+function canReturnToPath(roles: RoleName[], path: string) {
+  if (path.startsWith("/admin")) {
+    return roles.includes("ADMIN");
+  }
+  if (path.startsWith("/app")) {
+    return roles.includes("MANAGER");
+  }
+  if (path.startsWith("/employee-web-notice")) {
+    return roles.includes("EMPLOYEE") && !roles.includes("ADMIN") && !roles.includes("MANAGER");
+  }
+  return false;
 }

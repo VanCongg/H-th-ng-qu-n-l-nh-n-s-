@@ -2,7 +2,11 @@ import { Badge, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/co
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ClipboardList, Users } from "lucide-react";
 import { dashboardApi } from "../../api/endpoints";
-import { formatDate } from "../../api/format";
+import {
+  formatDate,
+  formatDepartmentName,
+  formatEmployeeJobTitle
+} from "../../api/format";
 import { getApiErrorMessage } from "../../api/axios";
 import { DataTable } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
@@ -66,8 +70,8 @@ export function AppDashboardPage() {
               columns={[
                 { key: "code", label: "Code", render: (item) => item.employeeCode },
                 { key: "name", label: "Name", render: (item) => <Text fw={700}>{item.fullName}</Text> },
-                { key: "department", label: "Department", render: (item) => item.department?.name ?? "-" },
-                { key: "position", label: "Position", render: (item) => item.position?.name ?? "-" }
+                { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
+                { key: "position", label: "Position", render: (item) => formatEmployeeJobTitle(item, te) }
               ]}
             />
           </Stack>

@@ -1,11 +1,24 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { AttendanceRecordType, Prisma } from "@prisma/client";
+import {
+  AttendanceRecord,
+  AttendanceRecordType,
+  AttendanceShift,
+  AttendanceStatus,
+  Prisma
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
+import {
+  defaultSystemSettings,
+  SystemSettings,
+  SystemSettingsService
+} from "../common/services/system-settings.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { pagination, toDateOnly } from "../common/utils";
+import { currentEmployeeWhere } from "../common/prisma-where";
+import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
 import {
   AdminCreateAttendanceDto,
@@ -27,24 +40,59 @@ const attendanceInclude = {
   }
 } satisfies Prisma.AttendanceRecordInclude;
 
+type ShiftDefinition = {
+  shift: AttendanceShift;
+  start: number;
+  end: number;
+};
+
+type AttendanceMetadata = {
+  shift: AttendanceShift | null;
+  attendanceStatus: AttendanceStatus;
+  latitude: number | null;
+  longitude: number | null;
+  address: string | null;
+  distanceMeters: number | null;
+};
+
 @Injectable()
 export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly accessControl: AccessControlService
+    private readonly accessControl: AccessControlService,
+    private readonly systemSettings: SystemSettingsService
   ) {}
 
-  async checkIn(user: AuthUser, context?: RequestContext) {
+  async checkIn(
+    user: AuthUser,
+    dto: AttendanceActionDto,
+    context?: RequestContext
+  ) {
     const employeeId = this.requireEmployee(user);
-    await this.ensureValidAttendanceAction(employeeId, AttendanceRecordType.CHECK_IN);
+    const settings = await this.systemSettings.getSettings();
+    const recordedAt = new Date();
+    const workDate = this.workDateFor(recordedAt, settings.timezoneOffsetMinutes);
+    const metadata = this.buildCheckInMetadata(recordedAt, dto, settings);
+    await this.ensureValidAttendanceAction(
+      employeeId,
+      AttendanceRecordType.CHECK_IN,
+      workDate,
+      metadata.shift
+    );
 
     const record = await this.prisma.attendanceRecord.create({
       data: {
         employeeId,
-        workDate: toDateOnly(new Date()),
+        workDate,
         recordType: AttendanceRecordType.CHECK_IN,
-        recordedAt: new Date(),
+        recordedAt,
+        shift: metadata.shift,
+        attendanceStatus: metadata.attendanceStatus,
+        latitude: metadata.latitude,
+        longitude: metadata.longitude,
+        address: metadata.address,
+        distanceMeters: metadata.distanceMeters,
         source: "MOBILE",
         createdByUserId: user.id
       },
@@ -63,16 +111,39 @@ export class AttendanceService {
     return record;
   }
 
-  async checkOut(user: AuthUser, context?: RequestContext) {
+  async checkOut(
+    user: AuthUser,
+    dto: AttendanceActionDto,
+    context?: RequestContext
+  ) {
     const employeeId = this.requireEmployee(user);
-    await this.ensureValidAttendanceAction(employeeId, AttendanceRecordType.CHECK_OUT);
+    const settings = await this.systemSettings.getSettings();
+    const recordedAt = new Date();
+    const workDate = this.workDateFor(recordedAt, settings.timezoneOffsetMinutes);
+    const latestCheckIn = await this.ensureValidAttendanceAction(
+      employeeId,
+      AttendanceRecordType.CHECK_OUT,
+      workDate
+    );
+    const metadata = this.buildCheckOutMetadata(
+      recordedAt,
+      dto,
+      settings,
+      latestCheckIn
+    );
 
     const record = await this.prisma.attendanceRecord.create({
       data: {
         employeeId,
-        workDate: toDateOnly(new Date()),
+        workDate,
         recordType: AttendanceRecordType.CHECK_OUT,
-        recordedAt: new Date(),
+        recordedAt,
+        shift: metadata.shift,
+        attendanceStatus: metadata.attendanceStatus,
+        latitude: metadata.latitude,
+        longitude: metadata.longitude,
+        address: metadata.address,
+        distanceMeters: metadata.distanceMeters,
         source: "MOBILE",
         createdByUserId: user.id
       },
@@ -127,12 +198,21 @@ export class AttendanceService {
     context?: RequestContext
   ) {
     await this.ensureEmployee(dto.employeeId);
+    const settings = await this.systemSettings.getSettings();
+    const recordedAt = new Date(dto.recordedAt);
+    const manualMetadata = this.buildManualMetadata(
+      recordedAt,
+      dto.recordType,
+      settings
+    );
     const record = await this.prisma.attendanceRecord.create({
       data: {
         employeeId: dto.employeeId,
         workDate: toDateOnly(dto.workDate),
         recordType: dto.recordType,
-        recordedAt: new Date(dto.recordedAt),
+        recordedAt,
+        shift: manualMetadata.shift,
+        attendanceStatus: manualMetadata.attendanceStatus,
         source: "ADMIN",
         note: dto.note,
         isAdjustment: true,
@@ -160,12 +240,22 @@ export class AttendanceService {
     context?: RequestContext
   ) {
     const oldValue = await this.findOne(id);
+    const settings = await this.systemSettings.getSettings();
+    const recordedAt = dto.recordedAt ? new Date(dto.recordedAt) : oldValue.recordedAt;
+    const recordType = dto.recordType ?? oldValue.recordType;
+    const manualMetadata = this.buildManualMetadata(
+      recordedAt,
+      recordType,
+      settings
+    );
     const record = await this.prisma.attendanceRecord.update({
       where: { id },
       data: {
         workDate: dto.workDate ? toDateOnly(dto.workDate) : undefined,
-        recordType: dto.recordType,
-        recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : undefined,
+        recordType,
+        recordedAt,
+        shift: manualMetadata.shift,
+        attendanceStatus: manualMetadata.attendanceStatus,
         note: dto.note,
         isAdjustment: true,
         source: "ADMIN",
@@ -225,7 +315,9 @@ export class AttendanceService {
     return {
       recordType: query.recordType,
       employeeId: query.employeeId,
-      employee: query.departmentId ? { departmentId: query.departmentId } : undefined,
+      employee: currentEmployeeWhere(
+        query.departmentId ? { departmentId: query.departmentId } : undefined
+      ),
       workDate:
         query.fromDate || query.toDate
           ? {
@@ -238,9 +330,10 @@ export class AttendanceService {
 
   private async ensureValidAttendanceAction(
     employeeId: number,
-    recordType: AttendanceRecordType
+    recordType: AttendanceRecordType,
+    workDate: Date,
+    shift?: AttendanceShift | null
   ) {
-    const workDate = toDateOnly(new Date());
     const latest = await this.prisma.attendanceRecord.findFirst({
       where: {
         employeeId,
@@ -254,6 +347,21 @@ export class AttendanceService {
       if (latest?.recordType === AttendanceRecordType.CHECK_IN) {
         throw this.invalidAction("You already checked in and have not checked out.");
       }
+      if (shift) {
+        const existingShiftCheckIn = await this.prisma.attendanceRecord.findFirst({
+          where: {
+            employeeId,
+            workDate,
+            shift,
+            recordType: AttendanceRecordType.CHECK_IN,
+            isAdjustment: false
+          },
+          select: { id: true }
+        });
+        if (existingShiftCheckIn) {
+          throw this.invalidAction("You already checked in for this shift.");
+        }
+      }
       return;
     }
 
@@ -262,11 +370,212 @@ export class AttendanceService {
         "You have not checked in today, so you cannot check out. Please contact Admin for attendance adjustment."
       );
     }
+    return latest;
+  }
+
+  private buildCheckInMetadata(
+    recordedAt: Date,
+    dto: AttendanceActionDto,
+    settings: SystemSettings
+  ): AttendanceMetadata {
+    const shift = this.resolveCheckInShift(recordedAt, settings);
+    const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
+    return {
+      shift: shift.shift,
+      attendanceStatus:
+        localMinutes > shift.start ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME,
+      ...this.resolveLocation(dto, settings)
+    };
+  }
+
+  private buildCheckOutMetadata(
+    recordedAt: Date,
+    dto: AttendanceActionDto,
+    settings: SystemSettings,
+    latestCheckIn?: AttendanceRecord | null
+  ): AttendanceMetadata {
+    const shift =
+      latestCheckIn?.shift ??
+      this.resolveShiftForTime(recordedAt, settings)?.shift ??
+      null;
+    const shiftDefinition = shift
+      ? this.shiftDefinitions(settings).find((item) => item.shift === shift)
+      : null;
+    const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
+
+    return {
+      shift,
+      attendanceStatus:
+        shiftDefinition && localMinutes < shiftDefinition.end
+          ? AttendanceStatus.EARLY_OUT
+          : AttendanceStatus.ON_TIME,
+      ...this.resolveLocation(dto, settings)
+    };
+  }
+
+  private buildManualMetadata(
+    recordedAt: Date,
+    recordType: AttendanceRecordType,
+    settings: SystemSettings
+  ) {
+    return {
+      shift:
+        recordType === AttendanceRecordType.ADJUSTMENT
+          ? null
+          : this.resolveShiftForTime(recordedAt, settings)?.shift ?? null,
+      attendanceStatus: AttendanceStatus.MANUAL_ADJUSTMENT
+    };
+  }
+
+  private resolveCheckInShift(recordedAt: Date, settings: SystemSettings) {
+    const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
+    const earlyWindow = settings.attendanceEarlyCheckInMinutes;
+    const shift = this.shiftDefinitions(settings).find(
+      (item) =>
+        localMinutes >= item.start - earlyWindow && localMinutes <= item.end
+    );
+
+    if (!shift) {
+      throw this.invalidAction("Attendance is outside configured shift hours.");
+    }
+
+    return shift;
+  }
+
+  private resolveShiftForTime(recordedAt: Date, settings: SystemSettings) {
+    const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
+    return this.shiftDefinitions(settings).find(
+      (item) => localMinutes >= item.start && localMinutes <= item.end
+    );
+  }
+
+  private shiftDefinitions(settings: SystemSettings): ShiftDefinition[] {
+    return [
+      {
+        shift: AttendanceShift.MORNING,
+        start: this.parseTime(settings.morningShiftStart),
+        end: this.parseTime(settings.morningShiftEnd)
+      },
+      {
+        shift: AttendanceShift.AFTERNOON,
+        start: this.parseTime(settings.afternoonShiftStart),
+        end: this.parseTime(settings.afternoonShiftEnd)
+      }
+    ].map((definition) => {
+      if (definition.end > definition.start) {
+        return definition;
+      }
+
+      return definition.shift === AttendanceShift.MORNING
+        ? {
+            shift: AttendanceShift.MORNING,
+            start: this.parseTime(defaultSystemSettings.morningShiftStart),
+            end: this.parseTime(defaultSystemSettings.morningShiftEnd)
+          }
+        : {
+            shift: AttendanceShift.AFTERNOON,
+            start: this.parseTime(defaultSystemSettings.afternoonShiftStart),
+            end: this.parseTime(defaultSystemSettings.afternoonShiftEnd)
+          };
+    });
+  }
+
+  private resolveLocation(
+    dto: AttendanceActionDto,
+    settings: SystemSettings
+  ): Omit<AttendanceMetadata, "shift" | "attendanceStatus"> {
+    const hasLatitude = typeof dto.latitude === "number";
+    const hasLongitude = typeof dto.longitude === "number";
+    const hasCompanyLocation =
+      settings.companyLatitude !== null && settings.companyLongitude !== null;
+
+    if (settings.requireAttendanceLocation && (!hasLatitude || !hasLongitude)) {
+      throw this.invalidAction("Attendance location is required.");
+    }
+
+    if (settings.requireAttendanceLocation && !hasCompanyLocation) {
+      throw this.invalidAction("Company attendance location is not configured.");
+    }
+
+    const address = dto.address?.trim() || null;
+    if (!hasLatitude || !hasLongitude) {
+      return {
+        latitude: null,
+        longitude: null,
+        address,
+        distanceMeters: null
+      };
+    }
+
+    const distanceMeters = hasCompanyLocation
+      ? Math.round(
+          this.distanceMeters(
+            dto.latitude!,
+            dto.longitude!,
+            settings.companyLatitude!,
+            settings.companyLongitude!
+          )
+        )
+      : null;
+
+    if (
+      settings.requireAttendanceLocation &&
+      distanceMeters !== null &&
+      distanceMeters > settings.attendanceRadiusMeters
+    ) {
+      throw this.invalidAction("Attendance location is outside company radius.");
+    }
+
+    return {
+      latitude: dto.latitude!,
+      longitude: dto.longitude!,
+      address,
+      distanceMeters
+    };
+  }
+
+  private workDateFor(recordedAt: Date, timezoneOffsetMinutes: number) {
+    const local = new Date(recordedAt.getTime() + timezoneOffsetMinutes * 60_000);
+    return new Date(
+      Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())
+    );
+  }
+
+  private localMinutes(recordedAt: Date, timezoneOffsetMinutes: number) {
+    const local = new Date(recordedAt.getTime() + timezoneOffsetMinutes * 60_000);
+    return local.getUTCHours() * 60 + local.getUTCMinutes();
+  }
+
+  private parseTime(value: string) {
+    const [hours, minutes] = value.split(":").map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private distanceMeters(
+    latitudeA: number,
+    longitudeA: number,
+    latitudeB: number,
+    longitudeB: number
+  ) {
+    const earthRadiusMeters = 6371000;
+    const deltaLatitude = this.toRadians(latitudeB - latitudeA);
+    const deltaLongitude = this.toRadians(longitudeB - longitudeA);
+    const a =
+      Math.sin(deltaLatitude / 2) * Math.sin(deltaLatitude / 2) +
+      Math.cos(this.toRadians(latitudeA)) *
+        Math.cos(this.toRadians(latitudeB)) *
+        Math.sin(deltaLongitude / 2) *
+        Math.sin(deltaLongitude / 2);
+    return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private toRadians(value: number) {
+    return (value * Math.PI) / 180;
   }
 
   private async ensureEmployee(id: number) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       select: { id: true }
     });
     if (!employee) {

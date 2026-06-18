@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CreatePositionDto {
   @IsString()
@@ -11,8 +11,7 @@ export class CreatePositionDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
-  level?: number;
+  departmentId?: number;
 
   @IsOptional()
   @IsBoolean()

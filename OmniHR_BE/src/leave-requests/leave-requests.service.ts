@@ -6,6 +6,7 @@ import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { calculateLeaveDays, pagination, toDateOnly } from "../common/utils";
+import { currentEmployeeWhere } from "../common/prisma-where";
 import { CreateLeaveRequestDto } from "./dto/create-leave-request.dto";
 import { LeaveRequestQueryDto } from "./dto/leave-request-query.dto";
 import { RejectLeaveRequestDto } from "./dto/reject-leave-request.dto";
@@ -286,7 +287,9 @@ export class LeaveRequestsService {
       status: query.status,
       employeeId: query.employeeId,
       leaveTypeId: query.leaveTypeId,
-      employee: query.departmentId ? { departmentId: query.departmentId } : undefined,
+      employee: currentEmployeeWhere(
+        query.departmentId ? { departmentId: query.departmentId } : undefined
+      ),
       startDate: query.fromDate ? { gte: toDateOnly(query.fromDate) } : undefined,
       endDate: query.toDate ? { lte: toDateOnly(query.toDate) } : undefined
     };

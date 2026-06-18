@@ -1,3 +1,4 @@
+import { UpdateUserEmployeeProfileDto } from "./user-employee-profile.dto";
 export declare class UpdateUserDto {
     username?: string;
     email?: string;
@@ -5,4 +6,5 @@ export declare class UpdateUserDto {
     isActive?: boolean;
     mustChangePassword?: boolean;
     roleIds?: number[];
+    employeeProfile?: UpdateUserEmployeeProfileDto;
 }

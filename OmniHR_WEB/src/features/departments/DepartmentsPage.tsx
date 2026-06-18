@@ -1,11 +1,11 @@
-import { ActionIcon, Button, Group, Modal, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Modal, Select, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { departmentsApi } from "../../api/endpoints";
+import { departmentsApi, employeesApi } from "../../api/endpoints";
 import type { Department } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
 import { openConfirmModal } from "../../components/ConfirmModal";
@@ -18,9 +18,13 @@ export function DepartmentsPage() {
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const query = useQuery({ queryKey: ["departments"], queryFn: () => departmentsApi.list() });
+  const employeesQuery = useQuery({
+    queryKey: ["employees", "department-manager-options"],
+    queryFn: () => employeesApi.list({ limit: 100 })
+  });
 
   const form = useForm({
-    initialValues: { code: "", name: "", isActive: true },
+    initialValues: { code: "", name: "", managerId: "", isActive: true },
     validate: {
       code: (value) => (value.trim() ? null : tx("Required")),
       name: (value) => (value.trim() ? null : tx("Required"))
@@ -29,7 +33,9 @@ export function DepartmentsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (values: typeof form.values) =>
-      editing ? departmentsApi.update(editing.id, values) : departmentsApi.create(values),
+      editing
+        ? departmentsApi.update(editing.id, normalizeDepartmentPayload(values))
+        : departmentsApi.create(normalizeDepartmentPayload(values)),
     onSuccess: () => {
       notifications.show({ color: "green", message: tx("Department saved") });
       queryClient.invalidateQueries({ queryKey: ["departments"] });
@@ -49,15 +55,25 @@ export function DepartmentsPage() {
 
   function openCreate() {
     setEditing(null);
-    form.setValues({ code: "", name: "", isActive: true });
+    form.setValues({ code: "", name: "", managerId: "", isActive: true });
     setOpened(true);
   }
 
   function openEdit(item: Department) {
     setEditing(item);
-    form.setValues({ code: item.code, name: item.name, isActive: item.isActive });
+    form.setValues({
+      code: item.code,
+      name: item.name,
+      managerId: item.managerId ? String(item.managerId) : "",
+      isActive: item.isActive
+    });
     setOpened(true);
   }
+
+  const managerOptions = (employeesQuery.data?.items ?? []).map((item) => ({
+    value: String(item.id),
+    label: `${item.fullName} (${item.employeeCode})`
+  }));
 
   return (
     <Stack gap="md">
@@ -73,8 +89,10 @@ export function DepartmentsPage() {
         columns={[
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.code}</Text> },
           { key: "name", label: "Name", render: (item) => item.name },
+          { key: "manager", label: "Manager", render: (item) => item.manager?.fullName ?? "-" },
           { key: "active", label: "Active", render: (item) => item.isActive ? tx("Yes") : tx("No") },
           { key: "employees", label: "Employees", render: (item) => item._count?.employees ?? 0 },
+          { key: "teams", label: "Teams", render: (item) => item._count?.teams ?? 0 },
           {
             key: "actions",
             label: "",
@@ -108,6 +126,13 @@ export function DepartmentsPage() {
           <Stack>
             <TextInput label={tx("Code")} {...form.getInputProps("code")} />
             <TextInput label={tx("Name")} {...form.getInputProps("name")} />
+            <Select
+              label={tx("Department manager")}
+              data={managerOptions}
+              clearable
+              searchable
+              {...form.getInputProps("managerId")}
+            />
             <Switch label={tx("Active")} {...form.getInputProps("isActive", { type: "checkbox" })} />
             <Button type="submit" loading={saveMutation.isPending}>{tx("Save")}</Button>
           </Stack>
@@ -115,4 +140,18 @@ export function DepartmentsPage() {
       </Modal>
     </Stack>
   );
+}
+
+function normalizeDepartmentPayload(values: {
+  code: string;
+  name: string;
+  managerId: string;
+  isActive: boolean;
+}) {
+  return {
+    code: values.code.trim(),
+    name: values.name.trim(),
+    managerId: values.managerId ? Number(values.managerId) : null,
+    isActive: values.isActive
+  };
 }

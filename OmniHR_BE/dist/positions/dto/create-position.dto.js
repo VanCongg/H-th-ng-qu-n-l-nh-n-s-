@@ -14,7 +14,7 @@ const class_validator_1 = require("class-validator");
 class CreatePositionDto {
     code;
     name;
-    level;
+    departmentId;
     isActive;
 }
 exports.CreatePositionDto = CreatePositionDto;
@@ -31,9 +31,8 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
-], CreatePositionDto.prototype, "level", void 0);
+], CreatePositionDto.prototype, "departmentId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),

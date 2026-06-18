@@ -9,8 +9,8 @@ export declare class LeaveTypesService {
     constructor(prisma: PrismaService, audit: AuditService);
     findAll(): import(".prisma/client").Prisma.PrismaPromise<{
         id: number;
-        createdAt: Date;
         isActive: boolean;
+        createdAt: Date;
         updatedAt: Date;
         name: string;
         code: string;
@@ -18,8 +18,8 @@ export declare class LeaveTypesService {
     }[]>;
     findOne(id: number): Promise<{
         id: number;
-        createdAt: Date;
         isActive: boolean;
+        createdAt: Date;
         updatedAt: Date;
         name: string;
         code: string;
@@ -27,8 +27,8 @@ export declare class LeaveTypesService {
     }>;
     create(dto: CreateLeaveTypeDto, actor: AuthUser, context?: RequestContext): Promise<{
         id: number;
-        createdAt: Date;
         isActive: boolean;
+        createdAt: Date;
         updatedAt: Date;
         name: string;
         code: string;
@@ -36,8 +36,8 @@ export declare class LeaveTypesService {
     }>;
     update(id: number, dto: UpdateLeaveTypeDto, actor: AuthUser, context?: RequestContext): Promise<{
         id: number;
-        createdAt: Date;
         isActive: boolean;
+        createdAt: Date;
         updatedAt: Date;
         name: string;
         code: string;
@@ -45,8 +45,8 @@ export declare class LeaveTypesService {
     }>;
     remove(id: number, actor: AuthUser, context?: RequestContext): Promise<{
         id: number;
-        createdAt: Date;
         isActive: boolean;
+        createdAt: Date;
         updatedAt: Date;
         name: string;
         code: string;

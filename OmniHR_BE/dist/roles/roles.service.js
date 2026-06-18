@@ -14,12 +14,13 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const api_error_1 = require("../common/api-error");
 const audit_service_1 = require("../common/services/audit.service");
+const prisma_where_1 = require("../common/prisma-where");
 const roleInclude = {
     rolePermissions: {
         include: { permission: true }
     },
     _count: {
-        select: { userRoles: true }
+        select: { userRoles: { where: { user: (0, prisma_where_1.currentUserWhere)() } } }
     }
 };
 let RolesService = class RolesService {

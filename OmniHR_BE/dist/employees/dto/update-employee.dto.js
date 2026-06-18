@@ -16,6 +16,7 @@ class UpdateEmployeeDto {
     employeeCode;
     fullName;
     companyEmail;
+    avatarUrl;
     personalEmail;
     phone;
     birthDate;
@@ -23,6 +24,7 @@ class UpdateEmployeeDto {
     status;
     departmentId;
     positionId;
+    careerLevel;
 }
 exports.UpdateEmployeeDto = UpdateEmployeeDto;
 __decorate([
@@ -43,6 +45,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(160),
     __metadata("design:type", String)
 ], UpdateEmployeeDto.prototype, "companyEmail", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(1000000),
+    __metadata("design:type", Object)
+], UpdateEmployeeDto.prototype, "avatarUrl", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEmail)(),
@@ -80,4 +88,9 @@ __decorate([
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Object)
 ], UpdateEmployeeDto.prototype, "positionId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.CareerLevel),
+    __metadata("design:type", String)
+], UpdateEmployeeDto.prototype, "careerLevel", void 0);
 //# sourceMappingURL=update-employee.dto.js.map

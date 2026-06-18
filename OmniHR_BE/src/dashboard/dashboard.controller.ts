@@ -19,7 +19,7 @@ export class DashboardController {
     return this.dashboardService.adminDashboard();
   }
 
-  @Roles("ADMIN", "MANAGER")
+  @Roles("MANAGER")
   @Get("app/dashboard")
   managerDashboard(@CurrentUser() user: AuthUser) {
     return this.dashboardService.managerDashboard(user);

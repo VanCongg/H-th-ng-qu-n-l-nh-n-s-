@@ -29,7 +29,7 @@ export function AdminDashboardPage() {
         <StatCard label="Employees" value={data?.totalEmployees ?? 0} icon={Users} color="blue" />
         <StatCard label="Departments" value={data?.totalDepartments ?? 0} icon={Building2} color="teal" />
         <StatCard label="Positions" value={data?.totalPositions ?? 0} icon={BadgeCheck} color="indigo" />
-        <StatCard label="Active Users" value={data?.activeUsers ?? 0} icon={Activity} color="green" />
+        <StatCard label="Active Employees" value={data?.activeUsers ?? 0} icon={Activity} color="green" />
         <StatCard label="Pending Leave" value={data?.pendingLeaveRequests ?? 0} icon={ClipboardList} color="yellow" />
         <StatCard label="Attendance Today" value={data?.todayAttendanceRecords ?? 0} icon={Activity} color="cyan" />
       </SimpleGrid>
@@ -50,7 +50,7 @@ export function AdminDashboardPage() {
                 columns={[
                   { key: "action", label: "Action", render: (item) => <Text fw={700} size="sm">{tx(item.action)}</Text> },
                   { key: "entity", label: "Entity", render: (item) => `${item.entityType} #${item.entityId ?? "-"}` },
-                  { key: "user", label: "User", render: (item) => item.user?.username ?? "-" },
+                  { key: "user", label: "Employee", render: (item) => item.user?.username ?? "-" },
                   { key: "time", label: "Time", render: (item) => formatDateTime(item.createdAt) }
                 ]}
               />

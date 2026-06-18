@@ -10,7 +10,6 @@ import { JwtAccessPayload, JwtRefreshPayload } from "./jwt-payload.type";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
-import { omitSensitiveUser } from "../common/utils";
 
 @Injectable()
 export class AuthService {
@@ -22,18 +21,29 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto, context?: RequestContext) {
+    const usernameOrEmail = dto.usernameOrEmail.trim();
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ username: dto.usernameOrEmail }, { email: dto.usernameOrEmail }],
-        deletedAt: null
+        OR: [
+          { username: { equals: usernameOrEmail, mode: "insensitive" } },
+          { email: { equals: usernameOrEmail, mode: "insensitive" } }
+        ]
       }
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new ApiError(
         HttpStatus.UNAUTHORIZED,
         "Invalid credentials",
-        user ? "USER_INACTIVE" : "INVALID_CREDENTIALS"
+        "INVALID_CREDENTIALS"
+      );
+    }
+
+    if (!user.isActive || user.deletedAt) {
+      throw new ApiError(
+        HttpStatus.UNAUTHORIZED,
+        "Account is inactive or deleted",
+        "USER_INACTIVE"
       );
     }
 
@@ -164,22 +174,12 @@ export class AuthService {
   }
 
   async me(user: AuthUser) {
-    const dbUser = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      include: {
-        employee: {
-          include: {
-            department: true,
-            position: true
-          }
-        },
-        userRoles: {
-          include: { role: true }
-        }
-      }
-    });
+    const authUser = await this.hydrateAuthUser(user.id);
+    if (!authUser) {
+      throw new ApiError(HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
+    }
 
-    return dbUser ? omitSensitiveUser(dbUser as unknown as Record<string, unknown>) : user;
+    return authUser;
   }
 
   async changePassword(user: AuthUser, dto: ChangePasswordDto) {
@@ -218,7 +218,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        employee: { select: { id: true } },
+        employee: { select: { id: true, deletedAt: true } },
         userRoles: {
           include: {
             role: {
@@ -254,7 +254,7 @@ export class AuthService {
       email: user.email,
       roles,
       permissions,
-      employeeId: user.employee?.id ?? null,
+      employeeId: user.employee && !user.employee.deletedAt ? user.employee.id : null,
       mustChangePassword: user.mustChangePassword
     };
   }

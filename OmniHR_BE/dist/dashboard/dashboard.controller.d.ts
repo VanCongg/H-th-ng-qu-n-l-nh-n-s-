@@ -18,16 +18,16 @@ export declare class DashboardController {
                 email: string;
             } | null;
         } & {
+            id: number;
+            createdAt: Date;
             userId: number | null;
             action: string;
             entityType: string;
-            id: number;
             entityId: string | null;
             oldValue: import("@prisma/client/runtime/library").JsonValue | null;
             newValue: import("@prisma/client/runtime/library").JsonValue | null;
             ipAddress: string | null;
             userAgent: string | null;
-            createdAt: Date;
         })[];
     }>;
     managerDashboard(user: AuthUser): Promise<{
@@ -36,26 +36,28 @@ export declare class DashboardController {
         todayTeamAttendance: number;
         latestTeamLeaves: ({
             employee: {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             leaveType: {
                 id: number;
-                createdAt: Date;
                 isActive: boolean;
+                createdAt: Date;
                 updatedAt: Date;
                 name: string;
                 code: string;
@@ -79,43 +81,46 @@ export declare class DashboardController {
         })[];
         latestSubordinates: ({
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         })[];
     }>;
-    getSettings(): Record<string, unknown>;
-    updateSettings(dto: UpdateSystemSettingsDto): Record<string, unknown>;
+    getSettings(): Promise<import("../common/services/system-settings.service").SystemSettings>;
+    updateSettings(dto: UpdateSystemSettingsDto): Promise<import("../common/services/system-settings.service").SystemSettings>;
 }

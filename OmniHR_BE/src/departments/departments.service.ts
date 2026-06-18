@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/services/audit.service";
 import { ApiError } from "../common/api-error";
 import { AuthUser, RequestContext } from "../common/types";
+import { currentEmployeeWhere } from "../common/prisma-where";
 import { CreateDepartmentDto } from "./dto/create-department.dto";
 import { UpdateDepartmentDto } from "./dto/update-department.dto";
 
@@ -33,7 +34,16 @@ export class DepartmentsService {
 
     return this.prisma.department.findMany({
       where,
-      include: { parent: true, _count: { select: { employees: true } } },
+      include: {
+        parent: true,
+        manager: { include: { department: true, position: true } },
+        _count: {
+          select: {
+            employees: { where: currentEmployeeWhere() },
+            teams: { where: { deletedAt: null } }
+          }
+        }
+      },
       orderBy: { name: "asc" }
     });
   }
@@ -63,7 +73,17 @@ export class DepartmentsService {
   async findOne(id: number) {
     const department = await this.prisma.department.findFirst({
       where: { id, deletedAt: null },
-      include: { parent: true, children: true, _count: { select: { employees: true } } }
+      include: {
+        parent: true,
+        children: true,
+        manager: { include: { department: true, position: true } },
+        _count: {
+          select: {
+            employees: { where: currentEmployeeWhere() },
+            teams: { where: { deletedAt: null } }
+          }
+        }
+      }
     });
     if (!department) {
       throw new ApiError(
@@ -83,12 +103,16 @@ export class DepartmentsService {
     if (dto.parentId) {
       await this.ensureParent(dto.parentId);
     }
+    if (dto.managerId) {
+      await this.ensureManagerInDepartment(dto.managerId, undefined);
+    }
 
     const department = await this.prisma.department.create({
       data: {
         code: dto.code,
         name: dto.name,
         parentId: dto.parentId,
+        managerId: dto.managerId,
         isActive: dto.isActive ?? true
       }
     });
@@ -123,6 +147,9 @@ export class DepartmentsService {
       await this.ensureParent(dto.parentId);
       await this.ensureNoParentCycle(id, dto.parentId);
     }
+    if (dto.managerId) {
+      await this.ensureManagerInDepartment(dto.managerId, id);
+    }
 
     const department = await this.prisma.department.update({
       where: { id },
@@ -130,6 +157,7 @@ export class DepartmentsService {
         code: dto.code,
         name: dto.name,
         parentId: dto.parentId,
+        managerId: dto.managerId,
         isActive: dto.isActive
       }
     });
@@ -207,6 +235,23 @@ export class DepartmentsService {
         select: { parentId: true }
       });
       currentId = current?.parentId ?? null;
+    }
+  }
+
+  private async ensureManagerInDepartment(managerId: number, departmentId?: number) {
+    const manager = await this.prisma.employee.findFirst({
+      where: currentEmployeeWhere({
+        id: managerId,
+        ...(departmentId ? { departmentId } : {})
+      }),
+      select: { id: true }
+    });
+    if (!manager) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Department manager must belong to this department",
+        "VALIDATION_ERROR"
+      );
     }
   }
 }

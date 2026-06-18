@@ -16,6 +16,7 @@ class CreateEmployeeDto {
     employeeCode;
     fullName;
     companyEmail;
+    avatarUrl;
     personalEmail;
     phone;
     birthDate;
@@ -23,6 +24,7 @@ class CreateEmployeeDto {
     status;
     departmentId;
     positionId;
+    careerLevel;
 }
 exports.CreateEmployeeDto = CreateEmployeeDto;
 __decorate([
@@ -40,6 +42,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(160),
     __metadata("design:type", String)
 ], CreateEmployeeDto.prototype, "companyEmail", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(1000000),
+    __metadata("design:type", Object)
+], CreateEmployeeDto.prototype, "avatarUrl", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEmail)(),
@@ -76,4 +84,9 @@ __decorate([
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], CreateEmployeeDto.prototype, "positionId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.CareerLevel),
+    __metadata("design:type", String)
+], CreateEmployeeDto.prototype, "careerLevel", void 0);
 //# sourceMappingURL=create-employee.dto.js.map

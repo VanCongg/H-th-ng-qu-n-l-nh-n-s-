@@ -19,8 +19,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -44,8 +44,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -69,8 +69,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -94,8 +94,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -119,8 +119,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -144,8 +144,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -169,8 +169,8 @@ export declare class RolesController {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {

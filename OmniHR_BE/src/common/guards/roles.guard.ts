@@ -24,10 +24,6 @@ export class RolesGuard implements CanActivate {
       throw new ApiError(HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
     }
 
-    if (user.roles.includes("ADMIN")) {
-      return true;
-    }
-
     const allowed = requiredRoles.some((role) => user.roles.includes(role));
     if (!allowed) {
       throw new ApiError(HttpStatus.FORBIDDEN, "Forbidden", "FORBIDDEN");

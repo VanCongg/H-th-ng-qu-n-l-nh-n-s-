@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional } from "class-validator";
-import { EmployeeStatus } from "@prisma/client";
+import { CareerLevel, EmployeeStatus } from "@prisma/client";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 
 export class EmployeeQueryDto extends PaginationQueryDto {
@@ -17,4 +17,8 @@ export class EmployeeQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(EmployeeStatus)
   status?: EmployeeStatus;
+
+  @IsOptional()
+  @IsEnum(CareerLevel)
+  careerLevel?: CareerLevel;
 }

@@ -2,8 +2,10 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Checkbox,
   Group,
   Modal,
+  MultiSelect,
   Paper,
   Select,
   SimpleGrid,
@@ -15,14 +17,28 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, KeyRound, Lock, Plus, Trash2, Unlock } from "lucide-react";
+import { Edit, KeyRound, Lock, Plus, Search, Trash2, Unlock } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { departmentsApi, employeesApi, positionsApi } from "../../api/endpoints";
-import { formatDate, statusColor } from "../../api/format";
-import type { Employee, EmployeeCreateResult } from "../../api/types";
+import {
+  departmentsApi,
+  employeeSkillsApi,
+  employeesApi,
+  positionsApi,
+  skillsApi
+} from "../../api/endpoints";
+import {
+  careerLevelOptions,
+  formatDate,
+  formatDepartmentName,
+  formatEmployeeJobTitle,
+  statusColor
+} from "../../api/format";
+import type { Department, Employee, EmployeeCreateResult, Position, Skill } from "../../api/types";
 import { openConfirmModal } from "../../components/ConfirmModal";
 import { DataTable } from "../../components/DataTable";
+import { EmployeeAvatar } from "../../components/EmployeeAvatar";
+import { EmployeeAvatarUpload } from "../../components/EmployeeAvatarUpload";
 import { PageHeader } from "../../components/PageHeader";
 import { useTranslation } from "../../i18n";
 
@@ -35,40 +51,81 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [careerLevelFilter, setCareerLevelFilter] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const [defaultPassword, setDefaultPassword] = useState<string | null>(null);
 
   const employeesQuery = useQuery({
-    queryKey: ["employees", scope, search],
+    queryKey: ["employees", scope, search, careerLevelFilter, page],
     queryFn: () =>
       scope === "team"
-        ? employeesApi.team({ search, limit: 50 })
-        : employeesApi.list({ search, limit: 50 })
+        ? employeesApi.team({
+            search,
+            careerLevel: careerLevelFilter,
+            page,
+            limit: 20
+          })
+        : employeesApi.list({
+            search,
+            careerLevel: careerLevelFilter,
+            page,
+            limit: 20
+          })
   });
   const departmentsQuery = useQuery({ queryKey: ["departments"], queryFn: () => departmentsApi.list() });
   const positionsQuery = useQuery({ queryKey: ["positions"], queryFn: () => positionsApi.list() });
+  const skillsQuery = useQuery({
+    queryKey: ["skills", "employee-form"],
+    queryFn: () => skillsApi.list({ limit: 100 })
+  });
 
   const form = useForm({
     initialValues: {
       employeeCode: "",
       fullName: "",
       companyEmail: "",
+      avatarUrl: "",
       personalEmail: "",
       phone: "",
       birthDate: "",
       hireDate: "",
       status: "ACTIVE",
       departmentId: "",
-      positionId: ""
+      positionId: "",
+      careerLevel: "FRESHER",
+      skillIds: [] as string[],
+      isDepartmentManager: false
+    },
+    validate: {
+      departmentId: (value) => (!value ? tx("Required") : null),
+      positionId: (value) => (!value ? tx("Required") : null)
     }
   });
 
   const saveMutation = useMutation({
-    mutationFn: (values: typeof form.values) => {
+    mutationFn: async (values: typeof form.values) => {
       const payload = normalizeEmployeePayload(values);
-      return editing
-        ? employeesApi.update(editing.id, payload)
-        : employeesApi.create(payload);
+      const result = editing
+        ? await employeesApi.update(editing.id, payload)
+        : await employeesApi.create(payload);
+      const employeeId = "employeeId" in result ? result.employeeId : result.id;
+      await syncEmployeeSkills(employeeId, values.skillIds.map(Number));
+      await syncDepartmentManager({
+        employeeId,
+        departmentId: payload.departmentId ?? null,
+        shouldSet: values.isDepartmentManager && canUseDepartmentManagerFlag({
+          departmentId: values.departmentId,
+          positionId: values.positionId,
+          editingEmployee: editing,
+          positions: positionsQuery.data ?? [],
+          departments: departmentsQuery.data ?? []
+        }),
+        editingEmployee: editing,
+        departments: departmentsQuery.data ?? []
+      });
+      return result;
     },
     onSuccess: (result: Employee | EmployeeCreateResult) => {
       notifications.show({ color: "green", message: tx("Employee saved") });
@@ -76,6 +133,9 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
         setDefaultPassword(result.defaultPassword);
       }
       queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-skills"] });
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
       setOpened(false);
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
@@ -114,34 +174,125 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     setEditing(null);
     form.reset();
     form.setFieldValue("status", "ACTIVE");
+    form.setFieldValue("careerLevel", "FRESHER");
+    form.setFieldValue("skillIds", []);
+    form.setFieldValue("isDepartmentManager", false);
+    form.setFieldValue("avatarUrl", "");
     setOpened(true);
   }
 
   function openEdit(item: Employee) {
     setEditing(item);
+    const departmentId = item.department?.id ?? item.departmentId;
+    const currentDepartment = (departmentsQuery.data ?? []).find(
+      (department) => department.id === departmentId
+    );
     form.setValues({
       employeeCode: item.employeeCode,
       fullName: item.fullName,
       companyEmail: item.companyEmail,
+      avatarUrl: item.avatarUrl ?? "",
       personalEmail: item.personalEmail ?? "",
       phone: item.phone ?? "",
       birthDate: item.birthDate?.slice(0, 10) ?? "",
       hireDate: item.hireDate?.slice(0, 10) ?? "",
       status: item.status,
       departmentId: item.department?.id ? String(item.department.id) : "",
-      positionId: item.position?.id ? String(item.position.id) : ""
+      positionId: item.position?.id ? String(item.position.id) : "",
+      careerLevel: item.careerLevel ?? "FRESHER",
+      skillIds:
+        item.employeeSkills?.map((employeeSkill) =>
+          String(employeeSkill.skillId)
+        ) ?? [],
+      isDepartmentManager: Boolean(
+        item.department?.managerId === item.id ||
+          currentDepartment?.managerId === item.id
+      )
     });
     setOpened(true);
   }
 
-  const departmentOptions = (departmentsQuery.data ?? []).map((item) => ({
-    value: String(item.id),
-    label: item.name
-  }));
-  const positionOptions = (positionsQuery.data ?? []).map((item) => ({
-    value: String(item.id),
-    label: item.name
-  }));
+  function applySearch() {
+    setSearch(searchDraft.trim());
+    setPage(1);
+  }
+
+  const departmentIdsWithPositions = new Set(
+    (positionsQuery.data ?? [])
+      .filter((item) => item.isActive && item.departmentId)
+      .map((item) => String(item.departmentId))
+  );
+  const departmentOptions = (departmentsQuery.data ?? [])
+    .filter((item) => departmentIdsWithPositions.has(String(item.id)))
+    .map((item) => ({
+      value: String(item.id),
+      label: formatDepartmentName(item, tx)
+    }));
+  const positionOptions = (positionsQuery.data ?? [])
+    .filter(
+      (item) =>
+        form.values.departmentId &&
+        item.departmentId &&
+        String(item.departmentId) === form.values.departmentId
+    )
+    .map((item) => ({
+      value: String(item.id),
+      label: item.name
+    }));
+  const careerOptions = careerLevelOptions(te);
+  const skillOptions = (skillsQuery.data?.items ?? [])
+    .filter(
+      (item) =>
+        item.isActive &&
+        skillAppliesToPosition(item, form.values.positionId)
+    )
+    .map((item) => ({
+      value: String(item.id),
+      label: `${item.code} - ${item.name}`
+    }));
+  const canSetDepartmentManager = canUseDepartmentManagerFlag({
+    departmentId: form.values.departmentId,
+    positionId: form.values.positionId,
+    editingEmployee: editing,
+    positions: positionsQuery.data ?? [],
+    departments: departmentsQuery.data ?? []
+  });
+
+  function handleDepartmentChange(value: string | null) {
+    const nextValue = value ?? "";
+    form.setFieldValue("departmentId", nextValue);
+
+    const currentPosition = positionsQuery.data?.find(
+      (item) => String(item.id) === form.values.positionId
+    );
+    if (!currentPosition || String(currentPosition.departmentId) !== nextValue) {
+      form.setFieldValue("positionId", "");
+      form.setFieldValue("skillIds", []);
+      form.setFieldValue("isDepartmentManager", false);
+    }
+    if (!nextValue) {
+      form.setFieldValue("isDepartmentManager", false);
+    }
+  }
+
+  function handlePositionChange(value: string | null) {
+    const nextValue = value ?? "";
+    form.setFieldValue("positionId", nextValue);
+    const nextPosition = positionsQuery.data?.find(
+      (item) => String(item.id) === nextValue
+    );
+    if (!isDepartmentManagerPosition(nextPosition)) {
+      form.setFieldValue("isDepartmentManager", false);
+    }
+    form.setFieldValue(
+      "skillIds",
+      filterSkillIdsForPosition(
+        form.values.skillIds,
+        nextValue,
+        skillsQuery.data?.items ?? []
+      )
+    );
+  }
 
   return (
     <Stack gap="md">
@@ -162,11 +313,35 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
       />
 
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <TextInput
-          placeholder={tx("Search by name, code, or email")}
-          value={search}
-          onChange={(event) => setSearch(event.currentTarget.value)}
-        />
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            applySearch();
+          }}
+        >
+          <Group align="flex-end" gap="sm" wrap="wrap">
+            <TextInput
+              placeholder={tx("Search by name, code, or email")}
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.currentTarget.value)}
+              style={{ flex: "1 1 260px" }}
+            />
+            <Select
+              placeholder={tx("Career level")}
+              data={careerOptions}
+              value={careerLevelFilter}
+              onChange={(value) => {
+                setCareerLevelFilter(value);
+                setPage(1);
+              }}
+              clearable
+              style={{ flex: "0 1 220px" }}
+            />
+            <Button type="submit" leftSection={<Search size={16} />} style={{ flex: "0 0 auto" }}>
+              {tx("Search")}
+            </Button>
+          </Group>
+        </form>
       </Paper>
 
       <DataTable<Employee>
@@ -176,11 +351,12 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
         total={employeesQuery.data?.meta.total}
         limit={employeesQuery.data?.meta.limit}
         page={employeesQuery.data?.meta.page}
+        onPageChange={setPage}
         columns={[
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.employeeCode}</Text> },
-          { key: "name", label: "Name", render: (item) => <Stack gap={0}><Text fw={700}>{item.fullName}</Text><Text size="xs" c="dimmed">{item.companyEmail}</Text></Stack> },
-          { key: "department", label: "Department", render: (item) => item.department?.name ?? "-" },
-          { key: "position", label: "Position", render: (item) => item.position?.name ?? "-" },
+          { key: "name", label: "Name", render: (item) => <Group gap="sm" wrap="nowrap"><EmployeeAvatar employee={item} /><Stack gap={0}><Text fw={700}>{item.fullName}</Text><Text size="xs" c="dimmed">{item.companyEmail}</Text></Stack></Group> },
+          { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
+          { key: "position", label: "Position", render: (item) => formatEmployeeJobTitle(item, te) },
           { key: "birthDate", label: "Birth date", render: (item) => formatDate(item.birthDate) },
           { key: "status", label: "Status", render: (item) => <Badge color={statusColor(item.status)}>{te(item.status)}</Badge> },
           {
@@ -212,21 +388,74 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
         ]}
       />
 
-      <Modal opened={opened} onClose={() => setOpened(false)} title={editing ? tx("Edit employee") : tx("New employee")} size="lg">
+      <Modal opened={opened} onClose={() => setOpened(false)} title={editing ? tx("Edit employee") : tx("New employee")} size="min(1120px, 96vw)">
         <form onSubmit={form.onSubmit((values) => saveMutation.mutate(values))}>
           <Stack>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label={tx("Employee code")} required {...form.getInputProps("employeeCode")} />
-              <TextInput label={tx("Full name")} required {...form.getInputProps("fullName")} />
-              <TextInput label={tx("Company email")} required {...form.getInputProps("companyEmail")} />
-              <TextInput label={tx("Personal email")} {...form.getInputProps("personalEmail")} />
-              <TextInput label={tx("Phone")} {...form.getInputProps("phone")} />
-              <TextInput label={tx("Birth date")} type="date" required {...form.getInputProps("birthDate")} />
-              <TextInput label={tx("Hire date")} type="date" {...form.getInputProps("hireDate")} />
-              <Select label={tx("Status")} data={["ACTIVE", "INACTIVE", "TERMINATED"].map((value) => ({ value, label: te(value) }))} {...form.getInputProps("status")} />
-              <Select label={tx("Department")} data={departmentOptions} clearable {...form.getInputProps("departmentId")} />
-              <Select label={tx("Position")} data={positionOptions} clearable {...form.getInputProps("positionId")} />
-            </SimpleGrid>
+            <div className="employee-form-layout">
+              <EmployeeAvatarUpload
+                value={form.values.avatarUrl}
+                fullName={form.values.fullName}
+                onChange={(value) => form.setFieldValue("avatarUrl", value ?? "")}
+              />
+              <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                <TextInput label={tx("Employee code")} required {...form.getInputProps("employeeCode")} />
+                <TextInput label={tx("Full name")} required {...form.getInputProps("fullName")} />
+                <TextInput label={tx("Company email")} required {...form.getInputProps("companyEmail")} />
+                <TextInput label={tx("Personal email")} {...form.getInputProps("personalEmail")} />
+                <TextInput label={tx("Phone")} {...form.getInputProps("phone")} />
+                <TextInput label={tx("Birth date")} type="date" required {...form.getInputProps("birthDate")} />
+                <TextInput label={tx("Hire date")} type="date" {...form.getInputProps("hireDate")} />
+                <Select label={tx("Status")} data={["ACTIVE", "INACTIVE", "TERMINATED"].map((value) => ({ value, label: te(value) }))} {...form.getInputProps("status")} />
+                <Select
+                  label={tx("Department")}
+                  data={departmentOptions}
+                  required
+                  searchable
+                  value={form.values.departmentId || null}
+                  onChange={handleDepartmentChange}
+                  error={form.errors.departmentId}
+                />
+                <Select
+                  label={tx("Position")}
+                  data={positionOptions}
+                  required
+                  searchable
+                  disabled={!form.values.departmentId}
+                  placeholder={
+                    form.values.departmentId
+                      ? tx("Select position")
+                      : tx("Select department first")
+                  }
+                  value={form.values.positionId || null}
+                  onChange={handlePositionChange}
+                  error={form.errors.positionId}
+                />
+                <Select
+                  label={tx("Career level")}
+                  data={careerOptions}
+                  required
+                  {...form.getInputProps("careerLevel")}
+                />
+                <MultiSelect
+                  label={tx("Skills")}
+                  data={skillOptions}
+                  searchable
+                  clearable
+                  disabled={!form.values.positionId || skillsQuery.isLoading}
+                  placeholder={
+                    form.values.positionId
+                      ? tx("Select skills")
+                      : tx("Select position first")
+                  }
+                  {...form.getInputProps("skillIds")}
+                />
+              </SimpleGrid>
+            </div>
+            <Checkbox
+              label={tx("Set as department manager")}
+              disabled={!canSetDepartmentManager}
+              {...form.getInputProps("isDepartmentManager", { type: "checkbox" })}
+            />
             <Button type="submit" loading={saveMutation.isPending}>{tx("Save")}</Button>
           </Stack>
         </form>
@@ -245,13 +474,146 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
   );
 }
 
-function normalizeEmployeePayload(values: Record<string, string>) {
+function normalizeEmployeePayload(values: {
+  employeeCode: string;
+  fullName: string;
+  companyEmail: string;
+  avatarUrl: string;
+  personalEmail: string;
+  phone: string;
+  birthDate: string;
+  hireDate: string;
+  status: string;
+  departmentId: string;
+  positionId: string;
+  careerLevel: string;
+  skillIds: string[];
+  isDepartmentManager: boolean;
+}) {
   return {
-    ...values,
+    employeeCode: values.employeeCode,
+    fullName: values.fullName,
+    companyEmail: values.companyEmail,
+    avatarUrl: values.avatarUrl.trim() || null,
+    personalEmail: values.personalEmail || undefined,
+    phone: values.phone || undefined,
+    birthDate: values.birthDate,
+    hireDate: values.hireDate || undefined,
+    status: values.status,
     departmentId: values.departmentId ? Number(values.departmentId) : undefined,
     positionId: values.positionId ? Number(values.positionId) : undefined,
-    hireDate: values.hireDate || undefined,
-    personalEmail: values.personalEmail || undefined,
-    phone: values.phone || undefined
+    careerLevel: values.careerLevel
   };
+}
+
+function isDepartmentManagerPosition(position?: Pick<Position, "code" | "name"> | null) {
+  if (!position) {
+    return false;
+  }
+  const text = `${position.code} ${position.name}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return ["manager", "lead", "head", "director", "truong", "quan ly"].some(
+    (keyword) => text.includes(keyword)
+  );
+}
+
+function canUseDepartmentManagerFlag({
+  departmentId,
+  positionId,
+  editingEmployee,
+  positions,
+  departments
+}: {
+  departmentId: string;
+  positionId: string;
+  editingEmployee: Employee | null;
+  positions: Position[];
+  departments: Department[];
+}) {
+  if (!departmentId || !positionId) {
+    return false;
+  }
+  const selectedPosition = positions.find((item) => String(item.id) === positionId);
+  if (isDepartmentManagerPosition(selectedPosition)) {
+    return true;
+  }
+  const selectedDepartmentId = Number(departmentId);
+  const selectedDepartment = departments.find((item) => item.id === selectedDepartmentId);
+  const editingDepartmentId = editingEmployee?.department?.id ?? editingEmployee?.departmentId;
+  return Boolean(
+    editingEmployee &&
+      selectedDepartmentId === editingDepartmentId &&
+      (editingEmployee.department?.managerId === editingEmployee.id ||
+        selectedDepartment?.managerId === editingEmployee.id)
+  );
+}
+
+function skillAppliesToPosition(skill: Skill, positionId: string) {
+  return Boolean(
+    positionId &&
+      skill.positionSkills?.some(
+        (positionSkill) => String(positionSkill.positionId) === positionId
+      )
+  );
+}
+
+function filterSkillIdsForPosition(
+  skillIds: string[],
+  positionId: string,
+  skills: Skill[]
+) {
+  return skillIds.filter((skillId) => {
+    const skill = skills.find((item) => String(item.id) === skillId);
+    return skill ? skillAppliesToPosition(skill, positionId) : false;
+  });
+}
+
+async function syncEmployeeSkills(employeeId: number, desiredSkillIds: number[]) {
+  const desiredIds = Array.from(new Set(desiredSkillIds));
+  const existingSkills = await employeeSkillsApi.list(employeeId);
+  const existingIds = new Set(existingSkills.map((item) => item.skillId));
+  const desiredSet = new Set(desiredIds);
+
+  await Promise.all([
+    ...desiredIds
+      .filter((skillId) => !existingIds.has(skillId))
+      .map((skillId) => employeeSkillsApi.create(employeeId, { skillId })),
+    ...existingSkills
+      .filter((item) => !desiredSet.has(item.skillId))
+      .map((item) => employeeSkillsApi.remove(item.id))
+  ]);
+}
+
+async function syncDepartmentManager({
+  employeeId,
+  departmentId,
+  shouldSet,
+  editingEmployee,
+  departments
+}: {
+  employeeId: number;
+  departmentId: number | null;
+  shouldSet: boolean;
+  editingEmployee: Employee | null;
+  departments: Department[];
+}) {
+  const oldDepartmentId = editingEmployee?.department?.id ?? editingEmployee?.departmentId;
+  const oldDepartment = departments.find((item) => item.id === oldDepartmentId);
+  const hasOldDepartment = typeof oldDepartmentId === "number";
+  const wasDepartmentManager = Boolean(
+    editingEmployee &&
+      hasOldDepartment &&
+      (editingEmployee.department?.managerId === editingEmployee.id ||
+        oldDepartment?.managerId === editingEmployee.id)
+  );
+
+  if (hasOldDepartment && wasDepartmentManager && (!shouldSet || oldDepartmentId !== departmentId)) {
+    await departmentsApi.update(oldDepartmentId, { managerId: null });
+  }
+
+  if (shouldSet && departmentId) {
+    await departmentsApi.update(departmentId, { managerId: employeeId });
+  }
 }

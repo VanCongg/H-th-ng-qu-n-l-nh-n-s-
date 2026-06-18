@@ -17,7 +17,7 @@ export function ManagersPage() {
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
   const query = useQuery({ queryKey: ["managers"], queryFn: managersApi.list });
-  const employeesQuery = useQuery({ queryKey: ["employees-for-managers"], queryFn: () => employeesApi.list({ limit: 200 }) });
+  const employeesQuery = useQuery({ queryKey: ["employees-for-managers"], queryFn: () => employeesApi.list({ limit: 100 }) });
   const form = useForm({ initialValues: { employeeId: "", managerId: "", managerType: "DIRECT", startDate: "" } });
 
   const assignMutation = useMutation({

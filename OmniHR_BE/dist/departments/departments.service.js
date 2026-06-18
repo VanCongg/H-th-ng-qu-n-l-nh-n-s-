@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../common/services/audit.service");
 const api_error_1 = require("../common/api-error");
+const prisma_where_1 = require("../common/prisma-where");
 let DepartmentsService = class DepartmentsService {
     prisma;
     audit;
@@ -35,7 +36,16 @@ let DepartmentsService = class DepartmentsService {
         };
         return this.prisma.department.findMany({
             where,
-            include: { parent: true, _count: { select: { employees: true } } },
+            include: {
+                parent: true,
+                manager: { include: { department: true, position: true } },
+                _count: {
+                    select: {
+                        employees: { where: (0, prisma_where_1.currentEmployeeWhere)() },
+                        teams: { where: { deletedAt: null } }
+                    }
+                }
+            },
             orderBy: { name: "asc" }
         });
     }
@@ -62,7 +72,17 @@ let DepartmentsService = class DepartmentsService {
     async findOne(id) {
         const department = await this.prisma.department.findFirst({
             where: { id, deletedAt: null },
-            include: { parent: true, children: true, _count: { select: { employees: true } } }
+            include: {
+                parent: true,
+                children: true,
+                manager: { include: { department: true, position: true } },
+                _count: {
+                    select: {
+                        employees: { where: (0, prisma_where_1.currentEmployeeWhere)() },
+                        teams: { where: { deletedAt: null } }
+                    }
+                }
+            }
         });
         if (!department) {
             throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Department not found", "DEPARTMENT_NOT_FOUND");
@@ -73,11 +93,15 @@ let DepartmentsService = class DepartmentsService {
         if (dto.parentId) {
             await this.ensureParent(dto.parentId);
         }
+        if (dto.managerId) {
+            await this.ensureManagerInDepartment(dto.managerId, undefined);
+        }
         const department = await this.prisma.department.create({
             data: {
                 code: dto.code,
                 name: dto.name,
                 parentId: dto.parentId,
+                managerId: dto.managerId,
                 isActive: dto.isActive ?? true
             }
         });
@@ -100,12 +124,16 @@ let DepartmentsService = class DepartmentsService {
             await this.ensureParent(dto.parentId);
             await this.ensureNoParentCycle(id, dto.parentId);
         }
+        if (dto.managerId) {
+            await this.ensureManagerInDepartment(dto.managerId, id);
+        }
         const department = await this.prisma.department.update({
             where: { id },
             data: {
                 code: dto.code,
                 name: dto.name,
                 parentId: dto.parentId,
+                managerId: dto.managerId,
                 isActive: dto.isActive
             }
         });
@@ -161,6 +189,18 @@ let DepartmentsService = class DepartmentsService {
                 select: { parentId: true }
             });
             currentId = current?.parentId ?? null;
+        }
+    }
+    async ensureManagerInDepartment(managerId, departmentId) {
+        const manager = await this.prisma.employee.findFirst({
+            where: (0, prisma_where_1.currentEmployeeWhere)({
+                id: managerId,
+                ...(departmentId ? { departmentId } : {})
+            }),
+            select: { id: true }
+        });
+        if (!manager) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Department manager must belong to this department", "VALIDATION_ERROR");
         }
     }
 };

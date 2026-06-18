@@ -5,9 +5,12 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  ValidateNested,
   MaxLength,
   MinLength
 } from "class-validator";
+import { Type } from "class-transformer";
+import { UpdateUserEmployeeProfileDto } from "./user-employee-profile.dto";
 
 export class UpdateUserDto {
   @IsOptional()
@@ -38,4 +41,9 @@ export class UpdateUserDto {
   @IsArray()
   @IsInt({ each: true })
   roleIds?: number[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateUserEmployeeProfileDto)
+  employeeProfile?: UpdateUserEmployeeProfileDto;
 }

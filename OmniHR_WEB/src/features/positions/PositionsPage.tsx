@@ -1,11 +1,12 @@
-import { ActionIcon, Button, Group, Modal, NumberInput, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Button, Group, Modal, Select, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { positionsApi } from "../../api/endpoints";
+import { departmentsApi, positionsApi } from "../../api/endpoints";
+import { formatDepartmentName } from "../../api/format";
 import type { Position } from "../../api/types";
 import { openConfirmModal } from "../../components/ConfirmModal";
 import { DataTable } from "../../components/DataTable";
@@ -18,11 +19,22 @@ export function PositionsPage() {
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Position | null>(null);
   const query = useQuery({ queryKey: ["positions"], queryFn: () => positionsApi.list() });
-  const form = useForm({ initialValues: { code: "", name: "", level: 1, isActive: true } });
+  const departmentsQuery = useQuery({
+    queryKey: ["departments", "position-form"],
+    queryFn: () => departmentsApi.list()
+  });
+  const form = useForm({
+    initialValues: { code: "", name: "", departmentId: "", isActive: true },
+    validate: {
+      departmentId: (value) => (!value ? tx("Required") : null)
+    }
+  });
 
   const saveMutation = useMutation({
-    mutationFn: (values: typeof form.values) =>
-      editing ? positionsApi.update(editing.id, values) : positionsApi.create(values),
+    mutationFn: (values: typeof form.values) => {
+      const payload = normalizePositionPayload(values);
+      return editing ? positionsApi.update(editing.id, payload) : positionsApi.create(payload);
+    },
     onSuccess: () => {
       notifications.show({ color: "green", message: tx("Position saved") });
       queryClient.invalidateQueries({ queryKey: ["positions"] });
@@ -37,20 +49,30 @@ export function PositionsPage() {
 
   function openCreate() {
     setEditing(null);
-    form.setValues({ code: "", name: "", level: 1, isActive: true });
+    form.setValues({ code: "", name: "", departmentId: "", isActive: true });
     setOpened(true);
   }
   function openEdit(item: Position) {
     setEditing(item);
-    form.setValues({ code: item.code, name: item.name, level: item.level, isActive: item.isActive });
+    form.setValues({
+      code: item.code,
+      name: item.name,
+      departmentId: item.departmentId ? String(item.departmentId) : "",
+      isActive: item.isActive
+    });
     setOpened(true);
   }
+
+  const departmentOptions = (departmentsQuery.data ?? []).map((item) => ({
+    value: String(item.id),
+    label: formatDepartmentName(item, tx)
+  }));
 
   return (
     <Stack gap="md">
       <PageHeader
         title="Positions"
-        description="Manage job titles and levels."
+        description="Manage job titles."
         actions={<Button leftSection={<Plus size={16} />} onClick={openCreate}>{tx("New position")}</Button>}
       />
       <DataTable<Position>
@@ -60,7 +82,7 @@ export function PositionsPage() {
         columns={[
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.code}</Text> },
           { key: "name", label: "Name", render: (item) => item.name },
-          { key: "level", label: "Level", render: (item) => item.level },
+          { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
           { key: "employees", label: "Employees", render: (item) => item._count?.employees ?? 0 },
           { key: "active", label: "Active", render: (item) => item.isActive ? tx("Yes") : tx("No") },
           {
@@ -87,7 +109,13 @@ export function PositionsPage() {
           <Stack>
             <TextInput label={tx("Code")} required {...form.getInputProps("code")} />
             <TextInput label={tx("Name")} required {...form.getInputProps("name")} />
-            <NumberInput label={tx("Level")} min={1} {...form.getInputProps("level")} />
+            <Select
+              label={tx("Department")}
+              data={departmentOptions}
+              searchable
+              required
+              {...form.getInputProps("departmentId")}
+            />
             <Switch label={tx("Active")} {...form.getInputProps("isActive", { type: "checkbox" })} />
             <Button type="submit" loading={saveMutation.isPending}>{tx("Save")}</Button>
           </Stack>
@@ -95,4 +123,18 @@ export function PositionsPage() {
       </Modal>
     </Stack>
   );
+}
+
+function normalizePositionPayload(values: {
+  code: string;
+  name: string;
+  departmentId: string;
+  isActive: boolean;
+}) {
+  return {
+    code: values.code,
+    name: values.name,
+    departmentId: Number(values.departmentId),
+    isActive: values.isActive
+  };
 }

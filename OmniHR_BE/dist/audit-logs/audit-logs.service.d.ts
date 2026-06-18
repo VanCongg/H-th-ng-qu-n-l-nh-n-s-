@@ -12,16 +12,16 @@ export declare class AuditLogsService {
                 email: string;
             } | null;
         } & {
+            id: number;
+            createdAt: Date;
             userId: number | null;
             action: string;
             entityType: string;
-            id: number;
             entityId: string | null;
             oldValue: Prisma.JsonValue | null;
             newValue: Prisma.JsonValue | null;
             ipAddress: string | null;
             userAgent: string | null;
-            createdAt: Date;
         })[];
         meta: {
             total: number;

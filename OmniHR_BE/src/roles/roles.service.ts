@@ -1,8 +1,10 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
+import { currentUserWhere } from "../common/prisma-where";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { AssignPermissionDto } from "./dto/assign-permission.dto";
@@ -12,9 +14,9 @@ const roleInclude = {
     include: { permission: true }
   },
   _count: {
-    select: { userRoles: true }
+    select: { userRoles: { where: { user: currentUserWhere() } } }
   }
-};
+} satisfies Prisma.RoleInclude;
 
 @Injectable()
 export class RolesService {

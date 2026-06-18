@@ -45,6 +45,7 @@ const config_1 = require("@nestjs/config");
 const core_1 = require("@nestjs/core");
 const throttler_1 = require("@nestjs/throttler");
 const Joi = __importStar(require("joi"));
+const ai_task_suggestions_module_1 = require("./ai-task-suggestions/ai-task-suggestions.module");
 const audit_logs_module_1 = require("./audit-logs/audit-logs.module");
 const attendance_module_1 = require("./attendance/attendance.module");
 const auth_module_1 = require("./auth/auth.module");
@@ -56,13 +57,20 @@ const response_interceptor_1 = require("./common/interceptors/response.intercept
 const dashboard_module_1 = require("./dashboard/dashboard.module");
 const departments_module_1 = require("./departments/departments.module");
 const employee_managers_module_1 = require("./employee-managers/employee-managers.module");
+const employee_skills_module_1 = require("./employee-skills/employee-skills.module");
 const employees_module_1 = require("./employees/employees.module");
 const leave_requests_module_1 = require("./leave-requests/leave-requests.module");
 const leave_types_module_1 = require("./leave-types/leave-types.module");
 const permissions_module_1 = require("./permissions/permissions.module");
 const positions_module_1 = require("./positions/positions.module");
 const prisma_module_1 = require("./prisma/prisma.module");
+const projects_module_1 = require("./projects/projects.module");
 const roles_module_1 = require("./roles/roles.module");
+const skills_module_1 = require("./skills/skills.module");
+const task_assignments_module_1 = require("./task-assignments/task-assignments.module");
+const task_workload_module_1 = require("./task-workload/task-workload.module");
+const tasks_module_1 = require("./tasks/tasks.module");
+const teams_module_1 = require("./teams/teams.module");
 const users_module_1 = require("./users/users.module");
 let AppModule = class AppModule {
 };
@@ -110,7 +118,15 @@ exports.AppModule = AppModule = __decorate([
             attendance_module_1.AttendanceModule,
             leave_types_module_1.LeaveTypesModule,
             leave_requests_module_1.LeaveRequestsModule,
-            audit_logs_module_1.AuditLogsModule
+            audit_logs_module_1.AuditLogsModule,
+            projects_module_1.ProjectsModule,
+            skills_module_1.SkillsModule,
+            employee_skills_module_1.EmployeeSkillsModule,
+            teams_module_1.TeamsModule,
+            tasks_module_1.TasksModule,
+            task_assignments_module_1.TaskAssignmentsModule,
+            task_workload_module_1.TaskWorkloadModule,
+            ai_task_suggestions_module_1.AiTaskSuggestionsModule
         ],
         providers: [
             {

@@ -64,7 +64,7 @@ export function RolesPermissionsPage() {
         columns={[
           { key: "name", label: "Role", render: (item) => <Text fw={700}>{item.name}</Text> },
           { key: "description", label: "Description", render: (item) => item.description ?? "-" },
-          { key: "users", label: "Users", render: (item) => item._count?.userRoles ?? 0 },
+          { key: "users", label: "Employees", render: (item) => item._count?.userRoles ?? 0 },
           { key: "system", label: "System", render: (item) => item.isSystem ? tx("Yes") : tx("No") },
           { key: "permissions", label: "Permissions", render: (item) => <Group gap={4}>{item.rolePermissions?.slice(0, 6).map((p) => <Badge key={p.permission.id} variant="light">{p.permission.code}</Badge>)}{(item.rolePermissions?.length ?? 0) > 6 ? <Badge color="gray">+{(item.rolePermissions?.length ?? 0) - 6}</Badge> : null}</Group> },
           { key: "actions", label: "", render: (item) => <Group justify="flex-end"><Button size="xs" variant="light" onClick={() => openEdit(item)}>{tx("Edit")}</Button></Group> }

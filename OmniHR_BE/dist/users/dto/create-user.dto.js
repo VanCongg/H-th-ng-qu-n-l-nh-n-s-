@@ -11,12 +11,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateUserDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const user_employee_profile_dto_1 = require("./user-employee-profile.dto");
 class CreateUserDto {
     username;
     email;
     password;
+    isActive;
     mustChangePassword;
     roleIds;
+    employeeProfile;
 }
 exports.CreateUserDto = CreateUserDto;
 __decorate([
@@ -39,6 +43,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
+], CreateUserDto.prototype, "isActive", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
 ], CreateUserDto.prototype, "mustChangePassword", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -46,4 +55,10 @@ __decorate([
     (0, class_validator_1.IsInt)({ each: true }),
     __metadata("design:type", Array)
 ], CreateUserDto.prototype, "roleIds", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => user_employee_profile_dto_1.CreateUserEmployeeProfileDto),
+    __metadata("design:type", user_employee_profile_dto_1.CreateUserEmployeeProfileDto)
+], CreateUserDto.prototype, "employeeProfile", void 0);
 //# sourceMappingURL=create-user.dto.js.map

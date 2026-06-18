@@ -2,16 +2,14 @@ import {
   Activity,
   BadgeCheck,
   BarChart3,
-  Building2,
-  CalendarDays,
+  CheckSquare,
   ClipboardList,
   FileClock,
   FileText,
-  ListChecks,
-  LockKeyhole,
   Network,
   Settings,
   ShieldCheck,
+  Sparkles,
   UserRound,
   Users
 } from "lucide-react";
@@ -27,29 +25,32 @@ export type NavItem = {
 export const appNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/app/dashboard", icon: BarChart3 },
   { labelKey: "myTeam", to: "/app/team", icon: Users },
+  { labelKey: "teams", to: "/app/teams", icon: Network },
+  { labelKey: "employeeSkills", to: "/app/employee-skills", icon: Sparkles },
   { labelKey: "teamAttendance", to: "/app/team-attendance", icon: Activity },
   {
     labelKey: "teamLeaveRequests",
     to: "/app/team-leave-requests",
     icon: ClipboardList
   },
+  { labelKey: "projects", to: "/app/projects", icon: ClipboardList },
+  { labelKey: "teamTasks", to: "/app/team-tasks", icon: CheckSquare },
+  { labelKey: "assignTask", to: "/app/assign-task", icon: Sparkles },
+  {
+    labelKey: "aiTaskSuggestions",
+    to: "/app/ai-task-suggestions",
+    icon: Sparkles
+  },
   { labelKey: "myProfile", to: "/app/profile", icon: UserRound }
 ];
 
 export const adminNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/admin/dashboard", icon: BarChart3 },
-  { labelKey: "employees", to: "/admin/employees", icon: Users },
-  { labelKey: "departments", to: "/admin/departments", icon: Building2 },
-  { labelKey: "positions", to: "/admin/positions", icon: BadgeCheck },
-  { labelKey: "managers", to: "/admin/managers", icon: Network },
-  { labelKey: "attendance", to: "/admin/attendance", icon: CalendarDays },
-  {
-    labelKey: "leaveRequests",
-    to: "/admin/leave-requests",
-    icon: ClipboardList
-  },
-  { labelKey: "leaveTypes", to: "/admin/leave-types", icon: ListChecks },
   { labelKey: "users", to: "/admin/users", icon: UserRound },
+  { labelKey: "departments", to: "/admin/departments", icon: FileText },
+  { labelKey: "positions", to: "/admin/positions", icon: BadgeCheck },
+  { labelKey: "leaveTypes", to: "/admin/leave-types", icon: FileText },
+  { labelKey: "skills", to: "/admin/skills", icon: BadgeCheck },
   {
     labelKey: "rolesPermissions",
     to: "/admin/roles-permissions",
@@ -59,9 +60,3 @@ export const adminNavItems: NavItem[] = [
   { labelKey: "policies", to: "/admin/policies", icon: FileText },
   { labelKey: "systemSettings", to: "/admin/system-settings", icon: Settings }
 ];
-
-export const adminEntry: NavItem = {
-  labelKey: "systemAdmin",
-  to: "/admin/dashboard",
-  icon: LockKeyhole
-};

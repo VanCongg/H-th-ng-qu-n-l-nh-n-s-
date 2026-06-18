@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
+import { currentEmployeeWhere } from "../common/prisma-where";
 import { toDateOnly } from "../common/utils";
 import { AssignManagerDto } from "./dto/assign-manager.dto";
 import { EndManagerDto } from "./dto/end-manager.dto";
@@ -22,6 +23,10 @@ export class EmployeeManagersService {
 
   findAll() {
     return this.prisma.employeeManager.findMany({
+      where: {
+        employee: currentEmployeeWhere(),
+        manager: currentEmployeeWhere()
+      },
       include: includeEmployees,
       orderBy: { createdAt: "desc" }
     });
@@ -30,7 +35,11 @@ export class EmployeeManagersService {
   async findByEmployee(employeeId: number) {
     await this.ensureEmployee(employeeId);
     return this.prisma.employeeManager.findMany({
-      where: { employeeId },
+      where: {
+        employeeId,
+        employee: currentEmployeeWhere(),
+        manager: currentEmployeeWhere()
+      },
       include: includeEmployees,
       orderBy: { createdAt: "desc" }
     });
@@ -43,6 +52,8 @@ export class EmployeeManagersService {
       where: {
         managerId,
         isActive: true,
+        employee: currentEmployeeWhere(),
+        manager: currentEmployeeWhere(),
         OR: [{ endDate: null }, { endDate: { gte: today } }]
       },
       include: includeEmployees,
@@ -151,6 +162,7 @@ export class EmployeeManagersService {
     return {
       employeeId,
       isActive: true,
+      manager: currentEmployeeWhere(),
       OR: [{ endDate: null }, { endDate: { gte: today } }]
     };
   }
@@ -198,7 +210,7 @@ export class EmployeeManagersService {
 
   private async ensureEmployee(id: number) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       select: { id: true }
     });
     if (!employee) {

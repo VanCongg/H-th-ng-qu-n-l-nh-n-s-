@@ -28,9 +28,6 @@ let PermissionsGuard = class PermissionsGuard {
         if (!user) {
             throw new api_error_1.ApiError(common_1.HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
         }
-        if (user.roles.includes("ADMIN")) {
-            return true;
-        }
         const allowed = requiredPermissions.some((permission) => user.permissions.includes(permission));
         if (!allowed) {
             throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Permission denied", "FORBIDDEN");

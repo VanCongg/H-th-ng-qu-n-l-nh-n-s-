@@ -27,9 +27,20 @@ export declare class UsersService {
     assignRole(userId: number, dto: AssignRoleDto, actor: AuthUser, context?: RequestContext): Promise<Record<string, unknown>>;
     removeRole(userId: number, roleId: number, actor: AuthUser, context?: RequestContext): Promise<Record<string, unknown>>;
     resetPassword(id: number, dto: ResetUserPasswordDto, actor: AuthUser, context?: RequestContext): Promise<Record<string, unknown>>;
+    private ensureEmployeeProfileForCreate;
+    private ensureEmployeeProfileForUpdate;
+    private requireCompleteEmployeeProfile;
+    private employeeProfileCreateData;
+    private employeeProfileUpdateData;
+    private ensureDepartmentAndPosition;
+    private ensureManagerPositionRole;
+    private ensureManagerRoleCanBeRemoved;
+    private ensureEmployeeCodeAvailable;
+    private ensureEmployeeEmailAvailable;
     private ensureUser;
     private ensureRole;
     private ensureRoles;
+    private requiresEmployeeProfile;
     private uniqueIds;
     private saltRounds;
 }

@@ -11,16 +11,16 @@ export declare class AuditLogsController {
                 email: string;
             } | null;
         } & {
+            id: number;
+            createdAt: Date;
             userId: number | null;
             action: string;
             entityType: string;
-            id: number;
             entityId: string | null;
             oldValue: import("@prisma/client/runtime/library").JsonValue | null;
             newValue: import("@prisma/client/runtime/library").JsonValue | null;
             ipAddress: string | null;
             userAgent: string | null;
-            createdAt: Date;
         })[];
         meta: {
             total: number;

@@ -30,18 +30,59 @@ type AttendancePageProps = {
   scope: "all" | "team";
 };
 
+function getBrowserAttendanceLocation() {
+  if (!navigator.geolocation) {
+    return Promise.resolve({});
+  }
+
+  return new Promise<Record<string, unknown>>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }),
+      () => reject(new Error("Cannot read your location")),
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+      }
+    );
+  });
+}
+
+function attendanceStatusColor(status?: string | null) {
+  switch (status) {
+    case "ON_TIME":
+      return "green";
+    case "LATE":
+    case "EARLY_OUT":
+      return "yellow";
+    case "MANUAL_ADJUSTMENT":
+      return "blue";
+    default:
+      return "gray";
+  }
+}
+
+function formatDistance(value?: number | null) {
+  return typeof value === "number" ? `${value} m` : "-";
+}
+
 export function AttendancePage({ scope }: AttendancePageProps) {
   const { te, tx } = useTranslation();
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const hasEmployeeProfile = useAuthStore((state) => Boolean(state.user?.employeeId));
   const listQuery = useQuery({
-    queryKey: ["attendance", scope, employeeId],
+    queryKey: ["attendance", scope, employeeId, page],
     queryFn: () =>
       scope === "team"
-        ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, limit: 50 })
-        : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, limit: 50 })
+        ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, page, limit: 20 })
+        : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, page, limit: 20 })
   });
   const employeeQuery = useQuery({
     queryKey: ["attendance-employees", scope],
@@ -59,7 +100,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
   });
 
   const checkInMutation = useMutation({
-    mutationFn: attendanceApi.checkIn,
+    mutationFn: async () => attendanceApi.checkIn(await getBrowserAttendanceLocation()),
     onSuccess: () => {
       notifications.show({ color: "green", message: tx("Checked in") });
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
@@ -67,7 +108,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
   const checkOutMutation = useMutation({
-    mutationFn: attendanceApi.checkOut,
+    mutationFn: async () => attendanceApi.checkOut(await getBrowserAttendanceLocation()),
     onSuccess: () => {
       notifications.show({ color: "green", message: tx("Checked out") });
       queryClient.invalidateQueries({ queryKey: ["attendance"] });
@@ -116,7 +157,17 @@ export function AttendancePage({ scope }: AttendancePageProps) {
         }
       />
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <Select label={tx("Employee")} placeholder={tx("All employees")} data={employeeOptions} clearable value={employeeId} onChange={setEmployeeId} />
+        <Select
+          label={tx("Employee")}
+          placeholder={tx("All employees")}
+          data={employeeOptions}
+          clearable
+          value={employeeId}
+          onChange={(value) => {
+            setEmployeeId(value);
+            setPage(1);
+          }}
+        />
       </Paper>
       <DataTable<AttendanceRecord>
         data={listQuery.data?.items ?? []}
@@ -125,11 +176,15 @@ export function AttendancePage({ scope }: AttendancePageProps) {
         total={listQuery.data?.meta.total}
         limit={listQuery.data?.meta.limit}
         page={listQuery.data?.meta.page}
+        onPageChange={setPage}
         columns={[
           { key: "employee", label: "Employee", render: (item) => <Stack gap={0}><Text fw={700}>{item.employee.fullName}</Text><Text size="xs" c="dimmed">{item.employee.employeeCode}</Text></Stack> },
           { key: "date", label: "Work date", render: (item) => formatDate(item.workDate) },
           { key: "type", label: "Type", render: (item) => <Badge color={item.recordType === "CHECK_IN" ? "green" : item.recordType === "CHECK_OUT" ? "blue" : "yellow"}>{te(item.recordType)}</Badge> },
+          { key: "shift", label: "Shift", render: (item) => item.shift ? <Badge variant="light">{te(item.shift)}</Badge> : "-" },
+          { key: "status", label: "Attendance status", render: (item) => item.attendanceStatus ? <Badge color={attendanceStatusColor(item.attendanceStatus)}>{te(item.attendanceStatus)}</Badge> : "-" },
           { key: "time", label: "Recorded at", render: (item) => formatDateTime(item.recordedAt) },
+          { key: "location", label: "Location", render: (item) => typeof item.latitude === "number" && typeof item.longitude === "number" ? <Stack gap={0}><Text size="sm">{formatDistance(item.distanceMeters)}</Text><Text size="xs" c="dimmed">{item.address ?? `${item.latitude.toFixed(5)}, ${item.longitude.toFixed(5)}`}</Text></Stack> : "-" },
           { key: "source", label: "Source", render: (item) => item.source },
           { key: "note", label: "Note", render: (item) => item.note ?? "-" },
           { key: "icon", label: "", render: () => <Tooltip label={tx("Attendance record")}><ActionIcon variant="subtle"><Clock size={16} /></ActionIcon></Tooltip> }

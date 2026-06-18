@@ -15,6 +15,7 @@ const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 const api_error_1 = require("../common/api-error");
 const audit_service_1 = require("../common/services/audit.service");
+const prisma_where_1 = require("../common/prisma-where");
 const utils_1 = require("../common/utils");
 const includeEmployees = {
     employee: { include: { department: true, position: true } },
@@ -29,6 +30,10 @@ let EmployeeManagersService = class EmployeeManagersService {
     }
     findAll() {
         return this.prisma.employeeManager.findMany({
+            where: {
+                employee: (0, prisma_where_1.currentEmployeeWhere)(),
+                manager: (0, prisma_where_1.currentEmployeeWhere)()
+            },
             include: includeEmployees,
             orderBy: { createdAt: "desc" }
         });
@@ -36,7 +41,11 @@ let EmployeeManagersService = class EmployeeManagersService {
     async findByEmployee(employeeId) {
         await this.ensureEmployee(employeeId);
         return this.prisma.employeeManager.findMany({
-            where: { employeeId },
+            where: {
+                employeeId,
+                employee: (0, prisma_where_1.currentEmployeeWhere)(),
+                manager: (0, prisma_where_1.currentEmployeeWhere)()
+            },
             include: includeEmployees,
             orderBy: { createdAt: "desc" }
         });
@@ -48,6 +57,8 @@ let EmployeeManagersService = class EmployeeManagersService {
             where: {
                 managerId,
                 isActive: true,
+                employee: (0, prisma_where_1.currentEmployeeWhere)(),
+                manager: (0, prisma_where_1.currentEmployeeWhere)(),
                 OR: [{ endDate: null }, { endDate: { gte: today } }]
             },
             include: includeEmployees,
@@ -128,6 +139,7 @@ let EmployeeManagersService = class EmployeeManagersService {
         return {
             employeeId,
             isActive: true,
+            manager: (0, prisma_where_1.currentEmployeeWhere)(),
             OR: [{ endDate: null }, { endDate: { gte: today } }]
         };
     }
@@ -158,7 +170,7 @@ let EmployeeManagersService = class EmployeeManagersService {
     }
     async ensureEmployee(id) {
         const employee = await this.prisma.employee.findFirst({
-            where: { id, deletedAt: null },
+            where: (0, prisma_where_1.currentEmployeeWhere)({ id }),
             select: { id: true }
         });
         if (!employee) {

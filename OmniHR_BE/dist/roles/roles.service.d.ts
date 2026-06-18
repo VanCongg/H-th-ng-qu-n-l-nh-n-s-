@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
@@ -8,7 +9,7 @@ export declare class RolesService {
     private readonly prisma;
     private readonly audit;
     constructor(prisma: PrismaService, audit: AuditService);
-    findAll(): import(".prisma/client").Prisma.PrismaPromise<({
+    findAll(): Prisma.PrismaPromise<({
         _count: {
             userRoles: number;
         };
@@ -21,8 +22,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -46,8 +47,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -71,8 +72,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -96,8 +97,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -121,8 +122,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -146,8 +147,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {
@@ -171,8 +172,8 @@ export declare class RolesService {
                 description: string | null;
             };
         } & {
-            roleId: number;
             assignedAt: Date;
+            roleId: number;
             permissionId: number;
         })[];
     } & {

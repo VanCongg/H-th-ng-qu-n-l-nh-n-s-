@@ -19,6 +19,7 @@ const current_user_decorator_1 = require("../common/decorators/current-user.deco
 const permissions_decorator_1 = require("../common/decorators/permissions.decorator");
 const request_context_decorator_1 = require("../common/decorators/request-context.decorator");
 const admin_attendance_dto_1 = require("./dto/admin-attendance.dto");
+const attendance_action_dto_1 = require("./dto/attendance-action.dto");
 const attendance_query_dto_1 = require("./dto/attendance-query.dto");
 const attendance_service_1 = require("./attendance.service");
 let AttendanceController = class AttendanceController {
@@ -26,11 +27,11 @@ let AttendanceController = class AttendanceController {
     constructor(attendanceService) {
         this.attendanceService = attendanceService;
     }
-    checkIn(user, context) {
-        return this.attendanceService.checkIn(user, context);
+    checkIn(dto, user, context) {
+        return this.attendanceService.checkIn(user, dto, context);
     }
-    checkOut(user, context) {
-        return this.attendanceService.checkOut(user, context);
+    checkOut(dto, user, context) {
+        return this.attendanceService.checkOut(user, dto, context);
     }
     findAll(query) {
         return this.attendanceService.findAll(query);
@@ -55,19 +56,21 @@ exports.AttendanceController = AttendanceController;
 __decorate([
     (0, permissions_decorator_1.Permissions)("ATTENDANCE_CHECK_IN"),
     (0, common_1.Post)("check-in"),
-    __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, request_context_decorator_1.ReqContext)()),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, request_context_decorator_1.ReqContext)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [attendance_action_dto_1.AttendanceActionDto, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "checkIn", null);
 __decorate([
     (0, permissions_decorator_1.Permissions)("ATTENDANCE_CHECK_OUT"),
     (0, common_1.Post)("check-out"),
-    __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, request_context_decorator_1.ReqContext)()),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, request_context_decorator_1.ReqContext)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:paramtypes", [attendance_action_dto_1.AttendanceActionDto, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "checkOut", null);
 __decorate([

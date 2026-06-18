@@ -5,62 +5,108 @@ import { PositionsService } from "./positions.service";
 export declare class PositionsController {
     private readonly positionsService;
     constructor(positionsService: PositionsService);
-    findAll(search?: string): import(".prisma/client").Prisma.PrismaPromise<({
+    findAll(search?: string, departmentId?: string): import(".prisma/client").Prisma.PrismaPromise<({
+        department: {
+            deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            managerId: number | null;
+            parentId: number | null;
+        } | null;
         _count: {
             employees: number;
         };
     } & {
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
-        level: number;
+        departmentId: number | null;
     })[]>;
     findOne(id: number): Promise<{
+        department: {
+            deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            managerId: number | null;
+            parentId: number | null;
+        } | null;
         _count: {
             employees: number;
         };
     } & {
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
-        level: number;
+        departmentId: number | null;
     }>;
     create(dto: CreatePositionDto, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
+        department: {
+            deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            managerId: number | null;
+            parentId: number | null;
+        } | null;
+    } & {
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
-        level: number;
+        departmentId: number | null;
     }>;
     update(id: number, dto: UpdatePositionDto, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
+        department: {
+            deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            managerId: number | null;
+            parentId: number | null;
+        } | null;
+    } & {
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
-        level: number;
+        departmentId: number | null;
     }>;
     remove(id: number, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
-        level: number;
+        departmentId: number | null;
     }>;
 }

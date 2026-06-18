@@ -5,9 +5,12 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  ValidateNested,
   MaxLength,
   MinLength
 } from "class-validator";
+import { Type } from "class-transformer";
+import { CreateUserEmployeeProfileDto } from "./user-employee-profile.dto";
 
 export class CreateUserDto {
   @IsString()
@@ -25,10 +28,19 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   mustChangePassword?: boolean;
 
   @IsOptional()
   @IsArray()
   @IsInt({ each: true })
   roleIds?: number[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateUserEmployeeProfileDto)
+  employeeProfile?: CreateUserEmployeeProfileDto;
 }

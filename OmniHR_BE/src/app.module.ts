@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import * as Joi from "joi";
+import { AiTaskSuggestionsModule } from "./ai-task-suggestions/ai-task-suggestions.module";
 import { AuditLogsModule } from "./audit-logs/audit-logs.module";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { AuthModule } from "./auth/auth.module";
@@ -14,13 +15,20 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { EmployeeManagersModule } from "./employee-managers/employee-managers.module";
+import { EmployeeSkillsModule } from "./employee-skills/employee-skills.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { ProjectsModule } from "./projects/projects.module";
 import { RolesModule } from "./roles/roles.module";
+import { SkillsModule } from "./skills/skills.module";
+import { TaskAssignmentsModule } from "./task-assignments/task-assignments.module";
+import { TaskWorkloadModule } from "./task-workload/task-workload.module";
+import { TasksModule } from "./tasks/tasks.module";
+import { TeamsModule } from "./teams/teams.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -65,7 +73,15 @@ import { UsersModule } from "./users/users.module";
     AttendanceModule,
     LeaveTypesModule,
     LeaveRequestsModule,
-    AuditLogsModule
+    AuditLogsModule,
+    ProjectsModule,
+    SkillsModule,
+    EmployeeSkillsModule,
+    TeamsModule,
+    TasksModule,
+    TaskAssignmentsModule,
+    TaskWorkloadModule,
+    AiTaskSuggestionsModule
   ],
   providers: [
     {

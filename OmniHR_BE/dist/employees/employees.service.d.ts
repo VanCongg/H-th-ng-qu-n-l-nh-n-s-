@@ -56,6 +56,8 @@ export declare class EmployeesService {
     private buildWhere;
     private ensureEmailAvailable;
     private ensureDepartmentAndPosition;
+    private rolesForPosition;
+    private syncManagerRoleForPosition;
     private safeEmployee;
     private saltRounds;
 }

@@ -1,5 +1,4 @@
 import {
-  ActionIcon,
   AppShell,
   Avatar,
   Burger,
@@ -14,7 +13,6 @@ import {
   Stack,
   Text,
   ThemeIcon,
-  Tooltip,
   UnstyledButton,
   useMantineColorScheme
 } from "@mantine/core";
@@ -22,24 +20,23 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   ChevronDown,
-  Home,
   Languages,
   LogOut,
   Moon,
   Settings,
-  Sparkles,
   Sun,
   UserRound
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { NavLink as RouterNavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../api/endpoints";
 import { getApiErrorMessage } from "../api/axios";
+import { BrandLogo } from "../components/BrandLogo";
 import { useTranslation } from "../i18n";
 import { useAuthStore } from "../store/auth";
 import type { RoleName } from "../api/types";
 import { usePreferencesStore, type AppLanguage } from "../store/preferences";
-import { adminEntry, type NavItem } from "./nav";
+import type { NavItem } from "./nav";
 
 type ShellLayoutProps = {
   mode: "app" | "admin";
@@ -48,7 +45,7 @@ type ShellLayoutProps = {
 };
 
 export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
-  const [opened, { toggle }] = useDisclosure();
+  const [opened, { toggle, close: closeNavbar }] = useDisclosure();
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
   const location = useLocation();
@@ -59,8 +56,6 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const { t } = useTranslation();
-  const canOpenAdmin = user?.roles.includes("ADMIN");
-  const AdminEntryIcon = adminEntry.icon;
   const selectedScheme = colorScheme === "dark" ? "dark" : "light";
 
   async function handleLogout() {
@@ -92,7 +87,7 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
         breakpoint: "md",
         collapsed: { mobile: !opened }
       }}
-      header={{ height: 64 }}
+      header={{ height: 76 }}
       padding="md"
       className="app-shell"
     >
@@ -101,12 +96,12 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
           <Group gap="sm" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
             <UnstyledButton className="brand-mark" onClick={() => navigate("/")}>
-              <Sparkles size={22} />
-              <Stack gap={0}>
-                <Text fw={850} lh={1}>
+              <BrandLogo className="brand-logo--shell" />
+              <Stack gap={2} className="brand-copy">
+                <Text fw={900} lh={1} className="brand-name">
                   OmniHR
                 </Text>
-                <Text size="xs" c="dimmed" lh={1.15}>
+                <Text size="xs" c="dimmed" lh={1.15} className="brand-subtitle">
                   {mode === "admin" ? t("adminWorkspace") : t("managerWorkspace")}
                 </Text>
               </Stack>
@@ -114,21 +109,6 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
           </Group>
 
           <Group gap="xs" wrap="nowrap" className="header-actions">
-            {mode === "admin" ? (
-              <Tooltip label={t("home")} withArrow>
-                <ActionIcon
-                  aria-label={t("home")}
-                  className="header-icon-button"
-                  radius="md"
-                  size={38}
-                  variant="light"
-                  onClick={() => navigate("/app/dashboard")}
-                >
-                  <Home size={18} />
-                </ActionIcon>
-              </Tooltip>
-            ) : null}
-
             <Menu width={320} position="bottom-end" radius="md" shadow="lg">
               <Menu.Target>
                 <UnstyledButton className="avatar-trigger">
@@ -171,18 +151,12 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
                 </Stack>
                 <Divider />
                 <Menu.Label>{t("account")}</Menu.Label>
-                <Menu.Item
-                  leftSection={<UserRound size={16} />}
-                  onClick={() => navigate("/app/profile")}
-                >
-                  {t("personalInformation")}
-                </Menu.Item>
-                {mode === "app" && canOpenAdmin ? (
+                {mode === "app" ? (
                   <Menu.Item
-                    leftSection={<AdminEntryIcon size={16} />}
-                    onClick={() => navigate(adminEntry.to)}
+                    leftSection={<UserRound size={16} />}
+                    onClick={() => navigate("/app/profile")}
                   >
-                    {t(adminEntry.labelKey)}
+                    {t("personalInformation")}
                   </Menu.Item>
                 ) : null}
                 <Menu.Item
@@ -211,12 +185,13 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
-                  component={RouterNavLink}
+                  component={RouterLink}
                   to={item.to}
                   label={t(item.labelKey)}
                   leftSection={<item.icon size={18} />}
                   active={location.pathname === item.to}
                   className="side-nav-link"
+                  onClick={closeNavbar}
                 />
               ))}
             </Stack>

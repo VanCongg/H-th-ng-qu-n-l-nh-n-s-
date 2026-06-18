@@ -18,6 +18,7 @@ class EmployeeQueryDto extends pagination_query_dto_1.PaginationQueryDto {
     departmentId;
     positionId;
     status;
+    careerLevel;
 }
 exports.EmployeeQueryDto = EmployeeQueryDto;
 __decorate([
@@ -37,4 +38,9 @@ __decorate([
     (0, class_validator_1.IsEnum)(client_1.EmployeeStatus),
     __metadata("design:type", String)
 ], EmployeeQueryDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.CareerLevel),
+    __metadata("design:type", String)
+], EmployeeQueryDto.prototype, "careerLevel", void 0);
 //# sourceMappingURL=employee-query.dto.js.map

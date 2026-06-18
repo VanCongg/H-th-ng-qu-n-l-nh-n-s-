@@ -17,6 +17,7 @@ import {
   AdminCreateAttendanceDto,
   AdminUpdateAttendanceDto
 } from "./dto/admin-attendance.dto";
+import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
 import { AttendanceService } from "./attendance.service";
 
@@ -29,19 +30,21 @@ export class AttendanceController {
   @Permissions("ATTENDANCE_CHECK_IN")
   @Post("check-in")
   checkIn(
+    @Body() dto: AttendanceActionDto,
     @CurrentUser() user: AuthUser,
     @ReqContext() context: RequestContext
   ) {
-    return this.attendanceService.checkIn(user, context);
+    return this.attendanceService.checkIn(user, dto, context);
   }
 
   @Permissions("ATTENDANCE_CHECK_OUT")
   @Post("check-out")
   checkOut(
+    @Body() dto: AttendanceActionDto,
     @CurrentUser() user: AuthUser,
     @ReqContext() context: RequestContext
   ) {
-    return this.attendanceService.checkOut(user, context);
+    return this.attendanceService.checkOut(user, dto, context);
   }
 
   @Permissions("ATTENDANCE_READ_ALL")

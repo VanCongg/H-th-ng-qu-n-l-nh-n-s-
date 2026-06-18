@@ -1,7 +1,9 @@
 import { Button, Center, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { ArrowLeft, ShieldAlert, Smartphone } from "lucide-react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "../../i18n";
+import { useAuthStore } from "../../store/auth";
 
 export function ForbiddenPage() {
   const { tx } = useTranslation();
@@ -30,6 +32,17 @@ export function ForbiddenPage() {
 export function MobileNoticePage() {
   const { tx } = useTranslation();
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+
+  useEffect(() => {
+    if (user?.roles.includes("ADMIN")) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+    if (user?.roles.includes("MANAGER")) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [navigate, user]);
 
   return (
     <Center mih="100vh" p="md">

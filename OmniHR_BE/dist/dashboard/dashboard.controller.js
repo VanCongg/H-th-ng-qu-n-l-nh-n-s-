@@ -47,7 +47,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "adminDashboard", null);
 __decorate([
-    (0, roles_decorator_1.Roles)("ADMIN", "MANAGER"),
+    (0, roles_decorator_1.Roles)("MANAGER"),
     (0, common_1.Get)("app/dashboard"),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),

@@ -6,112 +6,206 @@ export declare class DepartmentsController {
     private readonly departmentsService;
     constructor(departmentsService: DepartmentsService);
     findAll(search?: string): import(".prisma/client").Prisma.PrismaPromise<({
-        _count: {
-            employees: number;
-        };
-        parent: {
+        manager: ({
+            department: {
+                deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                code: string;
+                managerId: number | null;
+                parentId: number | null;
+            } | null;
+            position: {
+                deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                code: string;
+                departmentId: number | null;
+            } | null;
+        } & {
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
-            isActive: boolean;
             updatedAt: Date;
+            userId: number | null;
+            departmentId: number | null;
+            employeeCode: string;
+            fullName: string;
+            companyEmail: string;
+            avatarUrl: string | null;
+            personalEmail: string | null;
+            phone: string | null;
+            birthDate: Date;
+            hireDate: Date | null;
+            status: import(".prisma/client").$Enums.EmployeeStatus;
+            positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
+        }) | null;
+        _count: {
+            employees: number;
+            teams: number;
+        };
+        parent: {
             deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             code: string;
+            managerId: number | null;
             parentId: number | null;
         } | null;
     } & {
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     })[]>;
     tree(): Promise<({
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     } & {
         children: ({
-            id: number;
-            createdAt: Date;
-            isActive: boolean;
-            updatedAt: Date;
             deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             code: string;
+            managerId: number | null;
             parentId: number | null;
         } & any)[];
     })[]>;
     findOne(id: number): Promise<{
-        _count: {
-            employees: number;
-        };
-        parent: {
+        manager: ({
+            department: {
+                deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                code: string;
+                managerId: number | null;
+                parentId: number | null;
+            } | null;
+            position: {
+                deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                name: string;
+                code: string;
+                departmentId: number | null;
+            } | null;
+        } & {
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
-            isActive: boolean;
             updatedAt: Date;
+            userId: number | null;
+            departmentId: number | null;
+            employeeCode: string;
+            fullName: string;
+            companyEmail: string;
+            avatarUrl: string | null;
+            personalEmail: string | null;
+            phone: string | null;
+            birthDate: Date;
+            hireDate: Date | null;
+            status: import(".prisma/client").$Enums.EmployeeStatus;
+            positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
+        }) | null;
+        _count: {
+            employees: number;
+            teams: number;
+        };
+        parent: {
             deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             code: string;
+            managerId: number | null;
             parentId: number | null;
         } | null;
         children: {
-            id: number;
-            createdAt: Date;
-            isActive: boolean;
-            updatedAt: Date;
             deletedAt: Date | null;
+            id: number;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
             name: string;
             code: string;
+            managerId: number | null;
             parentId: number | null;
         }[];
     } & {
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     }>;
     create(dto: CreateDepartmentDto, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     }>;
     update(id: number, dto: UpdateDepartmentDto, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     }>;
     remove(id: number, user: AuthUser, context: RequestContext): Promise<{
-        id: number;
-        createdAt: Date;
-        isActive: boolean;
-        updatedAt: Date;
         deletedAt: Date | null;
+        id: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
         name: string;
         code: string;
+        managerId: number | null;
         parentId: number | null;
     }>;
 }

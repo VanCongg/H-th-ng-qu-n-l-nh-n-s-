@@ -9,46 +9,49 @@ export declare class LeaveRequestsController {
     create(dto: CreateLeaveRequestDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         leaveType: {
             id: number;
-            createdAt: Date;
             isActive: boolean;
+            createdAt: Date;
             updatedAt: Date;
             name: string;
             code: string;
@@ -79,46 +82,49 @@ export declare class LeaveRequestsController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             leaveType: {
                 id: number;
-                createdAt: Date;
                 isActive: boolean;
+                createdAt: Date;
                 updatedAt: Date;
                 name: string;
                 code: string;
@@ -155,46 +161,49 @@ export declare class LeaveRequestsController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             leaveType: {
                 id: number;
-                createdAt: Date;
                 isActive: boolean;
+                createdAt: Date;
                 updatedAt: Date;
                 name: string;
                 code: string;
@@ -231,46 +240,49 @@ export declare class LeaveRequestsController {
         items: ({
             employee: {
                 department: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
+                    managerId: number | null;
                     parentId: number | null;
                 } | null;
                 position: {
-                    id: number;
-                    createdAt: Date;
-                    isActive: boolean;
-                    updatedAt: Date;
                     deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
                     name: string;
                     code: string;
-                    level: number;
+                    departmentId: number | null;
                 } | null;
             } & {
-                userId: number | null;
+                deletedAt: Date | null;
                 id: number;
                 createdAt: Date;
                 updatedAt: Date;
-                deletedAt: Date | null;
+                userId: number | null;
                 departmentId: number | null;
                 employeeCode: string;
                 fullName: string;
                 companyEmail: string;
+                avatarUrl: string | null;
                 personalEmail: string | null;
                 phone: string | null;
                 birthDate: Date;
                 hireDate: Date | null;
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
             };
             leaveType: {
                 id: number;
-                createdAt: Date;
                 isActive: boolean;
+                createdAt: Date;
                 updatedAt: Date;
                 name: string;
                 code: string;
@@ -306,46 +318,49 @@ export declare class LeaveRequestsController {
     findOne(id: number, user: AuthUser): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         leaveType: {
             id: number;
-            createdAt: Date;
             isActive: boolean;
+            createdAt: Date;
             updatedAt: Date;
             name: string;
             code: string;
@@ -375,46 +390,49 @@ export declare class LeaveRequestsController {
     approve(id: number, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         leaveType: {
             id: number;
-            createdAt: Date;
             isActive: boolean;
+            createdAt: Date;
             updatedAt: Date;
             name: string;
             code: string;
@@ -444,46 +462,49 @@ export declare class LeaveRequestsController {
     reject(id: number, dto: RejectLeaveRequestDto, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         leaveType: {
             id: number;
-            createdAt: Date;
             isActive: boolean;
+            createdAt: Date;
             updatedAt: Date;
             name: string;
             code: string;
@@ -513,46 +534,49 @@ export declare class LeaveRequestsController {
     cancel(id: number, user: AuthUser, context: RequestContext): Promise<{
         employee: {
             department: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
+                managerId: number | null;
                 parentId: number | null;
             } | null;
             position: {
-                id: number;
-                createdAt: Date;
-                isActive: boolean;
-                updatedAt: Date;
                 deletedAt: Date | null;
+                id: number;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
                 name: string;
                 code: string;
-                level: number;
+                departmentId: number | null;
             } | null;
         } & {
-            userId: number | null;
+            deletedAt: Date | null;
             id: number;
             createdAt: Date;
             updatedAt: Date;
-            deletedAt: Date | null;
+            userId: number | null;
             departmentId: number | null;
             employeeCode: string;
             fullName: string;
             companyEmail: string;
+            avatarUrl: string | null;
             personalEmail: string | null;
             phone: string | null;
             birthDate: Date;
             hireDate: Date | null;
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
+            careerLevel: import(".prisma/client").$Enums.CareerLevel;
         };
         leaveType: {
             id: number;
-            createdAt: Date;
             isActive: boolean;
+            createdAt: Date;
             updatedAt: Date;
             name: string;
             code: string;

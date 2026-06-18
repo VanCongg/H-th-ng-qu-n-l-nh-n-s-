@@ -16,6 +16,10 @@ export class UpdateDepartmentDto {
   parentId?: number | null;
 
   @IsOptional()
+  @IsInt()
+  managerId?: number | null;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

@@ -17,6 +17,7 @@ const api_error_1 = require("../common/api-error");
 const audit_service_1 = require("../common/services/audit.service");
 const access_control_service_1 = require("../common/services/access-control.service");
 const utils_1 = require("../common/utils");
+const prisma_where_1 = require("../common/prisma-where");
 const leaveInclude = {
     employee: {
         include: {
@@ -216,7 +217,7 @@ let LeaveRequestsService = class LeaveRequestsService {
             status: query.status,
             employeeId: query.employeeId,
             leaveTypeId: query.leaveTypeId,
-            employee: query.departmentId ? { departmentId: query.departmentId } : undefined,
+            employee: (0, prisma_where_1.currentEmployeeWhere)(query.departmentId ? { departmentId: query.departmentId } : undefined),
             startDate: query.fromDate ? { gte: (0, utils_1.toDateOnly)(query.fromDate) } : undefined,
             endDate: query.toDate ? { lte: (0, utils_1.toDateOnly)(query.toDate) } : undefined
         };

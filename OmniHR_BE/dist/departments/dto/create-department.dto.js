@@ -15,6 +15,7 @@ class CreateDepartmentDto {
     code;
     name;
     parentId;
+    managerId;
     isActive;
 }
 exports.CreateDepartmentDto = CreateDepartmentDto;
@@ -33,6 +34,11 @@ __decorate([
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], CreateDepartmentDto.prototype, "parentId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], CreateDepartmentDto.prototype, "managerId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),

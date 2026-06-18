@@ -7,8 +7,11 @@ import type {
   Department,
   Employee,
   EmployeeCreateResult,
+  EmployeeSkill,
   EmployeeManager,
   EmployeePasswordResetResult,
+  EmployeeWorkload,
+  AiTaskSuggestion,
   LeaveRequest,
   LeaveType,
   LoginResponse,
@@ -16,7 +19,12 @@ import type {
   Paginated,
   Permission,
   Position,
+  Project,
   Role,
+  Skill,
+  Task,
+  TaskAssignment,
+  Team,
   UserSummary,
   AuditLog
 } from "./types";
@@ -80,9 +88,105 @@ export const departmentsApi = {
   remove: (id: number) => unwrap<Department>(api.delete(`/departments/${id}`))
 };
 
+export const teamsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<Team>>(api.get("/teams", { params })),
+  get: (id: number) => unwrap<Team>(api.get(`/teams/${id}`)),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<Team>(api.post("/teams", payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Team>(api.patch(`/teams/${id}`, payload)),
+  remove: (id: number) => unwrap<Team>(api.delete(`/teams/${id}`)),
+  addMember: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Team>(api.post(`/teams/${id}/members`, payload)),
+  updateMember: (id: number, memberId: number, payload: Record<string, unknown>) =>
+    unwrap<Team>(api.patch(`/teams/${id}/members/${memberId}`, payload)),
+  removeMember: (id: number, memberId: number) =>
+    unwrap<Team>(api.delete(`/teams/${id}/members/${memberId}`))
+};
+
+export const projectsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<Project>>(api.get("/projects", { params })),
+  get: (id: number) => unwrap<Project>(api.get(`/projects/${id}`)),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<Project>(api.post("/projects", payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Project>(api.patch(`/projects/${id}`, payload)),
+  remove: (id: number) => unwrap<Project>(api.delete(`/projects/${id}`))
+};
+
+export const skillsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<Skill>>(api.get("/skills", { params })),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<Skill>(api.post("/skills", payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Skill>(api.patch(`/skills/${id}`, payload)),
+  remove: (id: number) => unwrap<Skill>(api.delete(`/skills/${id}`))
+};
+
+export const employeeSkillsApi = {
+  list: (employeeId: number) =>
+    unwrap<EmployeeSkill[]>(api.get(`/employees/${employeeId}/skills`)),
+  create: (employeeId: number, payload: Record<string, unknown>) =>
+    unwrap<EmployeeSkill>(api.post(`/employees/${employeeId}/skills`, payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<EmployeeSkill>(api.patch(`/employee-skills/${id}`, payload)),
+  remove: (id: number) => unwrap<EmployeeSkill>(api.delete(`/employee-skills/${id}`))
+};
+
+export const tasksApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<Task>>(api.get("/tasks", { params })),
+  team: (params?: QueryParams) =>
+    unwrap<Paginated<Task>>(api.get("/tasks/team", { params })),
+  me: (params?: QueryParams) =>
+    unwrap<Paginated<Task>>(api.get("/tasks/me", { params })),
+  get: (id: number) => unwrap<Task>(api.get(`/tasks/${id}`)),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<Task>(api.post("/tasks", payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Task>(api.patch(`/tasks/${id}`, payload)),
+  remove: (id: number) => unwrap<Task>(api.delete(`/tasks/${id}`)),
+  assign: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Task>(api.post(`/tasks/${id}/assign`, payload)),
+  updateStatus: (id: number, payload: Record<string, unknown>) =>
+    unwrap<Task>(api.patch(`/tasks/${id}/status`, payload))
+};
+
+export const taskAssignmentsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<TaskAssignment>>(api.get("/task-assignments", { params }))
+};
+
+export const taskWorkloadApi = {
+  list: (params?: QueryParams) =>
+    unwrap<EmployeeWorkload[]>(api.get("/task-workload", { params }))
+};
+
+export const aiTaskSuggestionsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<AiTaskSuggestion>>(
+      api.get("/ai-task-suggestions", { params })
+    ),
+  byTask: (taskId: number) =>
+    unwrap<AiTaskSuggestion[]>(api.get(`/tasks/${taskId}/ai-suggestions`)),
+  generate: (taskId: number, payload: Record<string, unknown>) =>
+    unwrap<AiTaskSuggestion>(
+      api.post(`/tasks/${taskId}/ai-suggestions`, payload)
+    ),
+  select: (id: number, payload: Record<string, unknown>) =>
+    unwrap<AiTaskSuggestion>(api.post(`/ai-task-suggestions/${id}/select`, payload))
+};
+
 export const positionsApi = {
-  list: (search?: string) =>
-    unwrap<Position[]>(api.get("/positions", { params: { search } })),
+  list: (params?: QueryParams | string) =>
+    unwrap<Position[]>(
+      api.get("/positions", {
+        params: typeof params === "string" ? { search: params } : params
+      })
+    ),
   create: (payload: Record<string, unknown>) =>
     unwrap<Position>(api.post("/positions", payload)),
   update: (id: number, payload: Record<string, unknown>) =>
@@ -105,8 +209,10 @@ export const attendanceApi = {
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/self", { params })),
   team: (params?: QueryParams) =>
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/team", { params })),
-  checkIn: () => unwrap<AttendanceRecord>(api.post("/attendance/check-in")),
-  checkOut: () => unwrap<AttendanceRecord>(api.post("/attendance/check-out")),
+  checkIn: (payload?: Record<string, unknown>) =>
+    unwrap<AttendanceRecord>(api.post("/attendance/check-in", payload ?? {})),
+  checkOut: (payload?: Record<string, unknown>) =>
+    unwrap<AttendanceRecord>(api.post("/attendance/check-out", payload ?? {})),
   adminCreate: (payload: Record<string, unknown>) =>
     unwrap<AttendanceRecord>(api.post("/attendance/admin", payload)),
   adminUpdate: (id: number, payload: Record<string, unknown>) =>

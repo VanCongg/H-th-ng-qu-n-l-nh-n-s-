@@ -40,21 +40,31 @@ export type Department = {
   code: string;
   name: string;
   parentId?: number | null;
+  managerId?: number | null;
+  manager?: Employee | null;
   isActive: boolean;
   children?: Department[];
-  _count?: { employees: number };
+  _count?: { employees: number; teams?: number };
 };
 
 export type Position = {
   id: number;
   code: string;
   name: string;
-  level: number;
+  departmentId?: number | null;
+  department?: Department | null;
   isActive: boolean;
   _count?: { employees: number };
 };
 
 export type EmployeeStatus = "ACTIVE" | "INACTIVE" | "TERMINATED";
+export type CareerLevel =
+  | "INTERN"
+  | "FRESHER"
+  | "JUNIOR"
+  | "MIDDLE"
+  | "SENIOR"
+  | "LEAD";
 
 export type UserSummary = {
   id: number;
@@ -62,6 +72,7 @@ export type UserSummary = {
   email: string;
   isActive: boolean;
   mustChangePassword: boolean;
+  employee?: Employee | null;
   userRoles?: Array<{ role: { id: number; name: RoleName } }>;
 };
 
@@ -70,16 +81,19 @@ export type Employee = {
   employeeCode: string;
   fullName: string;
   companyEmail: string;
+  avatarUrl?: string | null;
   personalEmail?: string | null;
   phone?: string | null;
   birthDate: string;
   hireDate?: string | null;
   status: EmployeeStatus;
+  careerLevel: CareerLevel;
   department?: Department | null;
   position?: Position | null;
   departmentId?: number | null;
   positionId?: number | null;
   user?: UserSummary | null;
+  employeeSkills?: EmployeeSkill[];
 };
 
 export type EmployeeCreateResult = {
@@ -130,6 +144,12 @@ export type LeaveRequest = {
 };
 
 export type AttendanceRecordType = "CHECK_IN" | "CHECK_OUT" | "ADJUSTMENT";
+export type AttendanceShift = "MORNING" | "AFTERNOON";
+export type AttendanceStatus =
+  | "ON_TIME"
+  | "LATE"
+  | "EARLY_OUT"
+  | "MANUAL_ADJUSTMENT";
 
 export type AttendanceRecord = {
   id: number;
@@ -138,6 +158,12 @@ export type AttendanceRecord = {
   workDate: string;
   recordType: AttendanceRecordType;
   recordedAt: string;
+  shift?: AttendanceShift | null;
+  attendanceStatus?: AttendanceStatus | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string | null;
+  distanceMeters?: number | null;
   source: string;
   note?: string | null;
   isAdjustment: boolean;
@@ -168,6 +194,166 @@ export type EmployeeManager = {
   startDate: string;
   endDate?: string | null;
   isActive: boolean;
+};
+
+export type TeamMemberRole = "LEAD" | "MEMBER";
+
+export type TeamMember = {
+  id: number;
+  teamId: number;
+  employeeId: number;
+  employee: Employee;
+  role: TeamMemberRole;
+  joinedAt: string;
+  leftAt?: string | null;
+  isActive: boolean;
+};
+
+export type Team = {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  departmentId: number;
+  department: Department;
+  leadId?: number | null;
+  lead?: Employee | null;
+  members?: TeamMember[];
+  isActive: boolean;
+  _count?: { members: number; projects: number; tasks: number };
+};
+
+export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
+export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED";
+export type SkillProficiency = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+export type TaskAssignmentType = "MANUAL" | "AI_SUGGESTED" | "REASSIGNED";
+export type AiTaskSuggestionStatus = "GENERATED" | "SELECTED" | "EXPIRED" | "CANCELLED";
+
+export type Project = {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  status: ProjectStatus;
+  departmentId?: number | null;
+  department?: Department | null;
+  teamId?: number | null;
+  team?: Team | null;
+  managerId?: number | null;
+  manager?: Employee | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  _count?: { tasks: number };
+};
+
+export type Skill = {
+  id: number;
+  code: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+  isActive: boolean;
+  positionSkills?: Array<{ positionId: number; skillId: number; position: Position }>;
+};
+
+export type EmployeeSkill = {
+  id: number;
+  employeeId: number;
+  employee?: Employee;
+  skillId: number;
+  skill: Skill;
+  yearsExperience?: number | string | null;
+  proficiency?: SkillProficiency | null;
+  lastUsedAt?: string | null;
+  note?: string | null;
+};
+
+export type TaskRequiredSkill = {
+  id: number;
+  skillId: number;
+  skill: Skill;
+  requiredProficiency?: SkillProficiency | null;
+  weight: number | string;
+  isRequired: boolean;
+};
+
+export type Task = {
+  id: number;
+  projectId?: number | null;
+  project?: Project | null;
+  departmentId?: number | null;
+  department?: Department | null;
+  teamId?: number | null;
+  team?: Team | null;
+  title: string;
+  description?: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  assigneeId?: number | null;
+  assignee?: Employee | null;
+  startDate?: string | null;
+  dueDate?: string | null;
+  estimatedHours?: number | string | null;
+  actualHours?: number | string | null;
+  completedAt?: string | null;
+  requiredSkills?: TaskRequiredSkill[];
+  _count?: { assignments: number; aiTaskSuggestions: number };
+};
+
+export type TaskAssignment = {
+  id: number;
+  taskId: number;
+  task: Task;
+  assigneeId: number;
+  assignee: Employee;
+  assignedByUser?: UserSummary;
+  assignmentType: TaskAssignmentType;
+  note?: string | null;
+  assignedAt: string;
+};
+
+export type WorkloadSummary = {
+  employeeId: number;
+  activeTaskCount: number;
+  totalEstimatedHours: number;
+  overdueTaskCount: number;
+  capacityHoursPerWeek: number;
+  availableHours: number;
+  workloadScore: number;
+};
+
+export type EmployeeWorkload = {
+  employee: Employee;
+  workload: WorkloadSummary;
+};
+
+export type AiTaskSuggestionItem = {
+  id: number;
+  suggestionItemId: number;
+  employeeId: number;
+  employee: Employee;
+  fullName: string;
+  rank: number;
+  score: number;
+  skillScore: number;
+  workloadScore: number;
+  availabilityScore: number;
+  performanceScore?: number | null;
+  reason?: string | null;
+  selected: boolean;
+};
+
+export type AiTaskSuggestion = {
+  id: number;
+  suggestionId: number;
+  taskId: number;
+  task: Task;
+  requestedByUser?: UserSummary;
+  algorithmVersion: string;
+  status: AiTaskSuggestionStatus;
+  createdAt: string;
+  items: AiTaskSuggestionItem[];
 };
 
 export type AuditLog = {

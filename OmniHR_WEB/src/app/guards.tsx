@@ -46,7 +46,7 @@ export function RequireRole({ roles }: { roles: RoleName[] }) {
   }
 
   if (!user.roles.some((role) => roles.includes(role))) {
-    if (user.roles.includes("EMPLOYEE")) {
+    if (isEmployeeOnly(user.roles)) {
       return <Navigate to="/employee-web-notice" replace />;
     }
     return <Navigate to="/forbidden" replace />;
@@ -63,7 +63,7 @@ export function RootRedirect() {
   }
 
   if (user.roles.includes("ADMIN")) {
-    return <Navigate to="/app/dashboard" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   if (user.roles.includes("MANAGER")) {
@@ -71,4 +71,8 @@ export function RootRedirect() {
   }
 
   return <Navigate to="/employee-web-notice" replace />;
+}
+
+function isEmployeeOnly(roles: RoleName[]) {
+  return roles.includes("EMPLOYEE") && !roles.includes("ADMIN") && !roles.includes("MANAGER");
 }

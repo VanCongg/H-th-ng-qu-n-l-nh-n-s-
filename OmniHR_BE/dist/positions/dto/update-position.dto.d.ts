@@ -1,6 +1,6 @@
 export declare class UpdatePositionDto {
     code?: string;
     name?: string;
-    level?: number;
+    departmentId?: number | null;
     isActive?: boolean;
 }

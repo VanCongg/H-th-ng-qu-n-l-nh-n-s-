@@ -14,6 +14,10 @@ export class CreateDepartmentDto {
   parentId?: number;
 
   @IsOptional()
+  @IsInt()
+  managerId?: number;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

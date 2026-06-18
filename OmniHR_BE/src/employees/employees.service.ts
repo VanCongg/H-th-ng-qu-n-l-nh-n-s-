@@ -1,12 +1,14 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EmployeeStatus, Prisma } from "@prisma/client";
+import { CareerLevel, EmployeeStatus, Position, Prisma } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuthUser, RequestContext } from "../common/types";
+import { currentEmployeeWhere } from "../common/prisma-where";
+import { isManagerPosition } from "../common/position-role";
 import {
   formatDateDdMmYyyy,
   omitSensitiveUser,
@@ -21,6 +23,10 @@ import { UpdateSelfEmployeeDto } from "./dto/update-self-employee.dto";
 const employeeInclude = {
   department: true,
   position: true,
+  employeeSkills: {
+    include: { skill: true },
+    orderBy: [{ skill: { code: "asc" } }]
+  },
   user: {
     include: {
       userRoles: { include: { role: true } }
@@ -88,7 +94,7 @@ export class EmployeesService {
     }
 
     const employee = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       include: employeeInclude
     });
     if (!employee) {
@@ -121,17 +127,15 @@ export class EmployeesService {
   ) {
     const companyEmail = dto.companyEmail.toLowerCase();
     await this.ensureEmailAvailable(companyEmail);
-    await this.ensureDepartmentAndPosition(dto.departmentId, dto.positionId);
+    const references = await this.ensureDepartmentAndPosition(
+      dto.departmentId,
+      dto.positionId
+    );
 
     const birthDate = toDateOnly(dto.birthDate);
     const defaultPassword = formatDateDdMmYyyy(birthDate);
     const passwordHash = await bcrypt.hash(defaultPassword, this.saltRounds());
-    const employeeRole = await this.prisma.role.findUnique({
-      where: { name: "EMPLOYEE" }
-    });
-    if (!employeeRole) {
-      throw new ApiError(HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
-    }
+    const roles = await this.rolesForPosition(references.position);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -141,10 +145,10 @@ export class EmployeesService {
           passwordHash,
           mustChangePassword: true,
           userRoles: {
-            create: {
-              roleId: employeeRole.id,
+            create: roles.map((role) => ({
+              roleId: role.id,
               assignedBy: actor.id
-            }
+            }))
           }
         }
       });
@@ -154,6 +158,7 @@ export class EmployeesService {
           employeeCode: dto.employeeCode,
           fullName: dto.fullName,
           companyEmail,
+          avatarUrl: dto.avatarUrl,
           personalEmail: dto.personalEmail,
           phone: dto.phone,
           birthDate,
@@ -161,6 +166,7 @@ export class EmployeesService {
           status: dto.status ?? EmployeeStatus.ACTIVE,
           departmentId: dto.departmentId,
           positionId: dto.positionId,
+          careerLevel: dto.careerLevel ?? CareerLevel.FRESHER,
           userId: user.id
         },
         include: employeeInclude
@@ -210,7 +216,7 @@ export class EmployeesService {
     context?: RequestContext
   ) {
     const oldValue = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       include: employeeInclude
     });
     if (!oldValue) {
@@ -221,27 +227,35 @@ export class EmployeesService {
       );
     }
 
-    await this.ensureDepartmentAndPosition(dto.departmentId, dto.positionId);
+    const effectiveDepartmentId =
+      dto.departmentId === undefined ? oldValue.departmentId : dto.departmentId;
+    const effectivePositionId =
+      dto.positionId === undefined ? oldValue.positionId : dto.positionId;
+    const references = await this.ensureDepartmentAndPosition(
+      effectiveDepartmentId,
+      effectivePositionId
+    );
     if (dto.companyEmail && dto.companyEmail.toLowerCase() !== oldValue.companyEmail) {
       await this.ensureEmailAvailable(dto.companyEmail.toLowerCase(), id, oldValue.userId);
     }
 
     const employee = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.employee.update({
+      await tx.employee.update({
         where: { id },
         data: {
           employeeCode: dto.employeeCode,
           fullName: dto.fullName,
           companyEmail: dto.companyEmail?.toLowerCase(),
+          avatarUrl: dto.avatarUrl,
           personalEmail: dto.personalEmail,
           phone: dto.phone,
           birthDate: dto.birthDate ? toDateOnly(dto.birthDate) : undefined,
           hireDate: dto.hireDate ? toDateOnly(dto.hireDate) : undefined,
           status: dto.status,
           departmentId: dto.departmentId,
-          positionId: dto.positionId
-        },
-        include: employeeInclude
+          positionId: dto.positionId,
+          careerLevel: dto.careerLevel
+        }
       });
 
       if (dto.companyEmail && oldValue.userId) {
@@ -254,7 +268,19 @@ export class EmployeesService {
         });
       }
 
-      return updated;
+      if (dto.positionId !== undefined && oldValue.userId) {
+        await this.syncManagerRoleForPosition(
+          tx,
+          oldValue.userId,
+          references.position,
+          actor.id
+        );
+      }
+
+      return tx.employee.findUniqueOrThrow({
+        where: { id },
+        include: employeeInclude
+      });
     });
 
     await this.audit.log({
@@ -286,6 +312,7 @@ export class EmployeesService {
     const employee = await this.prisma.employee.update({
       where: { id: user.employeeId },
       data: {
+        avatarUrl: dto.avatarUrl,
         personalEmail: dto.personalEmail,
         phone: dto.phone
       },
@@ -332,11 +359,23 @@ export class EmployeesService {
           where: { id: oldValue.userId },
           data: {
             isActive: false,
+            deletedAt: deleted.deletedAt,
             refreshTokenHash: null,
             refreshTokenVersion: { increment: 1 }
           }
         });
       }
+
+      await tx.employeeManager.updateMany({
+        where: {
+          isActive: true,
+          OR: [{ employeeId: id }, { managerId: id }]
+        },
+        data: {
+          isActive: false,
+          endDate: toDateOnly(deleted.deletedAt ?? new Date())
+        }
+      });
 
       return deleted;
     });
@@ -355,7 +394,7 @@ export class EmployeesService {
 
   async resetPassword(id: number, actor: AuthUser, context?: RequestContext) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       include: { user: true }
     });
     if (!employee || !employee.user) {
@@ -402,7 +441,7 @@ export class EmployeesService {
     context?: RequestContext
   ) {
     const employee = await this.prisma.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: currentEmployeeWhere({ id }),
       include: { user: true }
     });
     if (!employee?.user) {
@@ -436,19 +475,24 @@ export class EmployeesService {
 
   private buildWhere(query: EmployeeQueryDto): Prisma.EmployeeWhereInput {
     return {
-      deletedAt: null,
+      AND: [
+        currentEmployeeWhere(),
+        ...(query.search
+          ? [
+              {
+                OR: [
+                  { fullName: { contains: query.search, mode: "insensitive" } },
+                  { employeeCode: { contains: query.search, mode: "insensitive" } },
+                  { companyEmail: { contains: query.search, mode: "insensitive" } }
+                ]
+              } satisfies Prisma.EmployeeWhereInput
+            ]
+          : [])
+      ],
       departmentId: query.departmentId,
       positionId: query.positionId,
       status: query.status,
-      ...(query.search
-        ? {
-            OR: [
-              { fullName: { contains: query.search, mode: "insensitive" } },
-              { employeeCode: { contains: query.search, mode: "insensitive" } },
-              { companyEmail: { contains: query.search, mode: "insensitive" } }
-            ]
-          }
-        : {})
+      careerLevel: query.careerLevel
     };
   }
 
@@ -485,6 +529,11 @@ export class EmployeesService {
     departmentId?: number | null,
     positionId?: number | null
   ) {
+    let position:
+      | Pick<Position, "id" | "code" | "name" | "departmentId">
+      | null
+      | undefined;
+
     if (departmentId) {
       const department = await this.prisma.department.findFirst({
         where: { id: departmentId, deletedAt: null },
@@ -500,9 +549,9 @@ export class EmployeesService {
     }
 
     if (positionId) {
-      const position = await this.prisma.position.findFirst({
+      position = await this.prisma.position.findFirst({
         where: { id: positionId, deletedAt: null },
-        select: { id: true }
+        select: { id: true, code: true, name: true, departmentId: true }
       });
       if (!position) {
         throw new ApiError(
@@ -511,7 +560,69 @@ export class EmployeesService {
           "POSITION_NOT_FOUND"
         );
       }
+      if (!departmentId) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          "Department is required when selecting a position",
+          "VALIDATION_ERROR"
+        );
+      }
+      if (position.departmentId && position.departmentId !== departmentId) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          "Position does not belong to selected department",
+          "VALIDATION_ERROR"
+        );
+      }
+    } else if (positionId === null) {
+      position = null;
     }
+
+    return { position };
+  }
+
+  private async rolesForPosition(position?: Pick<Position, "code" | "name"> | null) {
+    const roleNames = isManagerPosition(position)
+      ? ["EMPLOYEE", "MANAGER"]
+      : ["EMPLOYEE"];
+    const roles = await this.prisma.role.findMany({
+      where: { name: { in: roleNames } },
+      select: { id: true, name: true }
+    });
+
+    if (roles.length !== roleNames.length) {
+      throw new ApiError(HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
+    }
+
+    return roles;
+  }
+
+  private async syncManagerRoleForPosition(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    position: Pick<Position, "code" | "name"> | null | undefined,
+    actorId: number
+  ) {
+    const managerRole = await tx.role.findUnique({
+      where: { name: "MANAGER" },
+      select: { id: true }
+    });
+    if (!managerRole) {
+      throw new ApiError(HttpStatus.NOT_FOUND, "Role not found", "ROLE_NOT_FOUND");
+    }
+
+    if (isManagerPosition(position)) {
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: managerRole.id } },
+        create: { userId, roleId: managerRole.id, assignedBy: actorId },
+        update: {}
+      });
+      return;
+    }
+
+    await tx.userRole.deleteMany({
+      where: { userId, roleId: managerRole.id }
+    });
   }
 
   private safeEmployee(employee: unknown) {

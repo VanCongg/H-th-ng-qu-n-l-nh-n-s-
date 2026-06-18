@@ -37,11 +37,15 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
   const [opened, setOpened] = useState(false);
   const [rejecting, setRejecting] = useState<LeaveRequest | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const hasEmployeeProfile = useAuthStore((state) => Boolean(state.user?.employeeId));
 
   const query = useQuery({
-    queryKey: ["leave-requests", scope, status],
-    queryFn: () => scope === "team" ? leaveRequestsApi.team({ status, limit: 50 }) : leaveRequestsApi.list({ status, limit: 50 })
+    queryKey: ["leave-requests", scope, status, page],
+    queryFn: () =>
+      scope === "team"
+        ? leaveRequestsApi.team({ status, page, limit: 20 })
+        : leaveRequestsApi.list({ status, page, limit: 20 })
   });
   const leaveTypesQuery = useQuery({ queryKey: ["leave-types"], queryFn: leaveTypesApi.list });
 
@@ -96,7 +100,16 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
         actions={hasEmployeeProfile ? <Button leftSection={<Plus size={16} />} onClick={() => setOpened(true)}>{tx("New leave request")}</Button> : null}
       />
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <Select label={tx("Status")} data={["PENDING", "APPROVED", "REJECTED", "CANCELLED"].map((value) => ({ value, label: te(value) }))} clearable value={status} onChange={setStatus} />
+        <Select
+          label={tx("Status")}
+          data={["PENDING", "APPROVED", "REJECTED", "CANCELLED"].map((value) => ({ value, label: te(value) }))}
+          clearable
+          value={status}
+          onChange={(value) => {
+            setStatus(value);
+            setPage(1);
+          }}
+        />
       </Paper>
       <DataTable<LeaveRequest>
         data={query.data?.items ?? []}
@@ -105,6 +118,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
         total={query.data?.meta.total}
         limit={query.data?.meta.limit}
         page={query.data?.meta.page}
+        onPageChange={setPage}
         columns={[
           { key: "employee", label: "Employee", render: (item) => <Stack gap={0}><Text fw={700}>{item.employee.fullName}</Text><Text size="xs" c="dimmed">{item.employee.employeeCode}</Text></Stack> },
           { key: "type", label: "Type", render: (item) => item.leaveType.name },

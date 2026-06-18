@@ -50,7 +50,6 @@ const bcrypt = __importStar(require("bcrypt"));
 const prisma_service_1 = require("../prisma/prisma.service");
 const api_error_1 = require("../common/api-error");
 const audit_service_1 = require("../common/services/audit.service");
-const utils_1 = require("../common/utils");
 let AuthService = class AuthService {
     prisma;
     jwt;
@@ -63,14 +62,20 @@ let AuthService = class AuthService {
         this.audit = audit;
     }
     async login(dto, context) {
+        const usernameOrEmail = dto.usernameOrEmail.trim();
         const user = await this.prisma.user.findFirst({
             where: {
-                OR: [{ username: dto.usernameOrEmail }, { email: dto.usernameOrEmail }],
-                deletedAt: null
+                OR: [
+                    { username: { equals: usernameOrEmail, mode: "insensitive" } },
+                    { email: { equals: usernameOrEmail, mode: "insensitive" } }
+                ]
             }
         });
-        if (!user || !user.isActive) {
-            throw new api_error_1.ApiError(common_1.HttpStatus.UNAUTHORIZED, "Invalid credentials", user ? "USER_INACTIVE" : "INVALID_CREDENTIALS");
+        if (!user) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.UNAUTHORIZED, "Invalid credentials", "INVALID_CREDENTIALS");
+        }
+        if (!user.isActive || user.deletedAt) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.UNAUTHORIZED, "Account is inactive or deleted", "USER_INACTIVE");
         }
         const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
         if (!isPasswordValid) {
@@ -162,21 +167,11 @@ let AuthService = class AuthService {
         return { message: "Logged out" };
     }
     async me(user) {
-        const dbUser = await this.prisma.user.findUnique({
-            where: { id: user.id },
-            include: {
-                employee: {
-                    include: {
-                        department: true,
-                        position: true
-                    }
-                },
-                userRoles: {
-                    include: { role: true }
-                }
-            }
-        });
-        return dbUser ? (0, utils_1.omitSensitiveUser)(dbUser) : user;
+        const authUser = await this.hydrateAuthUser(user.id);
+        if (!authUser) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.UNAUTHORIZED, "Unauthorized", "UNAUTHORIZED");
+        }
+        return authUser;
     }
     async changePassword(user, dto) {
         const dbUser = await this.prisma.user.findUnique({ where: { id: user.id } });
@@ -203,7 +198,7 @@ let AuthService = class AuthService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
-                employee: { select: { id: true } },
+                employee: { select: { id: true, deletedAt: true } },
                 userRoles: {
                     include: {
                         role: {
@@ -228,7 +223,7 @@ let AuthService = class AuthService {
             email: user.email,
             roles,
             permissions,
-            employeeId: user.employee?.id ?? null,
+            employeeId: user.employee && !user.employee.deletedAt ? user.employee.id : null,
             mustChangePassword: user.mustChangePassword
         };
     }

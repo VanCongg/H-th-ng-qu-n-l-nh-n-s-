@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/services/audit.service";
 import { ApiError } from "../common/api-error";
 import { AuthUser, RequestContext } from "../common/types";
+import { currentEmployeeWhere } from "../common/prisma-where";
 import { CreatePositionDto } from "./dto/create-position.dto";
 import { UpdatePositionDto } from "./dto/update-position.dto";
 
@@ -14,9 +15,10 @@ export class PositionsService {
     private readonly audit: AuditService
   ) {}
 
-  findAll(search?: string) {
+  findAll(search?: string, departmentId?: number) {
     const where: Prisma.PositionWhereInput = {
       deletedAt: null,
+      departmentId,
       ...(search
         ? {
             OR: [
@@ -29,15 +31,21 @@ export class PositionsService {
 
     return this.prisma.position.findMany({
       where,
-      include: { _count: { select: { employees: true } } },
-      orderBy: [{ level: "asc" }, { name: "asc" }]
+      include: {
+        department: true,
+        _count: { select: { employees: { where: currentEmployeeWhere() } } }
+      },
+      orderBy: [{ department: { name: "asc" } }, { name: "asc" }]
     });
   }
 
   async findOne(id: number) {
     const position = await this.prisma.position.findFirst({
       where: { id, deletedAt: null },
-      include: { _count: { select: { employees: true } } }
+      include: {
+        department: true,
+        _count: { select: { employees: { where: currentEmployeeWhere() } } }
+      }
     });
     if (!position) {
       throw new ApiError(
@@ -50,13 +58,15 @@ export class PositionsService {
   }
 
   async create(dto: CreatePositionDto, actor: AuthUser, context?: RequestContext) {
+    await this.ensureDepartment(dto.departmentId);
     const position = await this.prisma.position.create({
       data: {
         code: dto.code,
         name: dto.name,
-        level: dto.level ?? 1,
+        departmentId: dto.departmentId,
         isActive: dto.isActive ?? true
-      }
+      },
+      include: { department: true }
     });
 
     await this.audit.log({
@@ -78,14 +88,16 @@ export class PositionsService {
     context?: RequestContext
   ) {
     const oldValue = await this.findOne(id);
+    await this.ensureDepartment(dto.departmentId);
     const position = await this.prisma.position.update({
       where: { id },
       data: {
         code: dto.code,
         name: dto.name,
-        level: dto.level,
+        departmentId: dto.departmentId,
         isActive: dto.isActive
-      }
+      },
+      include: { department: true }
     });
 
     await this.audit.log({
@@ -118,5 +130,23 @@ export class PositionsService {
     });
 
     return position;
+  }
+
+  private async ensureDepartment(departmentId?: number | null) {
+    if (!departmentId) {
+      return;
+    }
+
+    const department = await this.prisma.department.findFirst({
+      where: { id: departmentId, deletedAt: null },
+      select: { id: true }
+    });
+    if (!department) {
+      throw new ApiError(
+        HttpStatus.NOT_FOUND,
+        "Department not found",
+        "DEPARTMENT_NOT_FOUND"
+      );
+    }
   }
 }

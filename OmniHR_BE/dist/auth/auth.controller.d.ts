@@ -21,7 +21,7 @@ export declare class AuthController {
     logout(user: AuthUser, context: RequestContext): Promise<{
         message: string;
     }>;
-    me(user: AuthUser): Promise<Record<string, unknown> | AuthUser>;
+    me(user: AuthUser): Promise<AuthUser>;
     changePassword(user: AuthUser, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;
