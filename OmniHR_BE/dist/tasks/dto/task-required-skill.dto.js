@@ -16,8 +16,7 @@ const client_1 = require("@prisma/client");
 class TaskRequiredSkillDto {
     skillId;
     requiredProficiency;
-    weight;
-    isRequired;
+    importance;
 }
 exports.TaskRequiredSkillDto = TaskRequiredSkillDto;
 __decorate([
@@ -26,20 +25,11 @@ __decorate([
     __metadata("design:type", Number)
 ], TaskRequiredSkillDto.prototype, "skillId", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SkillProficiency),
     __metadata("design:type", String)
 ], TaskRequiredSkillDto.prototype, "requiredProficiency", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_transformer_1.Type)(() => Number),
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(0),
-    __metadata("design:type", Number)
-], TaskRequiredSkillDto.prototype, "weight", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsBoolean)(),
-    __metadata("design:type", Boolean)
-], TaskRequiredSkillDto.prototype, "isRequired", void 0);
+    (0, class_validator_1.IsEnum)(client_1.TaskSkillImportance),
+    __metadata("design:type", String)
+], TaskRequiredSkillDto.prototype, "importance", void 0);
 //# sourceMappingURL=task-required-skill.dto.js.map

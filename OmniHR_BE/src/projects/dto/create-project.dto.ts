@@ -1,8 +1,6 @@
-import { Type } from "class-transformer";
 import {
   IsDateString,
   IsEnum,
-  IsInt,
   IsOptional,
   IsString,
   MaxLength
@@ -10,21 +8,6 @@ import {
 import { ProjectStatus } from "@prisma/client";
 
 export class CreateProjectDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  departmentId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  teamId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  managerId?: number;
-
   @IsString()
   @MaxLength(50)
   code: string;

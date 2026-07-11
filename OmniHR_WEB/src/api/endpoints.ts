@@ -177,7 +177,11 @@ export const aiTaskSuggestionsApi = {
       api.post(`/tasks/${taskId}/ai-suggestions`, payload)
     ),
   select: (id: number, payload: Record<string, unknown>) =>
-    unwrap<AiTaskSuggestion>(api.post(`/ai-task-suggestions/${id}/select`, payload))
+    unwrap<AiTaskSuggestion>(api.post(`/ai-task-suggestions/${id}/select`, payload)),
+  cancel: (id: number, payload?: Record<string, unknown>) =>
+    unwrap<AiTaskSuggestion>(
+      api.post(`/ai-task-suggestions/${id}/cancel`, payload ?? {})
+    )
 };
 
 export const positionsApi = {

@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min
 } from "class-validator";
 import { SkillProficiency } from "@prisma/client";
@@ -19,11 +20,11 @@ export class CreateEmployeeSkillDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(60)
   yearsExperience?: number;
 
-  @IsOptional()
   @IsEnum(SkillProficiency)
-  proficiency?: SkillProficiency;
+  proficiency: SkillProficiency;
 
   @IsOptional()
   @IsDateString()

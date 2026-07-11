@@ -18,12 +18,14 @@ export function openConfirmModal({
   const language = getCurrentLanguage();
 
   modals.openConfirmModal({
-    title,
+    title: translateText(language, title),
     radius: "md",
     centered: true,
-    children: <Text size="sm">{message}</Text>,
+    children: <Text size="sm">{translateText(language, message)}</Text>,
     labels: {
-      confirm: confirmLabel ?? translateText(language, "Confirm"),
+      confirm: confirmLabel
+        ? translateText(language, confirmLabel)
+        : translateText(language, "Confirm"),
       cancel: translateText(language, "Cancel")
     },
     confirmProps: { color: "red" },

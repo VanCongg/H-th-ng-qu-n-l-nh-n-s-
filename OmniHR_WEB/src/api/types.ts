@@ -41,6 +41,7 @@ export type Department = {
   name: string;
   parentId?: number | null;
   managerId?: number | null;
+  parent?: Department | null;
   manager?: Employee | null;
   isActive: boolean;
   children?: Department[];
@@ -220,13 +221,14 @@ export type Team = {
   lead?: Employee | null;
   members?: TeamMember[];
   isActive: boolean;
-  _count?: { members: number; projects: number; tasks: number };
+  _count?: { members: number; tasks: number };
 };
 
 export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "CANCELLED";
 export type SkillProficiency = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT";
+export type TaskSkillImportance = "REQUIRED" | "IMPORTANT" | "NICE_TO_HAVE";
 export type TaskAssignmentType = "MANUAL" | "AI_SUGGESTED" | "REASSIGNED";
 export type AiTaskSuggestionStatus = "GENERATED" | "SELECTED" | "EXPIRED" | "CANCELLED";
 
@@ -238,8 +240,6 @@ export type Project = {
   status: ProjectStatus;
   departmentId?: number | null;
   department?: Department | null;
-  teamId?: number | null;
-  team?: Team | null;
   managerId?: number | null;
   manager?: Employee | null;
   startDate?: string | null;
@@ -264,7 +264,7 @@ export type EmployeeSkill = {
   skillId: number;
   skill: Skill;
   yearsExperience?: number | string | null;
-  proficiency?: SkillProficiency | null;
+  proficiency: SkillProficiency;
   lastUsedAt?: string | null;
   note?: string | null;
 };
@@ -273,13 +273,15 @@ export type TaskRequiredSkill = {
   id: number;
   skillId: number;
   skill: Skill;
-  requiredProficiency?: SkillProficiency | null;
-  weight: number | string;
-  isRequired: boolean;
+  requiredProficiency: SkillProficiency;
+  importance: TaskSkillImportance;
 };
 
 export type Task = {
   id: number;
+  parentTaskId?: number | null;
+  parentTask?: Task | null;
+  childTasks?: Task[];
   projectId?: number | null;
   project?: Project | null;
   departmentId?: number | null;
@@ -288,6 +290,7 @@ export type Task = {
   team?: Team | null;
   title: string;
   description?: string | null;
+  technologies: string[];
   priority: TaskPriority;
   status: TaskStatus;
   assigneeId?: number | null;
@@ -298,7 +301,7 @@ export type Task = {
   actualHours?: number | string | null;
   completedAt?: string | null;
   requiredSkills?: TaskRequiredSkill[];
-  _count?: { assignments: number; aiTaskSuggestions: number };
+  _count?: { assignments: number; aiTaskSuggestions: number; childTasks: number };
 };
 
 export type TaskAssignment = {
@@ -332,8 +335,11 @@ export type AiTaskSuggestionItem = {
   id: number;
   suggestionItemId: number;
   employeeId: number;
+  employeeCode?: string;
   employee: Employee;
   fullName: string;
+  departmentName?: string | null;
+  positionName?: string | null;
   rank: number;
   score: number;
   skillScore: number;
@@ -341,6 +347,21 @@ export type AiTaskSuggestionItem = {
   availabilityScore: number;
   performanceScore?: number | null;
   reason?: string | null;
+  eligible?: boolean;
+  warnings?: string[];
+  matchedSkills?: string[];
+  missingRequiredSkills?: string[];
+  missingImportantSkills?: string[];
+  missingNiceToHaveSkills?: string[];
+  belowMinimumSkills?: string[];
+  skillBreakdown?: Array<{
+    skillId: number;
+    code: string;
+    importance: TaskSkillImportance;
+    requiredProficiency: SkillProficiency;
+    actualProficiency: SkillProficiency | null;
+    score: number;
+  }>;
   selected: boolean;
 };
 
@@ -353,6 +374,8 @@ export type AiTaskSuggestion = {
   algorithmVersion: string;
   status: AiTaskSuggestionStatus;
   createdAt: string;
+  expiresAt?: string | null;
+  inputSnapshot?: unknown;
   items: AiTaskSuggestionItem[];
 };
 

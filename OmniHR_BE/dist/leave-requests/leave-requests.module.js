@@ -16,7 +16,8 @@ exports.LeaveRequestsModule = LeaveRequestsModule;
 exports.LeaveRequestsModule = LeaveRequestsModule = __decorate([
     (0, common_1.Module)({
         controllers: [leave_requests_controller_1.LeaveRequestsController],
-        providers: [leave_requests_service_1.LeaveRequestsService]
+        providers: [leave_requests_service_1.LeaveRequestsService],
+        exports: [leave_requests_service_1.LeaveRequestsService],
     })
 ], LeaveRequestsModule);
 //# sourceMappingURL=leave-requests.module.js.map

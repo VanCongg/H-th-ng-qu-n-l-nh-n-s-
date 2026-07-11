@@ -104,7 +104,11 @@ export class DepartmentsService {
       await this.ensureParent(dto.parentId);
     }
     if (dto.managerId) {
-      await this.ensureManagerInDepartment(dto.managerId, undefined);
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Assign a department manager after employees belong to this department",
+        "VALIDATION_ERROR"
+      );
     }
 
     const department = await this.prisma.department.create({
@@ -238,11 +242,11 @@ export class DepartmentsService {
     }
   }
 
-  private async ensureManagerInDepartment(managerId: number, departmentId?: number) {
+  private async ensureManagerInDepartment(managerId: number, departmentId: number) {
     const manager = await this.prisma.employee.findFirst({
       where: currentEmployeeWhere({
         id: managerId,
-        ...(departmentId ? { departmentId } : {})
+        departmentId
       }),
       select: { id: true }
     });

@@ -145,12 +145,12 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   Text(
                     'Create leave request',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<int>(
-                    value: leaveTypeId,
+                    initialValue: leaveTypeId,
                     decoration: const InputDecoration(
                       labelText: 'Leave type',
                       prefixIcon: Icon(Icons.category_outlined),
@@ -236,18 +236,56 @@ class _LeaveScreenState extends State<LeaveScreen> {
         }
 
         final bundle = snapshot.data!;
+        final pending = bundle.requests
+            .where((request) => request.status == 'PENDING')
+            .length;
+        final approved = bundle.requests
+            .where((request) => request.status == 'APPROVED')
+            .length;
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 104),
             children: [
-              FilledButton.icon(
-                onPressed: () => _openCreateSheet(bundle),
-                icon: const Icon(Icons.add),
-                label: const Text('New leave request'),
+              PageHeroCard(
+                icon: Icons.beach_access_rounded,
+                title: 'Leave planning',
+                subtitle:
+                    'Submit time off requests and keep approval progress visible.',
+                color: accentColor,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Pill(label: '$pending pending', color: Colors.white),
+                        Pill(label: '$approved approved', color: Colors.white),
+                        Pill(
+                          label: '${bundle.requests.length} total',
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.icon(
+                      onPressed: () => _openCreateSheet(bundle),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('New leave request'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: brandColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
-              const SectionTitle(title: 'My requests'),
+              const SectionTitle(
+                title: 'My requests',
+                subtitle: 'Submitted requests and approval status',
+              ),
               if (bundle.requests.isEmpty)
                 const EmptyState(
                   icon: Icons.beach_access_outlined,
@@ -258,8 +296,9 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 ...bundle.requests.map(
                   (request) => LeaveRequestCard(
                     request: request,
-                    onCancel:
-                        request.status == 'PENDING' ? () => _cancel(request) : null,
+                    onCancel: request.status == 'PENDING'
+                        ? () => _cancel(request)
+                        : null,
                   ),
                 ),
             ],

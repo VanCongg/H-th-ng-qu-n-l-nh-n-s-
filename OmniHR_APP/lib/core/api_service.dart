@@ -51,11 +51,7 @@ dynamic unwrapResponse(http.Response response) {
     code = decoded['errorCode']?.toString();
   }
 
-  throw ApiException(
-    message,
-    statusCode: response.statusCode,
-    errorCode: code,
-  );
+  throw ApiException(message, statusCode: response.statusCode, errorCode: code);
 }
 
 class ApiService {
@@ -73,9 +69,9 @@ class ApiService {
       }
     }
 
-    return Uri.parse(
-      '${cleanBaseUrl(session.baseUrl)}/$cleanPath',
-    ).replace(queryParameters: queryParameters.isEmpty ? null : queryParameters);
+    return Uri.parse('${cleanBaseUrl(session.baseUrl)}/$cleanPath').replace(
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
+    );
   }
 
   Future<dynamic> request(
@@ -102,22 +98,22 @@ class ApiService {
         case 'POST':
           response = await http
               .post(uri, headers: headers, body: encodedBody)
-              .timeout(const Duration(seconds: 20));
+              .timeout(const Duration(seconds: 45));
           break;
         case 'PATCH':
           response = await http
               .patch(uri, headers: headers, body: encodedBody)
-              .timeout(const Duration(seconds: 20));
+              .timeout(const Duration(seconds: 45));
           break;
         case 'DELETE':
           response = await http
               .delete(uri, headers: headers, body: encodedBody)
-              .timeout(const Duration(seconds: 20));
+              .timeout(const Duration(seconds: 45));
           break;
         default:
           response = await http
               .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 20));
+              .timeout(const Duration(seconds: 45));
           break;
       }
     } on TimeoutException {
@@ -168,8 +164,8 @@ class ApiService {
     final rawItems = data is Map && data['items'] is List
         ? data['items'] as List
         : data is List
-            ? data
-            : const [];
+        ? data
+        : const [];
 
     return rawItems.map((item) => parser(mapOf(item))).toList();
   }

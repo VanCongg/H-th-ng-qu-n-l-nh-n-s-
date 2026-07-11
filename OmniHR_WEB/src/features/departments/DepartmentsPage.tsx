@@ -24,7 +24,7 @@ export function DepartmentsPage() {
   });
 
   const form = useForm({
-    initialValues: { code: "", name: "", managerId: "", isActive: true },
+    initialValues: { code: "", name: "", parentId: "", managerId: "", isActive: true },
     validate: {
       code: (value) => (value.trim() ? null : tx("Required")),
       name: (value) => (value.trim() ? null : tx("Required"))
@@ -55,7 +55,13 @@ export function DepartmentsPage() {
 
   function openCreate() {
     setEditing(null);
-    form.setValues({ code: "", name: "", managerId: "", isActive: true });
+    form.setValues({
+      code: "",
+      name: "",
+      parentId: "",
+      managerId: "",
+      isActive: true
+    });
     setOpened(true);
   }
 
@@ -64,16 +70,25 @@ export function DepartmentsPage() {
     form.setValues({
       code: item.code,
       name: item.name,
+      parentId: item.parentId ? String(item.parentId) : "",
       managerId: item.managerId ? String(item.managerId) : "",
       isActive: item.isActive
     });
     setOpened(true);
   }
 
-  const managerOptions = (employeesQuery.data?.items ?? []).map((item) => ({
-    value: String(item.id),
-    label: `${item.fullName} (${item.employeeCode})`
-  }));
+  const departmentOptions = (query.data ?? [])
+    .filter((item) => item.id !== editing?.id)
+    .map((item) => ({
+      value: String(item.id),
+      label: `${item.code} - ${item.name}`
+    }));
+  const managerOptions = (employeesQuery.data?.items ?? [])
+    .filter((item) => editing && item.departmentId === editing.id)
+    .map((item) => ({
+      value: String(item.id),
+      label: `${item.fullName} (${item.employeeCode})`
+    }));
 
   return (
     <Stack gap="md">
@@ -89,6 +104,7 @@ export function DepartmentsPage() {
         columns={[
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.code}</Text> },
           { key: "name", label: "Name", render: (item) => item.name },
+          { key: "parent", label: "Parent", render: (item) => item.parent?.name ?? "-" },
           { key: "manager", label: "Manager", render: (item) => item.manager?.fullName ?? "-" },
           { key: "active", label: "Active", render: (item) => item.isActive ? tx("Yes") : tx("No") },
           { key: "employees", label: "Employees", render: (item) => item._count?.employees ?? 0 },
@@ -127,10 +143,23 @@ export function DepartmentsPage() {
             <TextInput label={tx("Code")} {...form.getInputProps("code")} />
             <TextInput label={tx("Name")} {...form.getInputProps("name")} />
             <Select
+              label={tx("Parent department")}
+              data={departmentOptions}
+              clearable
+              searchable
+              {...form.getInputProps("parentId")}
+            />
+            <Select
               label={tx("Department manager")}
               data={managerOptions}
               clearable
               searchable
+              disabled={!editing}
+              placeholder={
+                editing
+                  ? tx("Select employee from this department")
+                  : tx("Save department before assigning manager")
+              }
               {...form.getInputProps("managerId")}
             />
             <Switch label={tx("Active")} {...form.getInputProps("isActive", { type: "checkbox" })} />
@@ -145,12 +174,14 @@ export function DepartmentsPage() {
 function normalizeDepartmentPayload(values: {
   code: string;
   name: string;
+  parentId: string;
   managerId: string;
   isActive: boolean;
 }) {
   return {
     code: values.code.trim(),
     name: values.name.trim(),
+    parentId: values.parentId ? Number(values.parentId) : null,
     managerId: values.managerId ? Number(values.managerId) : null,
     isActive: values.isActive
   };

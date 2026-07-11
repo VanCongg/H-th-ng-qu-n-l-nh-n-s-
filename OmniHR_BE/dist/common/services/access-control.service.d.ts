@@ -9,6 +9,8 @@ export declare class AccessControlService {
     ensureCanManageLeave(user: AuthUser, employeeId: number): Promise<void>;
     teamEmployeeIds(user: AuthUser): Promise<number[]>;
     managedTeamIds(user: AuthUser): Promise<number[]>;
+    isDepartmentHead(user: AuthUser, departmentId: number): Promise<boolean>;
+    isTeamLead(user: AuthUser, teamId: number): Promise<boolean>;
     isSubordinate(user: AuthUser, employeeId: number): Promise<boolean>;
     ensureCanReadProject(user: AuthUser, projectId: number): Promise<void>;
     ensureCanReadTask(user: AuthUser, taskId: number): Promise<{
@@ -18,7 +20,14 @@ export declare class AccessControlService {
                 employeeId: number;
             }[];
         } | null;
+        project: {
+            departmentId: number;
+        } | null;
+        departmentId: number | null;
+        teamId: number | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
+        projectId: number | null;
         assigneeId: number | null;
     }>;
     ensureCanUpdateTask(user: AuthUser, taskId: number): Promise<{
@@ -28,7 +37,14 @@ export declare class AccessControlService {
                 employeeId: number;
             }[];
         } | null;
+        project: {
+            departmentId: number;
+        } | null;
+        departmentId: number | null;
+        teamId: number | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
+        projectId: number | null;
         assigneeId: number | null;
     }>;
     ensureCanUpdateTaskStatus(user: AuthUser, taskId: number): Promise<{
@@ -38,7 +54,14 @@ export declare class AccessControlService {
                 employeeId: number;
             }[];
         } | null;
+        project: {
+            departmentId: number;
+        } | null;
+        departmentId: number | null;
+        teamId: number | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
+        projectId: number | null;
         assigneeId: number | null;
     }>;
     ensureCanAssignToEmployee(user: AuthUser, employeeId: number): Promise<void>;

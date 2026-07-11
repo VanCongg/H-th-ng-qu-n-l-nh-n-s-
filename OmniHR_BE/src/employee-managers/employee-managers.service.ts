@@ -73,6 +73,7 @@ export class EmployeeManagersService {
     await this.ensureEmployee(dto.employeeId);
     await this.ensureEmployee(dto.managerId);
     const managerType = dto.managerType ?? ManagerType.DIRECT;
+    await this.ensureNoManagerCycle(dto.employeeId, dto.managerId);
     await this.ensureNoActiveRelation(dto.employeeId, dto.managerId, managerType);
     if (managerType === ManagerType.DIRECT) {
       await this.ensureNoActiveDirectManager(dto.employeeId);
@@ -205,6 +206,38 @@ export class EmployeeManagersService {
         "Employee already has an active direct manager",
         "DIRECT_MANAGER_EXISTS"
       );
+    }
+  }
+
+  private async ensureNoManagerCycle(employeeId: number, managerId: number) {
+    const today = toDateOnly(new Date());
+    const visited = new Set<number>();
+    let currentIds = [managerId];
+
+    while (currentIds.length) {
+      if (currentIds.includes(employeeId)) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          "Manager relationship would create a cycle",
+          "VALIDATION_ERROR"
+        );
+      }
+
+      currentIds.forEach((id) => visited.add(id));
+      const parentRelations = await this.prisma.employeeManager.findMany({
+        where: {
+          employeeId: { in: currentIds },
+          isActive: true,
+          employee: currentEmployeeWhere(),
+          manager: currentEmployeeWhere(),
+          OR: [{ endDate: null }, { endDate: { gte: today } }]
+        },
+        select: { managerId: true }
+      });
+
+      currentIds = parentRelations
+        .map((relation) => relation.managerId)
+        .filter((id) => !visited.has(id));
     }
   }
 

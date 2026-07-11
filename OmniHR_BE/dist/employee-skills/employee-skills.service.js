@@ -42,6 +42,7 @@ let EmployeeSkillsService = class EmployeeSkillsService {
     async create(employeeId, dto, actor, context) {
         await this.accessControl.ensureCanUpdateEmployeeSkill(actor, employeeId);
         await this.ensureSkillForEmployee(dto.skillId, employeeId);
+        this.ensureLastUsedAt(dto.lastUsedAt);
         const employeeSkill = await this.prisma.employeeSkill.create({
             data: {
                 employeeId,
@@ -69,6 +70,7 @@ let EmployeeSkillsService = class EmployeeSkillsService {
         if (dto.skillId) {
             await this.ensureSkillForEmployee(dto.skillId, oldValue.employeeId);
         }
+        this.ensureLastUsedAt(dto.lastUsedAt);
         const employeeSkill = await this.prisma.employeeSkill.update({
             where: { id },
             data: {
@@ -140,6 +142,11 @@ let EmployeeSkillsService = class EmployeeSkillsService {
         });
         if (!skill) {
             throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Skill is not applicable to employee position", "VALIDATION_ERROR");
+        }
+    }
+    ensureLastUsedAt(lastUsedAt) {
+        if (lastUsedAt && (0, utils_1.toDateOnly)(lastUsedAt) > (0, utils_1.toDateOnly)(new Date())) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Last used date cannot be in the future", "EMPLOYEE_SKILL_LAST_USED_INVALID");
         }
     }
 };

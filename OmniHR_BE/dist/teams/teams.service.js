@@ -28,7 +28,6 @@ const teamInclude = {
     _count: {
         select: {
             members: { where: { isActive: true, employee: (0, prisma_where_1.currentEmployeeWhere)() } },
-            projects: { where: { deletedAt: null } },
             tasks: { where: { deletedAt: null } }
         }
     }
@@ -150,13 +149,6 @@ let TeamsService = class TeamsService {
     async softDelete(id, actor, context) {
         const oldValue = await this.findOne(id, actor);
         await this.ensureCanManageDepartment(actor, oldValue.departmentId);
-        const activeProjects = await this.prisma.project.count({
-            where: {
-                teamId: id,
-                deletedAt: null,
-                status: { notIn: [client_1.ProjectStatus.COMPLETED, client_1.ProjectStatus.CANCELLED] }
-            }
-        });
         const activeTasks = await this.prisma.task.count({
             where: {
                 teamId: id,
@@ -164,8 +156,8 @@ let TeamsService = class TeamsService {
                 status: { notIn: [client_1.TaskStatus.DONE, client_1.TaskStatus.CANCELLED] }
             }
         });
-        if (activeProjects || activeTasks) {
-            throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Team has active projects or tasks", "VALIDATION_ERROR");
+        if (activeTasks) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "Team has active tasks", "VALIDATION_ERROR");
         }
         const team = await this.prisma.$transaction(async (tx) => {
             await tx.teamMember.updateMany({
@@ -194,22 +186,9 @@ let TeamsService = class TeamsService {
         await this.ensureCanManageDepartment(actor, team.departmentId);
         await this.ensureEmployeesInDepartment([dto.employeeId], team.departmentId);
         const result = await this.prisma.$transaction(async (tx) => {
-            const member = await tx.teamMember.upsert({
-                where: { teamId_employeeId: { teamId, employeeId: dto.employeeId } },
-                create: {
-                    teamId,
-                    employeeId: dto.employeeId,
-                    role: dto.role ?? client_1.TeamMemberRole.MEMBER,
-                    isActive: true
-                },
-                update: {
-                    role: dto.role ?? client_1.TeamMemberRole.MEMBER,
-                    isActive: true,
-                    leftAt: null
-                }
-            });
+            const member = await this.activateMember(tx, teamId, dto.employeeId, dto.role ?? client_1.TeamMemberRole.MEMBER);
             if (member.role === client_1.TeamMemberRole.LEAD) {
-                await tx.team.update({ where: { id: teamId }, data: { leadId: dto.employeeId } });
+                await this.setTeamLead(tx, teamId, dto.employeeId);
             }
             return tx.team.findUniqueOrThrow({ where: { id: teamId }, include: teamInclude });
         });
@@ -243,7 +222,7 @@ let TeamsService = class TeamsService {
                 }
             });
             if (member.role === client_1.TeamMemberRole.LEAD && member.isActive) {
-                await tx.team.update({ where: { id: teamId }, data: { leadId: member.employeeId } });
+                await this.setTeamLead(tx, teamId, member.employeeId);
             }
             return tx.team.findUniqueOrThrow({ where: { id: teamId }, include: teamInclude });
         });
@@ -363,31 +342,18 @@ let TeamsService = class TeamsService {
             data: { isActive: false, leftAt: (0, utils_1.toDateOnly)(new Date()) }
         });
         for (const employeeId of targetIds) {
-            await tx.teamMember.upsert({
-                where: { teamId_employeeId: { teamId, employeeId } },
-                create: {
-                    teamId,
-                    employeeId,
-                    role: employeeId === leadId ? client_1.TeamMemberRole.LEAD : client_1.TeamMemberRole.MEMBER,
-                    isActive: true
-                },
-                update: {
-                    role: employeeId === leadId ? client_1.TeamMemberRole.LEAD : client_1.TeamMemberRole.MEMBER,
-                    isActive: true,
-                    leftAt: null
-                }
-            });
+            await this.activateMember(tx, teamId, employeeId, employeeId === leadId ? client_1.TeamMemberRole.LEAD : client_1.TeamMemberRole.MEMBER);
+        }
+        if (leadId) {
+            await this.setTeamLead(tx, teamId, leadId);
         }
     }
     async ensureLeadMembership(tx, teamId, leadId) {
         if (!leadId) {
             return;
         }
-        await tx.teamMember.upsert({
-            where: { teamId_employeeId: { teamId, employeeId: leadId } },
-            create: { teamId, employeeId: leadId, role: client_1.TeamMemberRole.LEAD, isActive: true },
-            update: { role: client_1.TeamMemberRole.LEAD, isActive: true, leftAt: null }
-        });
+        await this.activateMember(tx, teamId, leadId, client_1.TeamMemberRole.LEAD);
+        await this.setTeamLead(tx, teamId, leadId);
     }
     async downgradePreviousLead(tx, teamId, oldLeadId, newLeadId) {
         if (!oldLeadId || oldLeadId === newLeadId) {
@@ -395,6 +361,39 @@ let TeamsService = class TeamsService {
         }
         await tx.teamMember.updateMany({
             where: { teamId, employeeId: oldLeadId, isActive: true },
+            data: { role: client_1.TeamMemberRole.MEMBER }
+        });
+    }
+    async activateMember(tx, teamId, employeeId, role) {
+        const activeMember = await tx.teamMember.findFirst({
+            where: { teamId, employeeId, isActive: true },
+            select: { id: true }
+        });
+        if (activeMember) {
+            return tx.teamMember.update({
+                where: { id: activeMember.id },
+                data: { role, leftAt: null }
+            });
+        }
+        return tx.teamMember.create({
+            data: {
+                teamId,
+                employeeId,
+                role,
+                joinedAt: (0, utils_1.toDateOnly)(new Date()),
+                isActive: true
+            }
+        });
+    }
+    async setTeamLead(tx, teamId, leadId) {
+        await tx.team.update({ where: { id: teamId }, data: { leadId } });
+        await tx.teamMember.updateMany({
+            where: {
+                teamId,
+                employeeId: { not: leadId },
+                isActive: true,
+                role: client_1.TeamMemberRole.LEAD
+            },
             data: { role: client_1.TeamMemberRole.MEMBER }
         });
     }

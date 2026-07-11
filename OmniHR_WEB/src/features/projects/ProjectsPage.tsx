@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Divider,
   Group,
   Modal,
   Paper,
@@ -16,11 +17,11 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Edit, Eye, Plus, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { departmentsApi, employeesApi, projectsApi, teamsApi } from "../../api/endpoints";
-import { formatDate, formatDepartmentName, formatTeamName, statusColor } from "../../api/format";
+import { employeesApi, projectsApi } from "../../api/endpoints";
+import { formatDate, formatDepartmentName, statusColor } from "../../api/format";
 import type { Project, ProjectStatus } from "../../api/types";
 import { openConfirmModal } from "../../components/ConfirmModal";
 import { DataTable } from "../../components/DataTable";
@@ -47,45 +48,29 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
   const user = useAuthStore((state) => state.user);
   const [opened, setOpened] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
+  const [viewing, setViewing] = useState<Project | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string | null>(null);
-  const [teamId, setTeamId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const canCreate = hasPermission("PROJECT_CREATE");
+  const canCreate = hasPermission("PROJECT_CREATE") && Boolean(user?.employeeId);
   const canUpdate = hasPermission("PROJECT_UPDATE");
   const canDelete = hasPermission("PROJECT_DELETE");
 
   const projectsQuery = useQuery({
-    queryKey: ["projects", scope, search, status, teamId, page],
+    queryKey: ["projects", scope, search, status, page],
     queryFn: () =>
       projectsApi.list({
         search: search || undefined,
         status: status || undefined,
-        teamId: teamId ? Number(teamId) : undefined,
         page,
         limit: 20
       })
   });
-  const departmentsQuery = useQuery({
-    queryKey: ["departments"],
-    queryFn: () => departmentsApi.list()
-  });
-  const teamsQuery = useQuery({
-    queryKey: ["teams", "project-options"],
-    queryFn: () => teamsApi.list({ limit: 100 })
-  });
-  const employeesQuery = useQuery({
-    queryKey: ["employees", scope, "project-managers"],
-    queryFn: () =>
-      scope === "team"
-        ? employeesApi.team({ limit: 100 })
-        : employeesApi.list({ limit: 100 })
-  });
   const selfEmployeeQuery = useQuery({
     queryKey: ["employees", "self", "project-manager"],
     queryFn: employeesApi.me,
-    enabled: scope === "team" && Boolean(user?.employeeId)
+    enabled: Boolean(user?.employeeId)
   });
 
   const form = useForm({
@@ -94,9 +79,6 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
       name: "",
       description: "",
       status: "ACTIVE" as ProjectStatus,
-      departmentId: "",
-      teamId: "",
-      managerId: "",
       startDate: "",
       endDate: ""
     },
@@ -139,9 +121,6 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
       name: "",
       description: "",
       status: "ACTIVE",
-      departmentId: "",
-      teamId: "",
-      managerId: "",
       startDate: "",
       endDate: ""
     });
@@ -155,78 +134,10 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
       name: item.name,
       description: item.description ?? "",
       status: item.status,
-      departmentId: item.departmentId ? String(item.departmentId) : "",
-      teamId: item.teamId ? String(item.teamId) : "",
-      managerId: item.managerId ? String(item.managerId) : "",
       startDate: item.startDate?.slice(0, 10) ?? "",
       endDate: item.endDate?.slice(0, 10) ?? ""
     });
     setOpened(true);
-  }
-
-  const departmentOptions = (departmentsQuery.data ?? []).map((item) => ({
-    value: String(item.id),
-    label: formatDepartmentName(item, tx)
-  }));
-  const teamItems = teamsQuery.data?.items ?? [];
-  const teamOptions = teamItems
-    .filter(
-      (item) =>
-        item.isActive &&
-        (!form.values.departmentId || String(item.departmentId) === form.values.departmentId)
-    )
-    .map((item) => ({
-      value: String(item.id),
-      label: formatTeamName(item)
-    }));
-  const filterTeamOptions = teamItems.map((item) => ({
-    value: String(item.id),
-    label: formatTeamName(item)
-  }));
-  const selectedTeam = teamItems.find((item) => String(item.id) === form.values.teamId);
-  const selectedTeamEmployeeIds = new Set(
-    selectedTeam
-      ? [
-          ...(selectedTeam.leadId ? [selectedTeam.leadId] : []),
-          ...(selectedTeam.members?.map((member) => member.employeeId) ?? [])
-        ].map(String)
-      : []
-  );
-  const managerItems = [
-    ...(selfEmployeeQuery.data ? [selfEmployeeQuery.data] : []),
-    ...(employeesQuery.data?.items ?? [])
-  ]
-    .filter(
-      (item, index, items) => items.findIndex((candidate) => candidate.id === item.id) === index
-    )
-    .filter(
-      (item) =>
-        !selectedTeamEmployeeIds.size || selectedTeamEmployeeIds.has(String(item.id))
-    );
-  const managerOptions = managerItems.map((item) => ({
-    value: String(item.id),
-    label: `${item.fullName} (${item.employeeCode})`
-  }));
-
-  function handleDepartmentChange(value: string | null) {
-    const nextValue = value ?? "";
-    form.setFieldValue("departmentId", nextValue);
-    const currentTeam = teamItems.find((item) => String(item.id) === form.values.teamId);
-    if (!currentTeam || String(currentTeam.departmentId) !== nextValue) {
-      form.setFieldValue("teamId", "");
-    }
-  }
-
-  function handleTeamChange(value: string | null) {
-    const nextValue = value ?? "";
-    form.setFieldValue("teamId", nextValue);
-    const team = teamItems.find((item) => String(item.id) === nextValue);
-    if (team) {
-      form.setFieldValue("departmentId", String(team.departmentId));
-      if (team.leadId && !form.values.managerId) {
-        form.setFieldValue("managerId", String(team.leadId));
-      }
-    }
   }
 
   return (
@@ -248,7 +159,7 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
       />
 
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput
             label={tx("Search")}
             placeholder={tx("Search by name or code")}
@@ -265,17 +176,6 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
             value={status}
             onChange={(value) => {
               setStatus(value);
-              setPage(1);
-            }}
-          />
-          <Select
-            label={tx("Team")}
-            data={filterTeamOptions}
-            clearable
-            searchable
-            value={teamId}
-            onChange={(value) => {
-              setTeamId(value);
               setPage(1);
             }}
           />
@@ -296,7 +196,9 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
             label: "Project",
             render: (item) => (
               <Stack gap={0}>
-                <Text fw={700}>{item.name}</Text>
+                <Text fw={700} lineClamp={1}>
+                  {item.name}
+                </Text>
                 <Text size="xs" c="dimmed">
                   {item.code}
                 </Text>
@@ -310,9 +212,6 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
               <Badge color={statusColor(item.status)}>{te(item.status)}</Badge>
             )
           },
-          { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
-          { key: "team", label: "Team", render: (item) => formatTeamName(item.team) },
-          { key: "manager", label: "Manager", render: (item) => item.manager?.fullName ?? "-" },
           {
             key: "dates",
             label: "Dates",
@@ -322,9 +221,14 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
           {
             key: "actions",
             label: "",
-            width: 96,
+            width: 128,
             render: (item) => (
               <Group gap={4} justify="flex-end">
+                <Tooltip label={tx("View details")}>
+                  <ActionIcon variant="subtle" color="blue" onClick={() => setViewing(item)}>
+                    <Eye size={16} />
+                  </ActionIcon>
+                </Tooltip>
                 {canUpdate ? (
                   <Tooltip label={tx("Edit")}>
                     <ActionIcon variant="subtle" onClick={() => openEdit(item)}>
@@ -357,6 +261,46 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
       />
 
       <Modal
+        opened={Boolean(viewing)}
+        onClose={() => setViewing(null)}
+        title={tx("Project details")}
+        size="lg"
+      >
+        {viewing ? (
+          <Stack>
+            <Group justify="space-between" align="flex-start">
+              <Stack gap={2}>
+                <Text fw={800} size="lg">
+                  {viewing.name}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {viewing.code}
+                </Text>
+              </Stack>
+              <Badge color={statusColor(viewing.status)}>{te(viewing.status)}</Badge>
+            </Group>
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <DetailItem
+                label={tx("Department")}
+                value={formatDepartmentName(viewing.department, tx)}
+              />
+              <DetailItem
+                label={tx("Department head")}
+                value={viewing.manager?.fullName ?? "-"}
+              />
+              <DetailItem label={tx("Start date")} value={formatDate(viewing.startDate)} />
+              <DetailItem label={tx("End date")} value={formatDate(viewing.endDate)} />
+              <DetailItem label={tx("Tasks")} value={viewing._count?.tasks ?? 0} />
+            </SimpleGrid>
+            <Divider label={tx("Description")} labelPosition="left" />
+            <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+              {viewing.description || "-"}
+            </Text>
+          </Stack>
+        ) : null}
+      </Modal>
+
+      <Modal
         opened={opened}
         onClose={() => setOpened(false)}
         title={editing ? tx("Edit project") : tx("New project")}
@@ -373,28 +317,14 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
                 allowDeselect={false}
                 {...form.getInputProps("status")}
               />
-              <Select
+              <TextInput
                 label={tx("Department")}
-                data={departmentOptions}
-                clearable
-                searchable
-                value={form.values.departmentId || null}
-                onChange={handleDepartmentChange}
-              />
-              <Select
-                label={tx("Team")}
-                data={teamOptions}
-                clearable
-                searchable
-                value={form.values.teamId || null}
-                onChange={handleTeamChange}
-              />
-              <Select
-                label={tx("Manager")}
-                data={managerOptions}
-                clearable
-                searchable
-                {...form.getInputProps("managerId")}
+                value={formatDepartmentName(
+                  editing?.department ?? selfEmployeeQuery.data?.department,
+                  tx
+                )}
+                readOnly
+                description={tx("Automatically determined from the department head")}
               />
               <TextInput label={tx("Start date")} type="date" {...form.getInputProps("startDate")} />
               <TextInput label={tx("End date")} type="date" {...form.getInputProps("endDate")} />
@@ -415,14 +345,24 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
   );
 }
 
+function DetailItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <Paper withBorder radius="md" p="sm">
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Text size="sm" fw={600} component="div">
+        {value}
+      </Text>
+    </Paper>
+  );
+}
+
 function normalizeProjectPayload(values: {
   code: string;
   name: string;
   description: string;
   status: ProjectStatus;
-  departmentId: string;
-  teamId: string;
-  managerId: string;
   startDate: string;
   endDate: string;
 }) {
@@ -431,9 +371,6 @@ function normalizeProjectPayload(values: {
     name: values.name.trim(),
     description: values.description.trim() || undefined,
     status: values.status,
-    departmentId: values.departmentId ? Number(values.departmentId) : undefined,
-    teamId: values.teamId ? Number(values.teamId) : undefined,
-    managerId: values.managerId ? Number(values.managerId) : undefined,
     startDate: values.startDate || undefined,
     endDate: values.endDate || undefined
   };

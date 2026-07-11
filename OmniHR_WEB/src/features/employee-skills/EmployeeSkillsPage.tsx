@@ -66,13 +66,14 @@ export function EmployeeSkillsPage({ scope = "all" }: EmployeeSkillsPageProps) {
   const form = useForm({
     initialValues: {
       skillId: "",
-      yearsExperience: 0,
+      yearsExperience: "" as number | string,
       proficiency: "" as SkillProficiency | "",
       lastUsedAt: "",
       note: ""
     },
     validate: {
-      skillId: (value) => (value ? null : tx("Required"))
+      skillId: (value) => (value ? null : tx("Required")),
+      proficiency: (value) => (value ? null : tx("Required"))
     }
   });
 
@@ -109,7 +110,7 @@ export function EmployeeSkillsPage({ scope = "all" }: EmployeeSkillsPageProps) {
     setEditing(null);
     form.setValues({
       skillId: "",
-      yearsExperience: 0,
+      yearsExperience: "",
       proficiency: "",
       lastUsedAt: "",
       note: ""
@@ -121,8 +122,10 @@ export function EmployeeSkillsPage({ scope = "all" }: EmployeeSkillsPageProps) {
     setEditing(item);
     form.setValues({
       skillId: String(item.skillId),
-      yearsExperience: Number(item.yearsExperience ?? 0),
-      proficiency: item.proficiency ?? "",
+      yearsExperience: item.yearsExperience === null || item.yearsExperience === undefined
+        ? ""
+        : Number(item.yearsExperience),
+      proficiency: item.proficiency,
       lastUsedAt: item.lastUsedAt?.slice(0, 10) ?? "",
       note: item.note ?? ""
     });
@@ -276,7 +279,8 @@ export function EmployeeSkillsPage({ scope = "all" }: EmployeeSkillsPageProps) {
             <Select
               label={tx("Proficiency")}
               data={proficiencyOptions.map((value) => ({ value, label: te(value) }))}
-              clearable
+              required
+              allowDeselect={false}
               {...form.getInputProps("proficiency")}
             />
             <TextInput label={tx("Last used")} type="date" {...form.getInputProps("lastUsedAt")} />

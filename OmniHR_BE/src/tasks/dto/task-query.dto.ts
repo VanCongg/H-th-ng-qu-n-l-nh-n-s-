@@ -7,6 +7,11 @@ export class TaskQueryDto extends PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  parentTaskId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   projectId?: number;
 
   @IsOptional()

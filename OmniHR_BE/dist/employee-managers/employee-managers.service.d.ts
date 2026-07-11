@@ -574,5 +574,6 @@ export declare class EmployeeManagersService {
     private activeRelationWhere;
     private ensureNoActiveRelation;
     private ensureNoActiveDirectManager;
+    private ensureNoManagerCycle;
     private ensureEmployee;
 }

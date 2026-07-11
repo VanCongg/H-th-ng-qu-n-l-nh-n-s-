@@ -287,14 +287,9 @@ export function TeamsPage({ scope }: TeamsPageProps) {
           },
           {
             key: "work",
-            label: "Projects",
+            label: "Tasks",
             render: (item) => (
-              <Group gap={4}>
-                <Badge variant="light">{item._count?.projects ?? 0}</Badge>
-                <Text size="xs" c="dimmed">
-                  {tx("Tasks")}: {item._count?.tasks ?? 0}
-                </Text>
-              </Group>
+              <Badge variant="light">{item._count?.tasks ?? 0}</Badge>
             )
           },
           {

@@ -17,12 +17,11 @@ export declare class TaskAssignmentsService {
                     updatedAt: Date;
                     name: string;
                     code: string;
-                    departmentId: number | null;
-                    managerId: number | null;
+                    departmentId: number;
+                    managerId: number;
                     startDate: Date | null;
                     endDate: Date | null;
                     status: import(".prisma/client").$Enums.ProjectStatus;
-                    teamId: number | null;
                     description: string | null;
                     createdByUserId: number | null;
                 } | null;
@@ -78,8 +77,10 @@ export declare class TaskAssignmentsService {
                 teamId: number | null;
                 description: string | null;
                 createdByUserId: number | null;
+                parentTaskId: number | null;
                 projectId: number | null;
                 title: string;
+                technologies: string[];
                 priority: import(".prisma/client").$Enums.TaskPriority;
                 assigneeId: number | null;
                 assignedByUserId: number | null;

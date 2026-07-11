@@ -71,9 +71,9 @@ export declare class DashboardController {
             startDate: Date;
             endDate: Date;
             status: import(".prisma/client").$Enums.LeaveRequestStatus;
+            reason: string;
             leaveTypeId: number;
             totalDays: number;
-            reason: string;
             approverUserId: number | null;
             approvedAt: Date | null;
             rejectionReason: string | null;

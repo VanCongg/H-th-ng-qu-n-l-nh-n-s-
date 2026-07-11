@@ -4,7 +4,6 @@ import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuthUser, RequestContext } from "../common/types";
-import { currentEmployeeWhere } from "../common/prisma-where";
 import { pagination, toDateOnly } from "../common/utils";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateProjectDto } from "./dto/create-project.dto";
@@ -13,16 +12,6 @@ import { UpdateProjectDto } from "./dto/update-project.dto";
 
 const projectInclude = {
   department: true,
-  team: {
-    include: {
-      department: true,
-      lead: { include: { department: true, position: true } },
-      members: {
-        where: { isActive: true },
-        include: { employee: { include: { department: true, position: true } } }
-      }
-    }
-  },
   manager: { include: { department: true, position: true } },
   createdByUser: { select: { id: true, username: true, email: true } },
   _count: { select: { tasks: { where: { deletedAt: null } } } }
@@ -66,16 +55,13 @@ export class ProjectsService {
   }
 
   async create(dto: CreateProjectDto, actor: AuthUser, context?: RequestContext) {
-    const managerId = this.defaultProjectManagerId(dto.managerId, actor);
-    const scope = await this.resolveProjectScope(dto.departmentId, dto.teamId, managerId);
-    await this.ensureCanUseProjectManager(actor, managerId);
+    const scope = await this.resolveManagedDepartment(actor);
     this.ensureDateRange(dto.startDate, dto.endDate);
 
     const project = await this.prisma.project.create({
       data: {
         departmentId: scope.departmentId,
-        teamId: scope.teamId,
-        managerId,
+        managerId: scope.managerId,
         code: dto.code,
         name: dto.name,
         description: dto.description,
@@ -106,22 +92,16 @@ export class ProjectsService {
     context?: RequestContext
   ) {
     const oldValue = await this.findOne(id, actor);
-    const scope = await this.resolveProjectScope(
-      dto.departmentId ?? oldValue.departmentId ?? undefined,
-      dto.teamId ?? oldValue.teamId ?? undefined,
-      dto.managerId ?? oldValue.managerId ?? undefined
-    );
-    if (dto.managerId !== undefined) {
-      await this.ensureCanUseProjectManager(actor, dto.managerId);
-    }
-    this.ensureDateRange(dto.startDate, dto.endDate);
+    await this.ensureCanManageProject(actor, oldValue.departmentId);
+    const nextStartDate =
+      dto.startDate !== undefined ? dto.startDate : oldValue.startDate;
+    const nextEndDate =
+      dto.endDate !== undefined ? dto.endDate : oldValue.endDate;
+    this.ensureDateRange(nextStartDate, nextEndDate);
 
     const project = await this.prisma.project.update({
       where: { id },
       data: {
-        departmentId: dto.departmentId !== undefined || dto.teamId !== undefined ? scope.departmentId : undefined,
-        teamId: dto.teamId,
-        managerId: dto.managerId,
         code: dto.code,
         name: dto.name,
         description: dto.description,
@@ -147,6 +127,7 @@ export class ProjectsService {
 
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
+    await this.ensureCanManageProject(actor, oldValue.departmentId);
     const activeTasks = await this.prisma.task.count({
       where: {
         projectId: id,
@@ -186,7 +167,6 @@ export class ProjectsService {
       deletedAt: null,
       status: query.status,
       departmentId: query.departmentId,
-      teamId: query.teamId,
       managerId: query.managerId,
       ...(query.search
         ? {
@@ -202,23 +182,28 @@ export class ProjectsService {
       return base;
     }
 
-    const teamIds = await this.accessControl.teamEmployeeIds(user);
     return {
       AND: [
         base,
         {
           OR: [
             { managerId: user.employeeId ?? -1 },
+            { department: { managerId: user.employeeId ?? -1 } },
             { createdByUserId: user.id },
-            { team: { leadId: user.employeeId ?? -1 } },
+            { tasks: { some: { deletedAt: null, assigneeId: user.employeeId ?? -1 } } },
+            { tasks: { some: { deletedAt: null, team: { leadId: user.employeeId ?? -1 } } } },
             {
-              team: {
-                members: {
-                  some: { employeeId: user.employeeId ?? -1, isActive: true }
+              tasks: {
+                some: {
+                  deletedAt: null,
+                  team: {
+                    members: {
+                      some: { employeeId: user.employeeId ?? -1, isActive: true }
+                    }
+                  }
                 }
               }
             },
-            { tasks: { some: { deletedAt: null, assigneeId: { in: teamIds } } } },
             { tasks: { some: { deletedAt: null, createdByUserId: user.id } } }
           ]
         }
@@ -226,78 +211,56 @@ export class ProjectsService {
     };
   }
 
-  private async resolveProjectScope(
-    departmentId?: number | null,
-    teamId?: number | null,
-    managerId?: number | null
+  private async resolveManagedDepartment(actor: AuthUser) {
+    if (!actor.employeeId) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        "Only a department head can create a project",
+        "DEPARTMENT_MANAGER_REQUIRED"
+      );
+    }
+
+    const department = await this.prisma.department.findFirst({
+      where: {
+        managerId: actor.employeeId,
+        isActive: true,
+        deletedAt: null
+      },
+      select: { id: true, managerId: true }
+    });
+    if (!department?.managerId) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        "Only a department head can create a project",
+        "DEPARTMENT_MANAGER_REQUIRED"
+      );
+    }
+
+    return { departmentId: department.id, managerId: department.managerId };
+  }
+
+  private async ensureCanManageProject(actor: AuthUser, departmentId: number) {
+    if (this.accessControl.isAdmin(actor)) {
+      return;
+    }
+
+    const department = await this.prisma.department.findFirst({
+      where: { id: departmentId, managerId: actor.employeeId ?? -1, deletedAt: null },
+      select: { id: true }
+    });
+    if (!department) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        "Only the department head can manage this project",
+        "PROJECT_MANAGER_SCOPE_DENIED"
+      );
+    }
+  }
+
+  private ensureDateRange(
+    startDate?: string | Date | null,
+    endDate?: string | Date | null
   ) {
-    let resolvedDepartmentId = departmentId ?? undefined;
-
-    if (teamId) {
-      const team = await this.prisma.team.findFirst({
-        where: { id: teamId, deletedAt: null, isActive: true },
-        include: { members: { where: { isActive: true }, select: { employeeId: true } } }
-      });
-      if (!team) {
-        throw new ApiError(HttpStatus.NOT_FOUND, "Team not found", "TEAM_NOT_FOUND");
-      }
-      if (resolvedDepartmentId && resolvedDepartmentId !== team.departmentId) {
-        throw new ApiError(
-          HttpStatus.BAD_REQUEST,
-          "Team must belong to selected department",
-          "VALIDATION_ERROR"
-        );
-      }
-      resolvedDepartmentId = team.departmentId;
-
-      if (
-        managerId &&
-        team.leadId !== managerId &&
-        !team.members.some((member) => member.employeeId === managerId)
-      ) {
-        throw new ApiError(
-          HttpStatus.BAD_REQUEST,
-          "Project manager must belong to selected team",
-          "VALIDATION_ERROR"
-        );
-      }
-    }
-
-    await this.ensureReferences(resolvedDepartmentId, managerId);
-    return { departmentId: resolvedDepartmentId, teamId: teamId ?? undefined };
-  }
-
-  private async ensureReferences(departmentId?: number, managerId?: number | null) {
-    if (departmentId) {
-      const department = await this.prisma.department.findFirst({
-        where: { id: departmentId, deletedAt: null },
-        select: { id: true }
-      });
-      if (!department) {
-        throw new ApiError(
-          HttpStatus.NOT_FOUND,
-          "Department not found",
-          "DEPARTMENT_NOT_FOUND"
-        );
-      }
-    }
-
-    if (managerId) {
-      const manager = await this.prisma.employee.findFirst({
-        where: currentEmployeeWhere({ id: managerId }),
-        select: { id: true }
-      });
-      if (!manager) {
-        throw new ApiError(
-          HttpStatus.NOT_FOUND,
-          "Employee not found",
-          "EMPLOYEE_NOT_FOUND"
-        );
-      }
-    }
-  }
-
-  private ensureDateRange(startDate?: string, endDate?: string) {
     if (startDate && endDate && toDateOnly(startDate) > toDateOnly(endDate)) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
@@ -307,39 +270,4 @@ export class ProjectsService {
     }
   }
 
-  private defaultProjectManagerId(managerId: number | undefined, actor: AuthUser) {
-    if (this.accessControl.isAdmin(actor)) {
-      return managerId;
-    }
-
-    return managerId ?? actor.employeeId ?? undefined;
-  }
-
-  private async ensureCanUseProjectManager(actor: AuthUser, managerId?: number) {
-    if (this.accessControl.isAdmin(actor)) {
-      return;
-    }
-
-    if (!this.accessControl.isManager(actor) || !actor.employeeId || !managerId) {
-      throw new ApiError(
-        HttpStatus.FORBIDDEN,
-        "Project manager scope denied",
-        "PROJECT_MANAGER_SCOPE_DENIED"
-      );
-    }
-
-    if (managerId === actor.employeeId) {
-      return;
-    }
-
-    if (await this.accessControl.isSubordinate(actor, managerId)) {
-      return;
-    }
-
-    throw new ApiError(
-      HttpStatus.FORBIDDEN,
-      "Project manager is outside manager scope",
-      "PROJECT_MANAGER_SCOPE_DENIED"
-    );
-  }
 }

@@ -7,7 +7,7 @@ void main() {
 
     await tester.pumpWidget(OmniHrApp(session: session));
 
-    expect(find.text('OmniHR Mobile'), findsOneWidget);
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('OmniHR'), findsOneWidget);
+    expect(find.text('Login'), findsOneWidget);
   });
 }

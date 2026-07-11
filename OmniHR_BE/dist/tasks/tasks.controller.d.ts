@@ -146,17 +146,17 @@ export declare class TasksController {
                 updatedAt: Date;
                 name: string;
                 code: string;
-                departmentId: number | null;
-                managerId: number | null;
+                departmentId: number;
+                managerId: number;
                 startDate: Date | null;
                 endDate: Date | null;
                 status: import(".prisma/client").$Enums.ProjectStatus;
-                teamId: number | null;
                 description: string | null;
                 createdByUserId: number | null;
             } | null;
             _count: {
                 aiTaskSuggestions: number;
+                childTasks: number;
                 assignments: number;
             };
             createdByUser: {
@@ -164,6 +164,102 @@ export declare class TasksController {
                 username: string;
                 email: string;
             } | null;
+            parentTask: {
+                id: number;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                title: string;
+                dueDate: Date | null;
+            } | null;
+            childTasks: {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                departmentId: number | null;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                description: string | null;
+                _count: {
+                    aiTaskSuggestions: number;
+                    childTasks: number;
+                    assignments: number;
+                };
+                createdByUserId: number | null;
+                parentTaskId: number | null;
+                projectId: number | null;
+                title: string;
+                technologies: string[];
+                priority: import(".prisma/client").$Enums.TaskPriority;
+                assigneeId: number | null;
+                assignedByUserId: number | null;
+                dueDate: Date | null;
+                estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+                actualHours: import("@prisma/client/runtime/library").Decimal | null;
+                completedAt: Date | null;
+                assignee: ({
+                    department: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        managerId: number | null;
+                        parentId: number | null;
+                    } | null;
+                    position: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        departmentId: number | null;
+                    } | null;
+                } & {
+                    deletedAt: Date | null;
+                    id: number;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    userId: number | null;
+                    departmentId: number | null;
+                    employeeCode: string;
+                    fullName: string;
+                    companyEmail: string;
+                    avatarUrl: string | null;
+                    personalEmail: string | null;
+                    phone: string | null;
+                    birthDate: Date;
+                    hireDate: Date | null;
+                    status: import(".prisma/client").$Enums.EmployeeStatus;
+                    positionId: number | null;
+                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
+                }) | null;
+                requiredSkills: ({
+                    skill: {
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        description: string | null;
+                        category: string | null;
+                    };
+                } & {
+                    id: number;
+                    createdAt: Date;
+                    taskId: number;
+                    skillId: number;
+                    requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                    importance: import(".prisma/client").$Enums.TaskSkillImportance;
+                })[];
+            }[];
             assignee: ({
                 department: {
                     deletedAt: Date | null;
@@ -226,9 +322,8 @@ export declare class TasksController {
                 createdAt: Date;
                 taskId: number;
                 skillId: number;
-                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-                weight: import("@prisma/client/runtime/library").Decimal;
-                isRequired: boolean;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
             })[];
         } & {
             deletedAt: Date | null;
@@ -241,8 +336,10 @@ export declare class TasksController {
             teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
+            parentTaskId: number | null;
             projectId: number | null;
             title: string;
+            technologies: string[];
             priority: import(".prisma/client").$Enums.TaskPriority;
             assigneeId: number | null;
             assignedByUserId: number | null;
@@ -395,17 +492,17 @@ export declare class TasksController {
                 updatedAt: Date;
                 name: string;
                 code: string;
-                departmentId: number | null;
-                managerId: number | null;
+                departmentId: number;
+                managerId: number;
                 startDate: Date | null;
                 endDate: Date | null;
                 status: import(".prisma/client").$Enums.ProjectStatus;
-                teamId: number | null;
                 description: string | null;
                 createdByUserId: number | null;
             } | null;
             _count: {
                 aiTaskSuggestions: number;
+                childTasks: number;
                 assignments: number;
             };
             createdByUser: {
@@ -413,6 +510,102 @@ export declare class TasksController {
                 username: string;
                 email: string;
             } | null;
+            parentTask: {
+                id: number;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                title: string;
+                dueDate: Date | null;
+            } | null;
+            childTasks: {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                departmentId: number | null;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                description: string | null;
+                _count: {
+                    aiTaskSuggestions: number;
+                    childTasks: number;
+                    assignments: number;
+                };
+                createdByUserId: number | null;
+                parentTaskId: number | null;
+                projectId: number | null;
+                title: string;
+                technologies: string[];
+                priority: import(".prisma/client").$Enums.TaskPriority;
+                assigneeId: number | null;
+                assignedByUserId: number | null;
+                dueDate: Date | null;
+                estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+                actualHours: import("@prisma/client/runtime/library").Decimal | null;
+                completedAt: Date | null;
+                assignee: ({
+                    department: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        managerId: number | null;
+                        parentId: number | null;
+                    } | null;
+                    position: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        departmentId: number | null;
+                    } | null;
+                } & {
+                    deletedAt: Date | null;
+                    id: number;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    userId: number | null;
+                    departmentId: number | null;
+                    employeeCode: string;
+                    fullName: string;
+                    companyEmail: string;
+                    avatarUrl: string | null;
+                    personalEmail: string | null;
+                    phone: string | null;
+                    birthDate: Date;
+                    hireDate: Date | null;
+                    status: import(".prisma/client").$Enums.EmployeeStatus;
+                    positionId: number | null;
+                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
+                }) | null;
+                requiredSkills: ({
+                    skill: {
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        description: string | null;
+                        category: string | null;
+                    };
+                } & {
+                    id: number;
+                    createdAt: Date;
+                    taskId: number;
+                    skillId: number;
+                    requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                    importance: import(".prisma/client").$Enums.TaskSkillImportance;
+                })[];
+            }[];
             assignee: ({
                 department: {
                     deletedAt: Date | null;
@@ -475,9 +668,8 @@ export declare class TasksController {
                 createdAt: Date;
                 taskId: number;
                 skillId: number;
-                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-                weight: import("@prisma/client/runtime/library").Decimal;
-                isRequired: boolean;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
             })[];
         } & {
             deletedAt: Date | null;
@@ -490,8 +682,10 @@ export declare class TasksController {
             teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
+            parentTaskId: number | null;
             projectId: number | null;
             title: string;
+            technologies: string[];
             priority: import(".prisma/client").$Enums.TaskPriority;
             assigneeId: number | null;
             assignedByUserId: number | null;
@@ -644,17 +838,17 @@ export declare class TasksController {
                 updatedAt: Date;
                 name: string;
                 code: string;
-                departmentId: number | null;
-                managerId: number | null;
+                departmentId: number;
+                managerId: number;
                 startDate: Date | null;
                 endDate: Date | null;
                 status: import(".prisma/client").$Enums.ProjectStatus;
-                teamId: number | null;
                 description: string | null;
                 createdByUserId: number | null;
             } | null;
             _count: {
                 aiTaskSuggestions: number;
+                childTasks: number;
                 assignments: number;
             };
             createdByUser: {
@@ -662,6 +856,102 @@ export declare class TasksController {
                 username: string;
                 email: string;
             } | null;
+            parentTask: {
+                id: number;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                title: string;
+                dueDate: Date | null;
+            } | null;
+            childTasks: {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                departmentId: number | null;
+                startDate: Date | null;
+                status: import(".prisma/client").$Enums.TaskStatus;
+                teamId: number | null;
+                description: string | null;
+                _count: {
+                    aiTaskSuggestions: number;
+                    childTasks: number;
+                    assignments: number;
+                };
+                createdByUserId: number | null;
+                parentTaskId: number | null;
+                projectId: number | null;
+                title: string;
+                technologies: string[];
+                priority: import(".prisma/client").$Enums.TaskPriority;
+                assigneeId: number | null;
+                assignedByUserId: number | null;
+                dueDate: Date | null;
+                estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+                actualHours: import("@prisma/client/runtime/library").Decimal | null;
+                completedAt: Date | null;
+                assignee: ({
+                    department: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        managerId: number | null;
+                        parentId: number | null;
+                    } | null;
+                    position: {
+                        deletedAt: Date | null;
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        departmentId: number | null;
+                    } | null;
+                } & {
+                    deletedAt: Date | null;
+                    id: number;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    userId: number | null;
+                    departmentId: number | null;
+                    employeeCode: string;
+                    fullName: string;
+                    companyEmail: string;
+                    avatarUrl: string | null;
+                    personalEmail: string | null;
+                    phone: string | null;
+                    birthDate: Date;
+                    hireDate: Date | null;
+                    status: import(".prisma/client").$Enums.EmployeeStatus;
+                    positionId: number | null;
+                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
+                }) | null;
+                requiredSkills: ({
+                    skill: {
+                        id: number;
+                        isActive: boolean;
+                        createdAt: Date;
+                        updatedAt: Date;
+                        name: string;
+                        code: string;
+                        description: string | null;
+                        category: string | null;
+                    };
+                } & {
+                    id: number;
+                    createdAt: Date;
+                    taskId: number;
+                    skillId: number;
+                    requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                    importance: import(".prisma/client").$Enums.TaskSkillImportance;
+                })[];
+            }[];
             assignee: ({
                 department: {
                     deletedAt: Date | null;
@@ -724,9 +1014,8 @@ export declare class TasksController {
                 createdAt: Date;
                 taskId: number;
                 skillId: number;
-                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-                weight: import("@prisma/client/runtime/library").Decimal;
-                isRequired: boolean;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
             })[];
         } & {
             deletedAt: Date | null;
@@ -739,8 +1028,10 @@ export declare class TasksController {
             teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
+            parentTaskId: number | null;
             projectId: number | null;
             title: string;
+            technologies: string[];
             priority: import(".prisma/client").$Enums.TaskPriority;
             assigneeId: number | null;
             assignedByUserId: number | null;
@@ -892,17 +1183,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -910,6 +1201,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -972,9 +1359,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -987,8 +1373,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;
@@ -1134,17 +1522,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -1152,6 +1540,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -1214,9 +1698,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -1229,8 +1712,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;
@@ -1376,17 +1861,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -1394,6 +1879,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -1456,9 +2037,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -1471,8 +2051,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;
@@ -1618,17 +2200,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -1636,6 +2218,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -1698,9 +2376,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -1713,8 +2390,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;
@@ -1860,17 +2539,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -1878,6 +2557,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -1940,9 +2715,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -1955,8 +2729,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;
@@ -2102,17 +2878,17 @@ export declare class TasksController {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         } | null;
         _count: {
             aiTaskSuggestions: number;
+            childTasks: number;
             assignments: number;
         };
         createdByUser: {
@@ -2120,6 +2896,102 @@ export declare class TasksController {
             username: string;
             email: string;
         } | null;
+        parentTask: {
+            id: number;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            title: string;
+            dueDate: Date | null;
+        } | null;
+        childTasks: {
+            deletedAt: Date | null;
+            id: number;
+            createdAt: Date;
+            updatedAt: Date;
+            departmentId: number | null;
+            startDate: Date | null;
+            status: import(".prisma/client").$Enums.TaskStatus;
+            teamId: number | null;
+            description: string | null;
+            _count: {
+                aiTaskSuggestions: number;
+                childTasks: number;
+                assignments: number;
+            };
+            createdByUserId: number | null;
+            parentTaskId: number | null;
+            projectId: number | null;
+            title: string;
+            technologies: string[];
+            priority: import(".prisma/client").$Enums.TaskPriority;
+            assigneeId: number | null;
+            assignedByUserId: number | null;
+            dueDate: Date | null;
+            estimatedHours: import("@prisma/client/runtime/library").Decimal | null;
+            actualHours: import("@prisma/client/runtime/library").Decimal | null;
+            completedAt: Date | null;
+            assignee: ({
+                department: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    managerId: number | null;
+                    parentId: number | null;
+                } | null;
+                position: {
+                    deletedAt: Date | null;
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    departmentId: number | null;
+                } | null;
+            } & {
+                deletedAt: Date | null;
+                id: number;
+                createdAt: Date;
+                updatedAt: Date;
+                userId: number | null;
+                departmentId: number | null;
+                employeeCode: string;
+                fullName: string;
+                companyEmail: string;
+                avatarUrl: string | null;
+                personalEmail: string | null;
+                phone: string | null;
+                birthDate: Date;
+                hireDate: Date | null;
+                status: import(".prisma/client").$Enums.EmployeeStatus;
+                positionId: number | null;
+                careerLevel: import(".prisma/client").$Enums.CareerLevel;
+            }) | null;
+            requiredSkills: ({
+                skill: {
+                    id: number;
+                    isActive: boolean;
+                    createdAt: Date;
+                    updatedAt: Date;
+                    name: string;
+                    code: string;
+                    description: string | null;
+                    category: string | null;
+                };
+            } & {
+                id: number;
+                createdAt: Date;
+                taskId: number;
+                skillId: number;
+                requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+                importance: import(".prisma/client").$Enums.TaskSkillImportance;
+            })[];
+        }[];
         assignee: ({
             department: {
                 deletedAt: Date | null;
@@ -2182,9 +3054,8 @@ export declare class TasksController {
             createdAt: Date;
             taskId: number;
             skillId: number;
-            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency | null;
-            weight: import("@prisma/client/runtime/library").Decimal;
-            isRequired: boolean;
+            requiredProficiency: import(".prisma/client").$Enums.SkillProficiency;
+            importance: import(".prisma/client").$Enums.TaskSkillImportance;
         })[];
     } & {
         deletedAt: Date | null;
@@ -2197,8 +3068,10 @@ export declare class TasksController {
         teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
+        parentTaskId: number | null;
         projectId: number | null;
         title: string;
+        technologies: string[];
         priority: import(".prisma/client").$Enums.TaskPriority;
         assigneeId: number | null;
         assignedByUserId: number | null;

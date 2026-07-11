@@ -119,7 +119,6 @@ export declare class TeamsService {
             })[];
             _count: {
                 members: number;
-                projects: number;
                 tasks: number;
             };
         } & {
@@ -248,7 +247,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -371,7 +369,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -494,7 +491,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -617,7 +613,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -740,7 +735,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -863,7 +857,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -986,7 +979,6 @@ export declare class TeamsService {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -1009,4 +1001,6 @@ export declare class TeamsService {
     private syncMembers;
     private ensureLeadMembership;
     private downgradePreviousLead;
+    private activateMember;
+    private setTeamLead;
 }

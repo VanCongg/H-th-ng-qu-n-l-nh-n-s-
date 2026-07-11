@@ -22,126 +22,8 @@ export declare class ProjectsService {
                 code: string;
                 managerId: number | null;
                 parentId: number | null;
-            } | null;
-            team: ({
-                department: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    managerId: number | null;
-                    parentId: number | null;
-                };
-                lead: ({
-                    department: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        managerId: number | null;
-                        parentId: number | null;
-                    } | null;
-                    position: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        departmentId: number | null;
-                    } | null;
-                } & {
-                    deletedAt: Date | null;
-                    id: number;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    userId: number | null;
-                    departmentId: number | null;
-                    employeeCode: string;
-                    fullName: string;
-                    companyEmail: string;
-                    avatarUrl: string | null;
-                    personalEmail: string | null;
-                    phone: string | null;
-                    birthDate: Date;
-                    hireDate: Date | null;
-                    status: import(".prisma/client").$Enums.EmployeeStatus;
-                    positionId: number | null;
-                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                }) | null;
-                members: ({
-                    employee: {
-                        department: {
-                            deletedAt: Date | null;
-                            id: number;
-                            isActive: boolean;
-                            createdAt: Date;
-                            updatedAt: Date;
-                            name: string;
-                            code: string;
-                            managerId: number | null;
-                            parentId: number | null;
-                        } | null;
-                        position: {
-                            deletedAt: Date | null;
-                            id: number;
-                            isActive: boolean;
-                            createdAt: Date;
-                            updatedAt: Date;
-                            name: string;
-                            code: string;
-                            departmentId: number | null;
-                        } | null;
-                    } & {
-                        deletedAt: Date | null;
-                        id: number;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        userId: number | null;
-                        departmentId: number | null;
-                        employeeCode: string;
-                        fullName: string;
-                        companyEmail: string;
-                        avatarUrl: string | null;
-                        personalEmail: string | null;
-                        phone: string | null;
-                        birthDate: Date;
-                        hireDate: Date | null;
-                        status: import(".prisma/client").$Enums.EmployeeStatus;
-                        positionId: number | null;
-                        careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                    };
-                } & {
-                    role: import(".prisma/client").$Enums.TeamMemberRole;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    employeeId: number;
-                    teamId: number;
-                    joinedAt: Date;
-                    leftAt: Date | null;
-                })[];
-            } & {
-                deletedAt: Date | null;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                code: string;
-                departmentId: number;
-                leadId: number | null;
-                description: string | null;
-            }) | null;
-            manager: ({
+            };
+            manager: {
                 department: {
                     deletedAt: Date | null;
                     id: number;
@@ -181,7 +63,7 @@ export declare class ProjectsService {
                 status: import(".prisma/client").$Enums.EmployeeStatus;
                 positionId: number | null;
                 careerLevel: import(".prisma/client").$Enums.CareerLevel;
-            }) | null;
+            };
             _count: {
                 tasks: number;
             };
@@ -197,12 +79,11 @@ export declare class ProjectsService {
             updatedAt: Date;
             name: string;
             code: string;
-            departmentId: number | null;
-            managerId: number | null;
+            departmentId: number;
+            managerId: number;
             startDate: Date | null;
             endDate: Date | null;
             status: import(".prisma/client").$Enums.ProjectStatus;
-            teamId: number | null;
             description: string | null;
             createdByUserId: number | null;
         })[];
@@ -223,126 +104,8 @@ export declare class ProjectsService {
             code: string;
             managerId: number | null;
             parentId: number | null;
-        } | null;
-        team: ({
-            department: {
-                deletedAt: Date | null;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                code: string;
-                managerId: number | null;
-                parentId: number | null;
-            };
-            lead: ({
-                department: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    managerId: number | null;
-                    parentId: number | null;
-                } | null;
-                position: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    departmentId: number | null;
-                } | null;
-            } & {
-                deletedAt: Date | null;
-                id: number;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: number | null;
-                departmentId: number | null;
-                employeeCode: string;
-                fullName: string;
-                companyEmail: string;
-                avatarUrl: string | null;
-                personalEmail: string | null;
-                phone: string | null;
-                birthDate: Date;
-                hireDate: Date | null;
-                status: import(".prisma/client").$Enums.EmployeeStatus;
-                positionId: number | null;
-                careerLevel: import(".prisma/client").$Enums.CareerLevel;
-            }) | null;
-            members: ({
-                employee: {
-                    department: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        managerId: number | null;
-                        parentId: number | null;
-                    } | null;
-                    position: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        departmentId: number | null;
-                    } | null;
-                } & {
-                    deletedAt: Date | null;
-                    id: number;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    userId: number | null;
-                    departmentId: number | null;
-                    employeeCode: string;
-                    fullName: string;
-                    companyEmail: string;
-                    avatarUrl: string | null;
-                    personalEmail: string | null;
-                    phone: string | null;
-                    birthDate: Date;
-                    hireDate: Date | null;
-                    status: import(".prisma/client").$Enums.EmployeeStatus;
-                    positionId: number | null;
-                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                };
-            } & {
-                role: import(".prisma/client").$Enums.TeamMemberRole;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                employeeId: number;
-                teamId: number;
-                joinedAt: Date;
-                leftAt: Date | null;
-            })[];
-        } & {
-            deletedAt: Date | null;
-            id: number;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            departmentId: number;
-            leadId: number | null;
-            description: string | null;
-        }) | null;
-        manager: ({
+        };
+        manager: {
             department: {
                 deletedAt: Date | null;
                 id: number;
@@ -382,7 +145,7 @@ export declare class ProjectsService {
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
             careerLevel: import(".prisma/client").$Enums.CareerLevel;
-        }) | null;
+        };
         _count: {
             tasks: number;
         };
@@ -398,12 +161,11 @@ export declare class ProjectsService {
         updatedAt: Date;
         name: string;
         code: string;
-        departmentId: number | null;
-        managerId: number | null;
+        departmentId: number;
+        managerId: number;
         startDate: Date | null;
         endDate: Date | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
-        teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
     }>;
@@ -418,126 +180,8 @@ export declare class ProjectsService {
             code: string;
             managerId: number | null;
             parentId: number | null;
-        } | null;
-        team: ({
-            department: {
-                deletedAt: Date | null;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                code: string;
-                managerId: number | null;
-                parentId: number | null;
-            };
-            lead: ({
-                department: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    managerId: number | null;
-                    parentId: number | null;
-                } | null;
-                position: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    departmentId: number | null;
-                } | null;
-            } & {
-                deletedAt: Date | null;
-                id: number;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: number | null;
-                departmentId: number | null;
-                employeeCode: string;
-                fullName: string;
-                companyEmail: string;
-                avatarUrl: string | null;
-                personalEmail: string | null;
-                phone: string | null;
-                birthDate: Date;
-                hireDate: Date | null;
-                status: import(".prisma/client").$Enums.EmployeeStatus;
-                positionId: number | null;
-                careerLevel: import(".prisma/client").$Enums.CareerLevel;
-            }) | null;
-            members: ({
-                employee: {
-                    department: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        managerId: number | null;
-                        parentId: number | null;
-                    } | null;
-                    position: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        departmentId: number | null;
-                    } | null;
-                } & {
-                    deletedAt: Date | null;
-                    id: number;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    userId: number | null;
-                    departmentId: number | null;
-                    employeeCode: string;
-                    fullName: string;
-                    companyEmail: string;
-                    avatarUrl: string | null;
-                    personalEmail: string | null;
-                    phone: string | null;
-                    birthDate: Date;
-                    hireDate: Date | null;
-                    status: import(".prisma/client").$Enums.EmployeeStatus;
-                    positionId: number | null;
-                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                };
-            } & {
-                role: import(".prisma/client").$Enums.TeamMemberRole;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                employeeId: number;
-                teamId: number;
-                joinedAt: Date;
-                leftAt: Date | null;
-            })[];
-        } & {
-            deletedAt: Date | null;
-            id: number;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            departmentId: number;
-            leadId: number | null;
-            description: string | null;
-        }) | null;
-        manager: ({
+        };
+        manager: {
             department: {
                 deletedAt: Date | null;
                 id: number;
@@ -577,7 +221,7 @@ export declare class ProjectsService {
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
             careerLevel: import(".prisma/client").$Enums.CareerLevel;
-        }) | null;
+        };
         _count: {
             tasks: number;
         };
@@ -593,12 +237,11 @@ export declare class ProjectsService {
         updatedAt: Date;
         name: string;
         code: string;
-        departmentId: number | null;
-        managerId: number | null;
+        departmentId: number;
+        managerId: number;
         startDate: Date | null;
         endDate: Date | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
-        teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
     }>;
@@ -613,126 +256,8 @@ export declare class ProjectsService {
             code: string;
             managerId: number | null;
             parentId: number | null;
-        } | null;
-        team: ({
-            department: {
-                deletedAt: Date | null;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                code: string;
-                managerId: number | null;
-                parentId: number | null;
-            };
-            lead: ({
-                department: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    managerId: number | null;
-                    parentId: number | null;
-                } | null;
-                position: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    departmentId: number | null;
-                } | null;
-            } & {
-                deletedAt: Date | null;
-                id: number;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: number | null;
-                departmentId: number | null;
-                employeeCode: string;
-                fullName: string;
-                companyEmail: string;
-                avatarUrl: string | null;
-                personalEmail: string | null;
-                phone: string | null;
-                birthDate: Date;
-                hireDate: Date | null;
-                status: import(".prisma/client").$Enums.EmployeeStatus;
-                positionId: number | null;
-                careerLevel: import(".prisma/client").$Enums.CareerLevel;
-            }) | null;
-            members: ({
-                employee: {
-                    department: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        managerId: number | null;
-                        parentId: number | null;
-                    } | null;
-                    position: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        departmentId: number | null;
-                    } | null;
-                } & {
-                    deletedAt: Date | null;
-                    id: number;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    userId: number | null;
-                    departmentId: number | null;
-                    employeeCode: string;
-                    fullName: string;
-                    companyEmail: string;
-                    avatarUrl: string | null;
-                    personalEmail: string | null;
-                    phone: string | null;
-                    birthDate: Date;
-                    hireDate: Date | null;
-                    status: import(".prisma/client").$Enums.EmployeeStatus;
-                    positionId: number | null;
-                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                };
-            } & {
-                role: import(".prisma/client").$Enums.TeamMemberRole;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                employeeId: number;
-                teamId: number;
-                joinedAt: Date;
-                leftAt: Date | null;
-            })[];
-        } & {
-            deletedAt: Date | null;
-            id: number;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            departmentId: number;
-            leadId: number | null;
-            description: string | null;
-        }) | null;
-        manager: ({
+        };
+        manager: {
             department: {
                 deletedAt: Date | null;
                 id: number;
@@ -772,7 +297,7 @@ export declare class ProjectsService {
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
             careerLevel: import(".prisma/client").$Enums.CareerLevel;
-        }) | null;
+        };
         _count: {
             tasks: number;
         };
@@ -788,12 +313,11 @@ export declare class ProjectsService {
         updatedAt: Date;
         name: string;
         code: string;
-        departmentId: number | null;
-        managerId: number | null;
+        departmentId: number;
+        managerId: number;
         startDate: Date | null;
         endDate: Date | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
-        teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
     }>;
@@ -808,126 +332,8 @@ export declare class ProjectsService {
             code: string;
             managerId: number | null;
             parentId: number | null;
-        } | null;
-        team: ({
-            department: {
-                deletedAt: Date | null;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                name: string;
-                code: string;
-                managerId: number | null;
-                parentId: number | null;
-            };
-            lead: ({
-                department: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    managerId: number | null;
-                    parentId: number | null;
-                } | null;
-                position: {
-                    deletedAt: Date | null;
-                    id: number;
-                    isActive: boolean;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    name: string;
-                    code: string;
-                    departmentId: number | null;
-                } | null;
-            } & {
-                deletedAt: Date | null;
-                id: number;
-                createdAt: Date;
-                updatedAt: Date;
-                userId: number | null;
-                departmentId: number | null;
-                employeeCode: string;
-                fullName: string;
-                companyEmail: string;
-                avatarUrl: string | null;
-                personalEmail: string | null;
-                phone: string | null;
-                birthDate: Date;
-                hireDate: Date | null;
-                status: import(".prisma/client").$Enums.EmployeeStatus;
-                positionId: number | null;
-                careerLevel: import(".prisma/client").$Enums.CareerLevel;
-            }) | null;
-            members: ({
-                employee: {
-                    department: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        managerId: number | null;
-                        parentId: number | null;
-                    } | null;
-                    position: {
-                        deletedAt: Date | null;
-                        id: number;
-                        isActive: boolean;
-                        createdAt: Date;
-                        updatedAt: Date;
-                        name: string;
-                        code: string;
-                        departmentId: number | null;
-                    } | null;
-                } & {
-                    deletedAt: Date | null;
-                    id: number;
-                    createdAt: Date;
-                    updatedAt: Date;
-                    userId: number | null;
-                    departmentId: number | null;
-                    employeeCode: string;
-                    fullName: string;
-                    companyEmail: string;
-                    avatarUrl: string | null;
-                    personalEmail: string | null;
-                    phone: string | null;
-                    birthDate: Date;
-                    hireDate: Date | null;
-                    status: import(".prisma/client").$Enums.EmployeeStatus;
-                    positionId: number | null;
-                    careerLevel: import(".prisma/client").$Enums.CareerLevel;
-                };
-            } & {
-                role: import(".prisma/client").$Enums.TeamMemberRole;
-                id: number;
-                isActive: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-                employeeId: number;
-                teamId: number;
-                joinedAt: Date;
-                leftAt: Date | null;
-            })[];
-        } & {
-            deletedAt: Date | null;
-            id: number;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            name: string;
-            code: string;
-            departmentId: number;
-            leadId: number | null;
-            description: string | null;
-        }) | null;
-        manager: ({
+        };
+        manager: {
             department: {
                 deletedAt: Date | null;
                 id: number;
@@ -967,7 +373,7 @@ export declare class ProjectsService {
             status: import(".prisma/client").$Enums.EmployeeStatus;
             positionId: number | null;
             careerLevel: import(".prisma/client").$Enums.CareerLevel;
-        }) | null;
+        };
         _count: {
             tasks: number;
         };
@@ -983,19 +389,16 @@ export declare class ProjectsService {
         updatedAt: Date;
         name: string;
         code: string;
-        departmentId: number | null;
-        managerId: number | null;
+        departmentId: number;
+        managerId: number;
         startDate: Date | null;
         endDate: Date | null;
         status: import(".prisma/client").$Enums.ProjectStatus;
-        teamId: number | null;
         description: string | null;
         createdByUserId: number | null;
     }>;
     private buildWhere;
-    private resolveProjectScope;
-    private ensureReferences;
+    private resolveManagedDepartment;
+    private ensureCanManageProject;
     private ensureDateRange;
-    private defaultProjectManagerId;
-    private ensureCanUseProjectManager;
 }

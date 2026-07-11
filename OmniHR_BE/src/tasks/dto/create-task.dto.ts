@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   IsArray,
   IsDateString,
   IsEnum,
@@ -18,12 +19,12 @@ export class CreateTaskDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  projectId?: number;
+  parentTaskId?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  departmentId?: number;
+  projectId?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -37,6 +38,13 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  technologies?: string[];
 
   @IsOptional()
   @IsEnum(TaskPriority)

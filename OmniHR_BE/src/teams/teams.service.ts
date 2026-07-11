@@ -2,7 +2,6 @@ import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   EmployeeStatus,
   Prisma,
-  ProjectStatus,
   TaskStatus,
   TeamMemberRole
 } from "@prisma/client";
@@ -29,7 +28,6 @@ const teamInclude = {
   _count: {
     select: {
       members: { where: { isActive: true, employee: currentEmployeeWhere() } },
-      projects: { where: { deletedAt: null } },
       tasks: { where: { deletedAt: null } }
     }
   }
@@ -170,13 +168,6 @@ export class TeamsService {
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     await this.ensureCanManageDepartment(actor, oldValue.departmentId);
-    const activeProjects = await this.prisma.project.count({
-      where: {
-        teamId: id,
-        deletedAt: null,
-        status: { notIn: [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED] }
-      }
-    });
     const activeTasks = await this.prisma.task.count({
       where: {
         teamId: id,
@@ -184,10 +175,10 @@ export class TeamsService {
         status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] }
       }
     });
-    if (activeProjects || activeTasks) {
+    if (activeTasks) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
-        "Team has active projects or tasks",
+        "Team has active tasks",
         "VALIDATION_ERROR"
       );
     }
@@ -228,22 +219,14 @@ export class TeamsService {
     await this.ensureEmployeesInDepartment([dto.employeeId], team.departmentId);
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const member = await tx.teamMember.upsert({
-        where: { teamId_employeeId: { teamId, employeeId: dto.employeeId } },
-        create: {
-          teamId,
-          employeeId: dto.employeeId,
-          role: dto.role ?? TeamMemberRole.MEMBER,
-          isActive: true
-        },
-        update: {
-          role: dto.role ?? TeamMemberRole.MEMBER,
-          isActive: true,
-          leftAt: null
-        }
-      });
+      const member = await this.activateMember(
+        tx,
+        teamId,
+        dto.employeeId,
+        dto.role ?? TeamMemberRole.MEMBER
+      );
       if (member.role === TeamMemberRole.LEAD) {
-        await tx.team.update({ where: { id: teamId }, data: { leadId: dto.employeeId } });
+        await this.setTeamLead(tx, teamId, dto.employeeId);
       }
       return tx.team.findUniqueOrThrow({ where: { id: teamId }, include: teamInclude });
     });
@@ -286,7 +269,7 @@ export class TeamsService {
         }
       });
       if (member.role === TeamMemberRole.LEAD && member.isActive) {
-        await tx.team.update({ where: { id: teamId }, data: { leadId: member.employeeId } });
+        await this.setTeamLead(tx, teamId, member.employeeId);
       }
       return tx.team.findUniqueOrThrow({ where: { id: teamId }, include: teamInclude });
     });
@@ -438,20 +421,16 @@ export class TeamsService {
     });
 
     for (const employeeId of targetIds) {
-      await tx.teamMember.upsert({
-        where: { teamId_employeeId: { teamId, employeeId } },
-        create: {
-          teamId,
-          employeeId,
-          role: employeeId === leadId ? TeamMemberRole.LEAD : TeamMemberRole.MEMBER,
-          isActive: true
-        },
-        update: {
-          role: employeeId === leadId ? TeamMemberRole.LEAD : TeamMemberRole.MEMBER,
-          isActive: true,
-          leftAt: null
-        }
-      });
+      await this.activateMember(
+        tx,
+        teamId,
+        employeeId,
+        employeeId === leadId ? TeamMemberRole.LEAD : TeamMemberRole.MEMBER
+      );
+    }
+
+    if (leadId) {
+      await this.setTeamLead(tx, teamId, leadId);
     }
   }
 
@@ -464,11 +443,8 @@ export class TeamsService {
       return;
     }
 
-    await tx.teamMember.upsert({
-      where: { teamId_employeeId: { teamId, employeeId: leadId } },
-      create: { teamId, employeeId: leadId, role: TeamMemberRole.LEAD, isActive: true },
-      update: { role: TeamMemberRole.LEAD, isActive: true, leftAt: null }
-    });
+    await this.activateMember(tx, teamId, leadId, TeamMemberRole.LEAD);
+    await this.setTeamLead(tx, teamId, leadId);
   }
 
   private async downgradePreviousLead(
@@ -483,6 +459,52 @@ export class TeamsService {
 
     await tx.teamMember.updateMany({
       where: { teamId, employeeId: oldLeadId, isActive: true },
+      data: { role: TeamMemberRole.MEMBER }
+    });
+  }
+
+  private async activateMember(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    employeeId: number,
+    role: TeamMemberRole
+  ) {
+    const activeMember = await tx.teamMember.findFirst({
+      where: { teamId, employeeId, isActive: true },
+      select: { id: true }
+    });
+
+    if (activeMember) {
+      return tx.teamMember.update({
+        where: { id: activeMember.id },
+        data: { role, leftAt: null }
+      });
+    }
+
+    return tx.teamMember.create({
+      data: {
+        teamId,
+        employeeId,
+        role,
+        joinedAt: toDateOnly(new Date()),
+        isActive: true
+      }
+    });
+  }
+
+  private async setTeamLead(
+    tx: Prisma.TransactionClient,
+    teamId: number,
+    leadId: number
+  ) {
+    await tx.team.update({ where: { id: teamId }, data: { leadId } });
+    await tx.teamMember.updateMany({
+      where: {
+        teamId,
+        employeeId: { not: leadId },
+        isActive: true,
+        role: TeamMemberRole.LEAD
+      },
       data: { role: TeamMemberRole.MEMBER }
     });
   }

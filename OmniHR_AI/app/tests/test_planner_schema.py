@@ -1,0 +1,112 @@
+import unittest
+
+from app.schemas.planner import (
+    PlannerResponse,
+    PlannerValidationError,
+    validate_planner_response,
+)
+
+
+class PlannerSchemaTest(unittest.TestCase):
+    def test_accepts_valid_read_tool_and_strips_unexpected_arguments(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "GET_TODAY_ATTENDANCE",
+                "reply": "Toi se kiem tra cham cong hom nay.",
+                "toolCalls": [
+                    {
+                        "toolName": "get_today_attendance",
+                        "arguments": {"employeeId": 999},
+                    }
+                ],
+                "confirmationRequired": False,
+                "missingFields": [],
+                "confidence": 0.9,
+                "safety": {"allowed": True, "reason": None},
+            }
+        )
+
+        validated = validate_planner_response(response, {"get_today_attendance"})
+
+        self.assertEqual(validated.toolCalls[0].arguments, {})
+
+    def test_rejects_tool_not_available(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "GET_MY_TASKS",
+                "reply": "Toi se kiem tra task cua ban.",
+                "toolCalls": [{"toolName": "get_my_tasks", "arguments": {}}],
+                "confirmationRequired": False,
+                "missingFields": [],
+                "confidence": 0.9,
+                "safety": {"allowed": True, "reason": None},
+            }
+        )
+
+        with self.assertRaises(PlannerValidationError):
+            validate_planner_response(response, {"get_today_attendance"})
+
+    def test_rejects_write_tool_without_confirmation(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+                "reply": "Toi da chuan bi nhap don nghi.",
+                "toolCalls": [
+                    {
+                        "toolName": "create_leave_request_draft",
+                        "arguments": {
+                            "leaveTypeCode": "ANNUAL_LEAVE",
+                            "startDate": "2026-07-08",
+                            "endDate": "2026-07-08",
+                            "reason": "Co viec gia dinh",
+                        },
+                    }
+                ],
+                "confirmationRequired": False,
+                "missingFields": [],
+                "confidence": 0.9,
+                "safety": {"allowed": True, "reason": None},
+            }
+        )
+
+        with self.assertRaises(PlannerValidationError):
+            validate_planner_response(response, {"create_leave_request_draft"})
+
+    def test_rejects_unsafe_response_with_tool_calls(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "FORBIDDEN_REQUEST",
+                "reply": "Toi khong the thuc hien yeu cau nay.",
+                "toolCalls": [{"toolName": "get_my_profile", "arguments": {}}],
+                "confirmationRequired": False,
+                "missingFields": [],
+                "confidence": 0.95,
+                "safety": {
+                    "allowed": False,
+                    "reason": "FORBIDDEN_OR_UNSAFE_REQUEST",
+                },
+            }
+        )
+
+        with self.assertRaises(PlannerValidationError):
+            validate_planner_response(response, {"get_my_profile"})
+
+    def test_rejects_missing_fields_with_tool_calls(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+                "reply": "Ban muon nghi ngay nao?",
+                "toolCalls": [{"toolName": "create_leave_request_draft", "arguments": {}}],
+                "confirmationRequired": False,
+                "missingFields": ["startDate"],
+                "confidence": 0.9,
+                "safety": {"allowed": True, "reason": None},
+            }
+        )
+
+        with self.assertRaises(PlannerValidationError):
+            validate_planner_response(response, {"create_leave_request_draft"})
+
+
+if __name__ == "__main__":
+    unittest.main()

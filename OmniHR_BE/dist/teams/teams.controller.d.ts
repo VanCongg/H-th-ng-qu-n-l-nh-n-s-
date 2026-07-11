@@ -117,7 +117,6 @@ export declare class TeamsController {
             })[];
             _count: {
                 members: number;
-                projects: number;
                 tasks: number;
             };
         } & {
@@ -246,7 +245,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -369,7 +367,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -492,7 +489,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -615,7 +611,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -738,7 +733,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -861,7 +855,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {
@@ -984,7 +977,6 @@ export declare class TeamsController {
         })[];
         _count: {
             members: number;
-            projects: number;
             tasks: number;
         };
     } & {

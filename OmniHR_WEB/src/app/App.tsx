@@ -57,7 +57,7 @@ export function App() {
                 <Route path="team-tasks" element={<TasksPage scope="team" />} />
                 <Route
                   path="assign-task"
-                  element={<TasksPage scope="team" mode="assign" />}
+                  element={<Navigate to="/app/team-tasks" replace />}
                 />
                 <Route
                   path="ai-task-suggestions"

@@ -171,6 +171,47 @@ let AccessControlService = class AccessControlService {
         });
         return teams.map((team) => team.id);
     }
+    async isDepartmentHead(user, departmentId) {
+        if (!user.employeeId) {
+            return false;
+        }
+        const department = await this.prisma.department.findFirst({
+            where: {
+                id: departmentId,
+                managerId: user.employeeId,
+                isActive: true,
+                deletedAt: null
+            },
+            select: { id: true }
+        });
+        return Boolean(department);
+    }
+    async isTeamLead(user, teamId) {
+        if (!user.employeeId) {
+            return false;
+        }
+        const team = await this.prisma.team.findFirst({
+            where: {
+                id: teamId,
+                isActive: true,
+                deletedAt: null,
+                OR: [
+                    { leadId: user.employeeId },
+                    {
+                        members: {
+                            some: {
+                                employeeId: user.employeeId,
+                                isActive: true,
+                                role: client_1.TeamMemberRole.LEAD
+                            }
+                        }
+                    }
+                ]
+            },
+            select: { id: true }
+        });
+        return Boolean(team);
+    }
     async isSubordinate(user, employeeId) {
         if (!user.employeeId) {
             return false;
@@ -185,34 +226,37 @@ let AccessControlService = class AccessControlService {
         const project = await this.prisma.project.findFirst({
             where: { id: projectId, deletedAt: null },
             include: {
-                team: {
-                    include: {
-                        members: {
-                            where: { isActive: true },
-                            select: { employeeId: true }
-                        }
-                    }
-                },
+                department: { select: { managerId: true } },
                 tasks: {
                     where: { deletedAt: null },
-                    select: { assigneeId: true, createdByUserId: true }
+                    select: {
+                        assigneeId: true,
+                        createdByUserId: true,
+                        team: {
+                            select: {
+                                leadId: true,
+                                members: {
+                                    where: { isActive: true },
+                                    select: { employeeId: true }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         });
         if (!project) {
             throw new api_error_1.ApiError(common_1.HttpStatus.NOT_FOUND, "Project not found", "PROJECT_NOT_FOUND");
         }
-        if (project.managerId && project.managerId === user.employeeId) {
+        if (project.managerId === user.employeeId ||
+            project.department.managerId === user.employeeId ||
+            project.createdByUserId === user.id) {
             return;
         }
-        if (project.team &&
-            (project.team.leadId === user.employeeId ||
-                project.team.members.some((member) => member.employeeId === user.employeeId))) {
-            return;
-        }
-        const teamIds = await this.teamEmployeeIds(user);
-        if (project.tasks.some((task) => (task.assigneeId && teamIds.includes(task.assigneeId)) ||
-            task.createdByUserId === user.id)) {
+        if (project.tasks.some((task) => task.assigneeId === user.employeeId ||
+            task.createdByUserId === user.id ||
+            task.team?.leadId === user.employeeId ||
+            task.team?.members.some((member) => member.employeeId === user.employeeId))) {
             return;
         }
         throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Project scope denied", "PROJECT_SCOPE_DENIED");
@@ -221,8 +265,15 @@ let AccessControlService = class AccessControlService {
         const task = await this.prisma.task.findFirst({
             where: { id: taskId, deletedAt: null },
             select: {
+                parentTaskId: true,
+                projectId: true,
+                departmentId: true,
+                teamId: true,
                 assigneeId: true,
                 createdByUserId: true,
+                project: {
+                    select: { departmentId: true }
+                },
                 team: {
                     select: {
                         leadId: true,
@@ -243,29 +294,36 @@ let AccessControlService = class AccessControlService {
         if (task.assigneeId && task.assigneeId === user.employeeId) {
             return task;
         }
-        if (this.isManager(user)) {
-            const teamIds = await this.teamEmployeeIds(user);
-            if (task.createdByUserId === user.id ||
-                (task.assigneeId && teamIds.includes(task.assigneeId)) ||
-                task.team?.leadId === user.employeeId ||
-                task.team?.members.some((member) => member.employeeId === user.employeeId)) {
-                return task;
-            }
+        if (task.createdByUserId === user.id ||
+            task.team?.leadId === user.employeeId ||
+            task.team?.members.some((member) => member.employeeId === user.employeeId) ||
+            (task.departmentId && (await this.isDepartmentHead(user, task.departmentId)))) {
+            return task;
         }
         throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Task scope denied", "TASK_ASSIGNMENT_DENIED");
     }
     async ensureCanUpdateTask(user, taskId) {
         const task = await this.ensureCanReadTask(user, taskId);
-        if (this.isAdmin(user) || this.isManager(user)) {
+        if (this.isAdmin(user)) {
+            return task;
+        }
+        if (task.departmentId && (await this.isDepartmentHead(user, task.departmentId))) {
+            return task;
+        }
+        if (task.parentTaskId && task.teamId && (await this.isTeamLead(user, task.teamId))) {
             return task;
         }
         throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Task update denied", "TASK_ASSIGNMENT_DENIED");
     }
     async ensureCanUpdateTaskStatus(user, taskId) {
         const task = await this.ensureCanReadTask(user, taskId);
-        if (this.isAdmin(user) ||
-            this.isManager(user) ||
-            task.assigneeId === user.employeeId) {
+        if (this.isAdmin(user) || task.assigneeId === user.employeeId) {
+            return task;
+        }
+        if (task.departmentId && (await this.isDepartmentHead(user, task.departmentId))) {
+            return task;
+        }
+        if (task.teamId && (await this.isTeamLead(user, task.teamId))) {
             return task;
         }
         throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Task status update denied", "TASK_ASSIGNMENT_DENIED");
@@ -281,13 +339,19 @@ let AccessControlService = class AccessControlService {
         if (this.isAdmin(user)) {
             return;
         }
+        if (user.employeeId === employeeId) {
+            return;
+        }
         if (this.isManager(user) && (await this.isSubordinate(user, employeeId))) {
             return;
         }
         throw new api_error_1.ApiError(common_1.HttpStatus.FORBIDDEN, "Task assignee is outside manager scope", "TASK_ASSIGNEE_NOT_IN_MANAGER_SCOPE");
     }
     async ensureCanAssignTask(user, taskId, employeeId) {
-        await this.ensureCanUpdateTask(user, taskId);
+        const task = await this.ensureCanUpdateTask(user, taskId);
+        if (!task.parentTaskId) {
+            throw new api_error_1.ApiError(common_1.HttpStatus.BAD_REQUEST, "A team-level task cannot be assigned to an employee", "ROOT_TASK_CANNOT_BE_ASSIGNED");
+        }
         await this.ensureCanAssignToEmployee(user, employeeId);
     }
     async candidateEmployeeIdsForTask(user) {
@@ -299,7 +363,10 @@ let AccessControlService = class AccessControlService {
             return employees.map((employee) => employee.id);
         }
         if (this.isManager(user)) {
-            const teamIds = await this.teamEmployeeIds(user);
+            const teamIds = Array.from(new Set([
+                ...(user.employeeId ? [user.employeeId] : []),
+                ...(await this.teamEmployeeIds(user))
+            ]));
             if (!teamIds.length) {
                 return [];
             }

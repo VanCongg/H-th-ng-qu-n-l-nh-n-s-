@@ -8,6 +8,7 @@ import {
   PrismaClient,
   SkillProficiency,
   TaskAssignmentType,
+  TaskSkillImportance,
   TaskPriority,
   TaskStatus
 } from "@prisma/client";
@@ -97,46 +98,7 @@ const permissions = [
   "TASK_ASSIGNMENT_READ"
 ] as const;
 
-const adminPermissions = [
-  "USER_CREATE",
-  "USER_READ",
-  "USER_UPDATE",
-  "USER_DELETE",
-  "ROLE_CREATE",
-  "ROLE_READ",
-  "ROLE_UPDATE",
-  "ROLE_DELETE",
-  "ROLE_ASSIGN",
-  "PERMISSION_READ",
-  "PERMISSION_ASSIGN",
-  "EMPLOYEE_CREATE",
-  "EMPLOYEE_READ_ALL",
-  "EMPLOYEE_UPDATE_ALL",
-  "EMPLOYEE_DELETE",
-  "DEPARTMENT_CREATE",
-  "DEPARTMENT_READ",
-  "DEPARTMENT_UPDATE",
-  "DEPARTMENT_DELETE",
-  "POSITION_CREATE",
-  "POSITION_READ",
-  "POSITION_UPDATE",
-  "POSITION_DELETE",
-  "LEAVE_TYPE_CREATE",
-  "LEAVE_TYPE_READ",
-  "LEAVE_TYPE_UPDATE",
-  "LEAVE_TYPE_DELETE",
-  "AUDIT_LOG_READ",
-  "SYSTEM_SETTING_READ",
-  "SYSTEM_SETTING_UPDATE",
-  "SKILL_CREATE",
-  "SKILL_READ",
-  "SKILL_UPDATE",
-  "SKILL_DELETE",
-  "EMPLOYEE_SKILL_CREATE",
-  "EMPLOYEE_SKILL_READ",
-  "EMPLOYEE_SKILL_UPDATE",
-  "EMPLOYEE_SKILL_DELETE"
-] as const;
+const adminPermissions = permissions;
 
 const leaveTypes = [
   ["ANNUAL_LEAVE", "Nghỉ phép năm", 12],
@@ -582,54 +544,50 @@ const mockEmployeeSkills: Record<
   ]
 };
 
+const employeePermissions = [
+  "EMPLOYEE_READ_SELF",
+  "EMPLOYEE_UPDATE_SELF",
+  "ATTENDANCE_CHECK_IN",
+  "ATTENDANCE_CHECK_OUT",
+  "ATTENDANCE_READ_SELF",
+  "LEAVE_CREATE",
+  "LEAVE_READ_SELF",
+  "LEAVE_CANCEL_SELF",
+  "LEAVE_TYPE_READ",
+  "MANAGER_READ",
+  "TASK_READ_SELF",
+  "TASK_UPDATE_STATUS",
+  "EMPLOYEE_SKILL_READ"
+] as const;
+
+const managerExtraPermissions = [
+  "EMPLOYEE_READ_TEAM",
+  "ATTENDANCE_READ_TEAM",
+  "LEAVE_READ_TEAM",
+  "LEAVE_APPROVE",
+  "LEAVE_REJECT",
+  "DEPARTMENT_READ",
+  "TEAM_READ",
+  "TEAM_CREATE",
+  "TEAM_UPDATE",
+  "PROJECT_CREATE",
+  "PROJECT_READ_TEAM",
+  "TASK_CREATE",
+  "TASK_READ_TEAM",
+  "TASK_UPDATE",
+  "TASK_ASSIGN",
+  "SKILL_READ",
+  "AI_TASK_SUGGEST",
+  "AI_TASK_SELECT",
+  "TASK_ASSIGNMENT_READ"
+] as const;
+
 const rolePermissions: Record<(typeof roles)[number], readonly string[]> = {
   ADMIN: adminPermissions,
-  MANAGER: [
-    "EMPLOYEE_READ_TEAM",
-    "EMPLOYEE_READ_SELF",
-    "ATTENDANCE_READ_TEAM",
-    "ATTENDANCE_READ_SELF",
-    "LEAVE_READ_TEAM",
-    "LEAVE_READ_SELF",
-    "LEAVE_APPROVE",
-    "LEAVE_REJECT",
-    "LEAVE_CREATE",
-    "LEAVE_CANCEL_SELF",
-    "MANAGER_READ",
-    "DEPARTMENT_READ",
-    "LEAVE_TYPE_READ",
-    "TEAM_READ",
-    "TEAM_CREATE",
-    "TEAM_UPDATE",
-    "EMPLOYEE_UPDATE_SELF",
-    "PROJECT_CREATE",
-    "PROJECT_READ_TEAM",
-    "TASK_CREATE",
-    "TASK_READ_TEAM",
-    "TASK_UPDATE",
-    "TASK_ASSIGN",
-    "TASK_UPDATE_STATUS",
-    "SKILL_READ",
-    "EMPLOYEE_SKILL_READ",
-    "AI_TASK_SUGGEST",
-    "AI_TASK_SELECT",
-    "TASK_ASSIGNMENT_READ"
-  ],
-  EMPLOYEE: [
-    "EMPLOYEE_READ_SELF",
-    "EMPLOYEE_UPDATE_SELF",
-    "ATTENDANCE_CHECK_IN",
-    "ATTENDANCE_CHECK_OUT",
-    "ATTENDANCE_READ_SELF",
-    "LEAVE_CREATE",
-    "LEAVE_READ_SELF",
-    "LEAVE_CANCEL_SELF",
-    "LEAVE_TYPE_READ",
-    "MANAGER_READ",
-    "TASK_READ_SELF",
-    "TASK_UPDATE_STATUS",
-    "EMPLOYEE_SKILL_READ"
-  ]
+  MANAGER: Array.from(
+    new Set([...employeePermissions, ...managerExtraPermissions])
+  ),
+  EMPLOYEE: employeePermissions
 };
 
 async function main() {
@@ -663,8 +621,29 @@ async function main() {
 
   for (const roleName of roles) {
     const role = await prisma.role.findUniqueOrThrow({ where: { name: roleName } });
-    for (const code of rolePermissions[roleName]) {
-      const permission = await prisma.permission.findUniqueOrThrow({ where: { code } });
+    const targetPermissions = await prisma.permission.findMany({
+      where: { code: { in: [...rolePermissions[roleName]] } },
+      select: { id: true, code: true }
+    });
+    const targetPermissionIds = targetPermissions.map((permission) => permission.id);
+    const missingCodes = rolePermissions[roleName].filter(
+      (code) => !targetPermissions.some((permission) => permission.code === code)
+    );
+
+    if (missingCodes.length) {
+      throw new Error(
+        `Missing permissions for ${roleName}: ${missingCodes.join(", ")}`
+      );
+    }
+
+    await prisma.rolePermission.deleteMany({
+      where: {
+        roleId: role.id,
+        permissionId: { notIn: targetPermissionIds }
+      }
+    });
+
+    for (const permission of targetPermissions) {
       await prisma.rolePermission.upsert({
         where: {
           roleId_permissionId: {
@@ -1030,9 +1009,9 @@ async function seedMockData(
     dueDate: "2026-06-18",
     estimatedHours: 24,
     requiredSkills: [
-      { code: "NESTJS", proficiency: SkillProficiency.ADVANCED, weight: 1.5 },
-      { code: "PRISMA", proficiency: SkillProficiency.INTERMEDIATE, weight: 1 },
-      { code: "POSTGRESQL", proficiency: SkillProficiency.INTERMEDIATE, weight: 1 }
+      { code: "NESTJS", proficiency: SkillProficiency.ADVANCED, importance: TaskSkillImportance.REQUIRED },
+      { code: "PRISMA", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.IMPORTANT },
+      { code: "POSTGRESQL", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.IMPORTANT }
     ],
     employeesByCode,
     adminUserId
@@ -1049,9 +1028,9 @@ async function seedMockData(
     dueDate: "2026-06-24",
     estimatedHours: 18,
     requiredSkills: [
-      { code: "REACT", proficiency: SkillProficiency.ADVANCED, weight: 1.5 },
-      { code: "TYPESCRIPT", proficiency: SkillProficiency.INTERMEDIATE, weight: 1 },
-      { code: "UI_UX", proficiency: SkillProficiency.INTERMEDIATE, weight: 0.8 }
+      { code: "REACT", proficiency: SkillProficiency.ADVANCED, importance: TaskSkillImportance.REQUIRED },
+      { code: "TYPESCRIPT", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.IMPORTANT },
+      { code: "UI_UX", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.NICE_TO_HAVE }
     ],
     employeesByCode,
     adminUserId
@@ -1068,8 +1047,8 @@ async function seedMockData(
     dueDate: "2026-06-12",
     estimatedHours: 12,
     requiredSkills: [
-      { code: "TESTING", proficiency: SkillProficiency.ADVANCED, weight: 1.5 },
-      { code: "TYPESCRIPT", proficiency: SkillProficiency.INTERMEDIATE, weight: 0.8 }
+      { code: "TESTING", proficiency: SkillProficiency.ADVANCED, importance: TaskSkillImportance.REQUIRED },
+      { code: "TYPESCRIPT", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.NICE_TO_HAVE }
     ],
     employeesByCode,
     adminUserId
@@ -1086,9 +1065,9 @@ async function seedMockData(
     dueDate: "2026-06-20",
     estimatedHours: 20,
     requiredSkills: [
-      { code: "NESTJS", proficiency: SkillProficiency.ADVANCED, weight: 1.2 },
-      { code: "TYPESCRIPT", proficiency: SkillProficiency.ADVANCED, weight: 1 },
-      { code: "TESTING", proficiency: SkillProficiency.INTERMEDIATE, weight: 0.7 }
+      { code: "NESTJS", proficiency: SkillProficiency.ADVANCED, importance: TaskSkillImportance.REQUIRED },
+      { code: "TYPESCRIPT", proficiency: SkillProficiency.ADVANCED, importance: TaskSkillImportance.IMPORTANT },
+      { code: "TESTING", proficiency: SkillProficiency.INTERMEDIATE, importance: TaskSkillImportance.NICE_TO_HAVE }
     ],
     employeesByCode,
     adminUserId
@@ -1104,7 +1083,7 @@ async function seedMockData(
     startDate: "2026-06-16",
     dueDate: "2026-06-30",
     estimatedHours: 8,
-    requiredSkills: [{ code: "TESTING", proficiency: SkillProficiency.BEGINNER, weight: 0.5 }],
+    requiredSkills: [{ code: "TESTING", proficiency: SkillProficiency.BEGINNER, importance: TaskSkillImportance.NICE_TO_HAVE }],
     employeesByCode,
     adminUserId
   });
@@ -1141,7 +1120,7 @@ async function upsertMockTask(input: {
   requiredSkills: Array<{
     code: string;
     proficiency: SkillProficiency;
-    weight: number;
+    importance: TaskSkillImportance;
   }>;
   employeesByCode: Map<string, { id: number; userId: number | null }>;
   adminUserId: number;
@@ -1203,8 +1182,7 @@ async function upsertMockTask(input: {
         taskId: task.id,
         skillId: skill.id,
         requiredProficiency: requiredSkill.proficiency,
-        weight: requiredSkill.weight,
-        isRequired: true
+        importance: requiredSkill.importance
       }
     });
   }

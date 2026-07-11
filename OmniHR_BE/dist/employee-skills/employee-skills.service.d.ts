@@ -70,7 +70,7 @@ export declare class EmployeeSkillsService {
         note: string | null;
         skillId: number;
         yearsExperience: Prisma.Decimal | null;
-        proficiency: import(".prisma/client").$Enums.SkillProficiency | null;
+        proficiency: import(".prisma/client").$Enums.SkillProficiency;
         lastUsedAt: Date | null;
     })[]>;
     create(employeeId: number, dto: CreateEmployeeSkillDto, actor: AuthUser, context?: RequestContext): Promise<{
@@ -133,7 +133,7 @@ export declare class EmployeeSkillsService {
         note: string | null;
         skillId: number;
         yearsExperience: Prisma.Decimal | null;
-        proficiency: import(".prisma/client").$Enums.SkillProficiency | null;
+        proficiency: import(".prisma/client").$Enums.SkillProficiency;
         lastUsedAt: Date | null;
     }>;
     update(id: number, dto: UpdateEmployeeSkillDto, actor: AuthUser, context?: RequestContext): Promise<{
@@ -196,7 +196,7 @@ export declare class EmployeeSkillsService {
         note: string | null;
         skillId: number;
         yearsExperience: Prisma.Decimal | null;
-        proficiency: import(".prisma/client").$Enums.SkillProficiency | null;
+        proficiency: import(".prisma/client").$Enums.SkillProficiency;
         lastUsedAt: Date | null;
     }>;
     remove(id: number, actor: AuthUser, context?: RequestContext): Promise<{
@@ -259,10 +259,11 @@ export declare class EmployeeSkillsService {
         note: string | null;
         skillId: number;
         yearsExperience: Prisma.Decimal | null;
-        proficiency: import(".prisma/client").$Enums.SkillProficiency | null;
+        proficiency: import(".prisma/client").$Enums.SkillProficiency;
         lastUsedAt: Date | null;
     }>;
     private findOne;
     private ensureEmployee;
     private ensureSkillForEmployee;
+    private ensureLastUsedAt;
 }

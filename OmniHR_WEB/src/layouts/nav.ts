@@ -35,12 +35,6 @@ export const appNavItems: NavItem[] = [
   },
   { labelKey: "projects", to: "/app/projects", icon: ClipboardList },
   { labelKey: "teamTasks", to: "/app/team-tasks", icon: CheckSquare },
-  { labelKey: "assignTask", to: "/app/assign-task", icon: Sparkles },
-  {
-    labelKey: "aiTaskSuggestions",
-    to: "/app/ai-task-suggestions",
-    icon: Sparkles
-  },
   { labelKey: "myProfile", to: "/app/profile", icon: UserRound }
 ];
 

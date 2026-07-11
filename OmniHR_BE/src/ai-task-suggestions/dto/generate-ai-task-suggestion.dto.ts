@@ -13,4 +13,14 @@ export class GenerateAiTaskSuggestionDto {
   @Type(() => Boolean)
   @IsBoolean()
   includeAvailability?: boolean = true;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeSelf?: boolean = false;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includePendingLeave?: boolean = true;
 }

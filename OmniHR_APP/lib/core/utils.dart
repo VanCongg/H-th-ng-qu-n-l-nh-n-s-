@@ -2,9 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const brandColor = Color(0xFF0F766E);
-const accentColor = Color(0xFFF59E0B);
+const brandColor = Color(0xFF1971C2);
+const brandGreen = Color(0xFF12B886);
+const brandNavy = Color(0xFF243B6B);
+const brandPurple = Color(0xFF7048E8);
+const accentColor = Color(0xFFF59F00);
 const dangerColor = Color(0xFFDC2626);
+const appBackgroundColor = Color(0xFFF5F7FB);
+const inkColor = Color(0xFF182230);
+const mutedTextColor = Color(0xFF667085);
 
 final dateFormat = DateFormat('dd/MM/yyyy');
 final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm');

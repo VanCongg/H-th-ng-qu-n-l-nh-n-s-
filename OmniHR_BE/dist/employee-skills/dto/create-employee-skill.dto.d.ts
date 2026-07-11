@@ -2,7 +2,7 @@ import { SkillProficiency } from "@prisma/client";
 export declare class CreateEmployeeSkillDto {
     skillId: number;
     yearsExperience?: number;
-    proficiency?: SkillProficiency;
+    proficiency: SkillProficiency;
     lastUsedAt?: string;
     note?: string;
 }

@@ -49,6 +49,7 @@ const ai_task_suggestions_module_1 = require("./ai-task-suggestions/ai-task-sugg
 const audit_logs_module_1 = require("./audit-logs/audit-logs.module");
 const attendance_module_1 = require("./attendance/attendance.module");
 const auth_module_1 = require("./auth/auth.module");
+const chatbot_module_1 = require("./chatbot/chatbot.module");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const permissions_guard_1 = require("./common/guards/permissions.guard");
@@ -96,14 +97,23 @@ exports.AppModule = AppModule = __decorate([
                         .email({ tlds: { allow: false } })
                         .default("admin@corehr.local"),
                     DEFAULT_ADMIN_PASSWORD: Joi.string().min(8).default("Admin@123456"),
-                    CORS_ORIGIN: Joi.string().default("http://localhost:5173")
-                })
+                    CORS_ORIGIN: Joi.string().default("http://localhost:5173"),
+                    AI_SERVICE_URL: Joi.string().default("http://localhost:8000"),
+                    AI_INTERNAL_TOKEN: Joi.string().min(6).default("change-me"),
+                    AI_TIMEOUT_MS: Joi.number().default(30000),
+                    CHATBOT_RATE_LIMIT_TTL_SECONDS: Joi.number().default(60),
+                    CHATBOT_RATE_LIMIT_MAX: Joi.number().default(20),
+                    CHATBOT_RATE_LIMIT_PER_MINUTE: Joi.number().default(20),
+                    CHATBOT_HISTORY_LIMIT: Joi.number().default(12),
+                    CHATBOT_MAX_MESSAGE_LENGTH: Joi.number().default(1000),
+                    CHATBOT_PENDING_ACTION_TTL_MINUTES: Joi.number().default(30),
+                }),
             }),
             throttler_1.ThrottlerModule.forRoot([
                 {
                     ttl: 60000,
-                    limit: 100
-                }
+                    limit: 100,
+                },
             ]),
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
@@ -126,34 +136,35 @@ exports.AppModule = AppModule = __decorate([
             tasks_module_1.TasksModule,
             task_assignments_module_1.TaskAssignmentsModule,
             task_workload_module_1.TaskWorkloadModule,
-            ai_task_suggestions_module_1.AiTaskSuggestionsModule
+            ai_task_suggestions_module_1.AiTaskSuggestionsModule,
+            chatbot_module_1.ChatbotModule,
         ],
         providers: [
             {
                 provide: core_1.APP_FILTER,
-                useClass: http_exception_filter_1.HttpExceptionFilter
+                useClass: http_exception_filter_1.HttpExceptionFilter,
             },
             {
                 provide: core_1.APP_INTERCEPTOR,
-                useClass: response_interceptor_1.ResponseInterceptor
+                useClass: response_interceptor_1.ResponseInterceptor,
             },
             {
                 provide: core_1.APP_GUARD,
-                useClass: throttler_1.ThrottlerGuard
+                useClass: throttler_1.ThrottlerGuard,
             },
             {
                 provide: core_1.APP_GUARD,
-                useClass: jwt_auth_guard_1.JwtAuthGuard
+                useClass: jwt_auth_guard_1.JwtAuthGuard,
             },
             {
                 provide: core_1.APP_GUARD,
-                useClass: roles_guard_1.RolesGuard
+                useClass: roles_guard_1.RolesGuard,
             },
             {
                 provide: core_1.APP_GUARD,
-                useClass: permissions_guard_1.PermissionsGuard
-            }
-        ]
+                useClass: permissions_guard_1.PermissionsGuard,
+            },
+        ],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

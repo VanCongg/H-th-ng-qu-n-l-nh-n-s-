@@ -39,7 +39,9 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
-    _baseUrl = cleanBaseUrl(_prefs?.getString(_baseUrlKey) ?? defaultApiBaseUrl());
+    _baseUrl = cleanBaseUrl(
+      _prefs?.getString(_baseUrlKey) ?? defaultApiBaseUrl(),
+    );
     _accessToken = _prefs?.getString(_accessTokenKey);
     refreshToken = _prefs?.getString(_refreshTokenKey);
 
@@ -67,19 +69,29 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     required String apiBaseUrl,
   }) async {
     final candidateBaseUrl = cleanBaseUrl(apiBaseUrl);
-    final response = await http
-        .post(
-          Uri.parse('$candidateBaseUrl/auth/login'),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'usernameOrEmail': usernameOrEmail,
-            'password': password,
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
+    late final http.Response response;
+    try {
+      response = await http
+          .post(
+            Uri.parse('$candidateBaseUrl/auth/login'),
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'usernameOrEmail': usernameOrEmail,
+              'password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on FormatException {
+      throw ApiException('Invalid API URL: $candidateBaseUrl');
+    } on Exception catch (error) {
+      throw ApiException(
+        'Cannot connect to backend at $candidateBaseUrl. Check that the backend is running.',
+        errorCode: error.toString(),
+      );
+    }
 
     final login = LoginResponse.fromJson(mapOf(unwrapResponse(response)));
     _baseUrl = candidateBaseUrl;

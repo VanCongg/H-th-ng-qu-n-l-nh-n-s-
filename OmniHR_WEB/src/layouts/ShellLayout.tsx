@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   AppShell,
   Avatar,
   Burger,
@@ -13,6 +14,7 @@ import {
   Stack,
   Text,
   ThemeIcon,
+  Tooltip,
   UnstyledButton,
   useMantineColorScheme
 } from "@mantine/core";
@@ -23,11 +25,13 @@ import {
   Languages,
   LogOut,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
   Sun,
   UserRound
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../api/endpoints";
 import { getApiErrorMessage } from "../api/axios";
@@ -46,6 +50,7 @@ type ShellLayoutProps = {
 
 export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const [opened, { toggle, close: closeNavbar }] = useDisclosure();
+  const [desktopNavbarCollapsed, setDesktopNavbarCollapsed] = useState(false);
   const [settingsOpened, { open: openSettings, close: closeSettings }] =
     useDisclosure(false);
   const location = useLocation();
@@ -55,7 +60,7 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const language = usePreferencesStore((state) => state.language);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const { t } = useTranslation();
+  const { t, tx } = useTranslation();
   const selectedScheme = colorScheme === "dark" ? "dark" : "light";
 
   async function handleLogout() {
@@ -85,7 +90,7 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
       navbar={{
         width: 280,
         breakpoint: "md",
-        collapsed: { mobile: !opened }
+        collapsed: { mobile: !opened, desktop: desktopNavbarCollapsed }
       }}
       header={{ height: 76 }}
       padding="md"
@@ -95,6 +100,25 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" />
+            <Tooltip
+              label={tx(desktopNavbarCollapsed ? "Show sidebar" : "Hide sidebar")}
+            >
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                visibleFrom="md"
+                onClick={() => setDesktopNavbarCollapsed((value) => !value)}
+                aria-label={tx(
+                  desktopNavbarCollapsed ? "Show sidebar" : "Hide sidebar"
+                )}
+              >
+                {desktopNavbarCollapsed ? (
+                  <PanelLeftOpen size={18} />
+                ) : (
+                  <PanelLeftClose size={18} />
+                )}
+              </ActionIcon>
+            </Tooltip>
             <UnstyledButton className="brand-mark" onClick={() => navigate("/")}>
               <BrandLogo className="brand-logo--shell" />
               <Stack gap={2} className="brand-copy">

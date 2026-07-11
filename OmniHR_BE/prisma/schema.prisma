@@ -82,6 +82,12 @@ enum SkillProficiency {
   EXPERT
 }
 
+enum TaskSkillImportance {
+  REQUIRED
+  IMPORTANT
+  NICE_TO_HAVE
+}
+
 enum TeamMemberRole {
   LEAD
   MEMBER
@@ -100,6 +106,28 @@ enum AiTaskSuggestionStatus {
   CANCELLED
 }
 
+enum ChatbotMessageRole {
+  USER
+  ASSISTANT
+  TOOL
+  SYSTEM
+}
+
+enum ChatbotActionType {
+  SUBMIT_LEAVE_REQUEST
+  CANCEL_LEAVE_REQUEST
+  CREATE_ATTENDANCE_CORRECTION_REQUEST
+}
+
+enum ChatbotActionStatus {
+  PENDING
+  CONFIRMED
+  EXECUTED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
 model User {
   id                  Int       @id @default(autoincrement())
   username            String    @unique @db.VarChar(100)
@@ -114,17 +142,19 @@ model User {
   updatedAt           DateTime  @updatedAt @map("updated_at")
   deletedAt           DateTime? @map("deleted_at")
 
-  employee                   Employee?
-  userRoles                  UserRole[]
-  auditLogs                  AuditLog[]
-  approvedLeaveRequests      LeaveRequest[]    @relation("LeaveApprover")
-  createdAttendanceRecords   AttendanceRecord[] @relation("AttendanceCreatedBy")
-  updatedAttendanceRecords   AttendanceRecord[] @relation("AttendanceUpdatedBy")
-  createdProjects            Project[]          @relation("ProjectCreatedBy")
-  createdTasks               Task[]             @relation("TaskCreatedBy")
-  assignedTasks              Task[]             @relation("TaskAssignedBy")
-  taskAssignments            TaskAssignment[]   @relation("TaskAssignmentAssignedBy")
-  aiTaskSuggestions          AiTaskSuggestion[] @relation("AiTaskSuggestionRequestedBy")
+  employee                 Employee?
+  userRoles                UserRole[]
+  auditLogs                AuditLog[]
+  approvedLeaveRequests    LeaveRequest[]         @relation("LeaveApprover")
+  createdAttendanceRecords AttendanceRecord[]     @relation("AttendanceCreatedBy")
+  updatedAttendanceRecords AttendanceRecord[]     @relation("AttendanceUpdatedBy")
+  createdProjects          Project[]              @relation("ProjectCreatedBy")
+  createdTasks             Task[]                 @relation("TaskCreatedBy")
+  assignedTasks            Task[]                 @relation("TaskAssignedBy")
+  taskAssignments          TaskAssignment[]       @relation("TaskAssignmentAssignedBy")
+  aiTaskSuggestions        AiTaskSuggestion[]     @relation("AiTaskSuggestionRequestedBy")
+  chatbotConversations     ChatbotConversation[]
+  chatbotPendingActions    ChatbotPendingAction[]
 
   @@map("users")
 }
@@ -194,15 +224,15 @@ model Policy {
 }
 
 model Department {
-  id        Int          @id @default(autoincrement())
-  code      String       @unique @db.VarChar(50)
-  name      String       @db.VarChar(160)
-  parentId  Int?         @map("parent_id")
-  managerId Int?         @map("manager_id")
-  isActive  Boolean      @default(true) @map("is_active")
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  deletedAt DateTime?    @map("deleted_at")
+  id        Int       @id @default(autoincrement())
+  code      String    @unique @db.VarChar(50)
+  name      String    @db.VarChar(160)
+  parentId  Int?      @map("parent_id")
+  managerId Int?      @map("manager_id")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   parent    Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
   children  Department[] @relation("DepartmentTree")
@@ -218,14 +248,14 @@ model Department {
 }
 
 model Position {
-  id           Int        @id @default(autoincrement())
-  code         String     @unique @db.VarChar(50)
-  name         String     @db.VarChar(160)
-  departmentId Int?       @map("department_id")
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  deletedAt    DateTime?  @map("deleted_at")
+  id           Int       @id @default(autoincrement())
+  code         String    @unique @db.VarChar(50)
+  name         String    @db.VarChar(160)
+  departmentId Int?      @map("department_id")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
 
   department     Department?     @relation(fields: [departmentId], references: [id])
   employees      Employee[]
@@ -236,38 +266,38 @@ model Position {
 }
 
 model Employee {
-  id             Int            @id @default(autoincrement())
-  employeeCode   String         @unique @map("employee_code") @db.VarChar(50)
-  fullName       String         @map("full_name") @db.VarChar(160)
-  companyEmail   String         @unique @map("company_email") @db.VarChar(160)
-  avatarUrl      String?        @map("avatar_url") @db.Text
-  personalEmail  String?        @map("personal_email") @db.VarChar(160)
-  phone          String?        @db.VarChar(40)
-  birthDate      DateTime       @map("birth_date") @db.Date
-  hireDate       DateTime?      @map("hire_date") @db.Date
-  status         EmployeeStatus @default(ACTIVE)
-  departmentId   Int?           @map("department_id")
-  positionId     Int?           @map("position_id")
-  careerLevel    CareerLevel    @default(MIDDLE) @map("career_level")
-  userId         Int?           @unique @map("user_id")
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-  deletedAt      DateTime?      @map("deleted_at")
+  id            Int            @id @default(autoincrement())
+  employeeCode  String         @unique @map("employee_code") @db.VarChar(50)
+  fullName      String         @map("full_name") @db.VarChar(160)
+  companyEmail  String         @unique @map("company_email") @db.VarChar(160)
+  avatarUrl     String?        @map("avatar_url") @db.Text
+  personalEmail String?        @map("personal_email") @db.VarChar(160)
+  phone         String?        @db.VarChar(40)
+  birthDate     DateTime       @map("birth_date") @db.Date
+  hireDate      DateTime?      @map("hire_date") @db.Date
+  status        EmployeeStatus @default(ACTIVE)
+  departmentId  Int?           @map("department_id")
+  positionId    Int?           @map("position_id")
+  careerLevel   CareerLevel    @default(MIDDLE) @map("career_level")
+  userId        Int?           @unique @map("user_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
 
-  department           Department?        @relation(fields: [departmentId], references: [id])
-  position             Position?          @relation(fields: [positionId], references: [id])
-  user                 User?              @relation(fields: [userId], references: [id])
-  managedDepartments   Department[]       @relation("DepartmentManager")
-  ledTeams             Team[]             @relation("TeamLead")
+  department           Department?            @relation(fields: [departmentId], references: [id])
+  position             Position?              @relation(fields: [positionId], references: [id])
+  user                 User?                  @relation(fields: [userId], references: [id])
+  managedDepartments   Department[]           @relation("DepartmentManager")
+  ledTeams             Team[]                 @relation("TeamLead")
   teamMemberships      TeamMember[]
-  subordinateRelations EmployeeManager[]  @relation("EmployeeManagerEmployee")
-  managerRelations     EmployeeManager[]  @relation("EmployeeManagerManager")
+  subordinateRelations EmployeeManager[]      @relation("EmployeeManagerEmployee")
+  managerRelations     EmployeeManager[]      @relation("EmployeeManagerManager")
   attendanceRecords    AttendanceRecord[]
   leaveRequests        LeaveRequest[]
-  managedProjects      Project[]          @relation("ProjectManager")
-  assignedTasks        Task[]             @relation("TaskAssignee")
+  managedProjects      Project[]              @relation("ProjectManager")
+  assignedTasks        Task[]                 @relation("TaskAssignee")
   employeeSkills       EmployeeSkill[]
-  taskAssignments      TaskAssignment[]   @relation("TaskAssignmentAssignee")
+  taskAssignments      TaskAssignment[]       @relation("TaskAssignmentAssignee")
   aiSuggestionItems    AiTaskSuggestionItem[]
 
   @@map("employees")
@@ -306,7 +336,6 @@ model Team {
   department Department   @relation(fields: [departmentId], references: [id])
   lead       Employee?    @relation("TeamLead", fields: [leadId], references: [id])
   members    TeamMember[]
-  projects   Project[]
   tasks      Task[]
 
   @@index([departmentId, leadId, isActive])
@@ -327,30 +356,30 @@ model TeamMember {
   team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id])
 
-  @@unique([teamId, employeeId])
+  @@index([teamId, employeeId, isActive])
   @@index([employeeId, isActive])
   @@map("team_members")
 }
 
 model AttendanceRecord {
-  id              Int                  @id @default(autoincrement())
-  employeeId      Int                  @map("employee_id")
-  workDate        DateTime             @map("work_date") @db.Date
-  recordType      AttendanceRecordType @map("record_type")
-  recordedAt      DateTime             @map("recorded_at")
-  shift           AttendanceShift?
-  attendanceStatus AttendanceStatus?   @map("attendance_status")
-  latitude        Float?
-  longitude       Float?
-  address         String?              @db.VarChar(255)
-  distanceMeters  Int?                 @map("distance_meters")
-  source          String               @default("MOBILE") @db.VarChar(40)
-  note            String?              @db.VarChar(500)
-  isAdjustment    Boolean              @default(false) @map("is_adjustment")
-  createdByUserId Int?                 @map("created_by_user_id")
-  updatedByUserId Int?                 @map("updated_by_user_id")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @updatedAt @map("updated_at")
+  id               Int                  @id @default(autoincrement())
+  employeeId       Int                  @map("employee_id")
+  workDate         DateTime             @map("work_date") @db.Date
+  recordType       AttendanceRecordType @map("record_type")
+  recordedAt       DateTime             @map("recorded_at")
+  shift            AttendanceShift?
+  attendanceStatus AttendanceStatus?    @map("attendance_status")
+  latitude         Float?
+  longitude        Float?
+  address          String?              @db.VarChar(255)
+  distanceMeters   Int?                 @map("distance_meters")
+  source           String               @default("MOBILE") @db.VarChar(40)
+  note             String?              @db.VarChar(500)
+  isAdjustment     Boolean              @default(false) @map("is_adjustment")
+  createdByUserId  Int?                 @map("created_by_user_id")
+  updatedByUserId  Int?                 @map("updated_by_user_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
 
   employee      Employee @relation(fields: [employeeId], references: [id])
   createdByUser User?    @relation("AttendanceCreatedBy", fields: [createdByUserId], references: [id])
@@ -370,13 +399,13 @@ model SystemSetting {
 }
 
 model LeaveType {
-  id              Int            @id @default(autoincrement())
-  code            String         @unique @db.VarChar(80)
-  name            String         @db.VarChar(160)
-  annualAllowance Int?           @map("annual_allowance")
-  isActive        Boolean        @default(true) @map("is_active")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  id              Int      @id @default(autoincrement())
+  code            String   @unique @db.VarChar(80)
+  name            String   @db.VarChar(160)
+  annualAllowance Int?     @map("annual_allowance")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   leaveRequests LeaveRequest[]
 
@@ -399,9 +428,9 @@ model LeaveRequest {
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
-  employee Employee  @relation(fields: [employeeId], references: [id])
+  employee  Employee  @relation(fields: [employeeId], references: [id])
   leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
-  approver User?     @relation("LeaveApprover", fields: [approverUserId], references: [id])
+  approver  User?     @relation("LeaveApprover", fields: [approverUserId], references: [id])
 
   @@index([employeeId, startDate, endDate])
   @@map("leave_requests")
@@ -425,11 +454,61 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model ChatbotConversation {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  title     String?   @db.VarChar(160)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user     User                   @relation(fields: [userId], references: [id])
+  messages ChatbotMessage[]
+  actions  ChatbotPendingAction[]
+
+  @@index([userId])
+  @@map("chatbot_conversations")
+}
+
+model ChatbotMessage {
+  id             Int                @id @default(autoincrement())
+  conversationId Int                @map("conversation_id")
+  role           ChatbotMessageRole
+  content        String             @db.Text
+  metadata       Json?
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  conversation ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("chatbot_messages")
+}
+
+model ChatbotPendingAction {
+  id             Int                 @id @default(autoincrement())
+  conversationId Int                 @map("conversation_id")
+  userId         Int                 @map("user_id")
+  actionType     ChatbotActionType   @map("action_type")
+  status         ChatbotActionStatus @default(PENDING)
+  payload        Json
+  result         Json?
+  expiresAt      DateTime            @map("expires_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  confirmedAt    DateTime?           @map("confirmed_at")
+  cancelledAt    DateTime?           @map("cancelled_at")
+
+  conversation ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@index([conversationId])
+  @@map("chatbot_pending_actions")
+}
+
 model Project {
   id              Int           @id @default(autoincrement())
-  departmentId    Int?          @map("department_id")
-  teamId          Int?          @map("team_id")
-  managerId       Int?          @map("manager_id")
+  departmentId    Int           @map("department_id")
+  managerId       Int           @map("manager_id")
   code            String        @unique @db.VarChar(50)
   name            String        @db.VarChar(255)
   description     String?       @db.Text
@@ -441,13 +520,12 @@ model Project {
   updatedAt       DateTime      @updatedAt @map("updated_at")
   deletedAt       DateTime?     @map("deleted_at")
 
-  department    Department? @relation(fields: [departmentId], references: [id])
-  team          Team?       @relation(fields: [teamId], references: [id])
-  manager       Employee?   @relation("ProjectManager", fields: [managerId], references: [id])
-  createdByUser User?       @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
+  department    Department @relation(fields: [departmentId], references: [id])
+  manager       Employee   @relation("ProjectManager", fields: [managerId], references: [id])
+  createdByUser User?      @relation("ProjectCreatedBy", fields: [createdByUserId], references: [id])
   tasks         Task[]
 
-  @@index([departmentId, teamId, managerId, status])
+  @@index([departmentId, managerId, status])
   @@map("projects")
 }
 
@@ -481,15 +559,15 @@ model PositionSkill {
 }
 
 model EmployeeSkill {
-  id              Int               @id @default(autoincrement())
-  employeeId      Int               @map("employee_id")
-  skillId         Int               @map("skill_id")
-  yearsExperience Decimal?          @map("years_experience") @db.Decimal(4, 1)
-  proficiency     SkillProficiency?
-  lastUsedAt      DateTime?         @map("last_used_at") @db.Date
-  note            String?           @db.Text
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id              Int              @id @default(autoincrement())
+  employeeId      Int              @map("employee_id")
+  skillId         Int              @map("skill_id")
+  yearsExperience Decimal?         @map("years_experience") @db.Decimal(4, 1)
+  proficiency     SkillProficiency
+  lastUsedAt      DateTime?        @map("last_used_at") @db.Date
+  note            String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   employee Employee @relation(fields: [employeeId], references: [id])
   skill    Skill    @relation(fields: [skillId], references: [id])
@@ -499,49 +577,53 @@ model EmployeeSkill {
 }
 
 model Task {
-  id              Int          @id @default(autoincrement())
-  projectId       Int?         @map("project_id")
-  departmentId    Int?         @map("department_id")
-  teamId          Int?         @map("team_id")
-  title           String       @db.VarChar(255)
-  description     String?      @db.Text
-  priority        TaskPriority @default(MEDIUM)
-  status          TaskStatus   @default(TODO)
-  assigneeId      Int?         @map("assignee_id")
-  createdByUserId Int?         @map("created_by")
-  assignedByUserId Int?        @map("assigned_by")
-  startDate       DateTime?    @map("start_date") @db.Date
-  dueDate         DateTime?    @map("due_date") @db.Date
-  estimatedHours  Decimal?     @map("estimated_hours") @db.Decimal(6, 2)
-  actualHours     Decimal?     @map("actual_hours") @db.Decimal(6, 2)
-  completedAt     DateTime?    @map("completed_at")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
-  deletedAt       DateTime?    @map("deleted_at")
+  id               Int          @id @default(autoincrement())
+  parentTaskId     Int?         @map("parent_task_id")
+  projectId        Int?         @map("project_id")
+  departmentId     Int?         @map("department_id")
+  teamId           Int?         @map("team_id")
+  title            String       @db.VarChar(255)
+  description      String?      @db.Text
+  technologies     String[]     @default([])
+  priority         TaskPriority @default(MEDIUM)
+  status           TaskStatus   @default(TODO)
+  assigneeId       Int?         @map("assignee_id")
+  createdByUserId  Int?         @map("created_by")
+  assignedByUserId Int?         @map("assigned_by")
+  startDate        DateTime?    @map("start_date") @db.Date
+  dueDate          DateTime?    @map("due_date") @db.Date
+  estimatedHours   Decimal?     @map("estimated_hours") @db.Decimal(6, 2)
+  actualHours      Decimal?     @map("actual_hours") @db.Decimal(6, 2)
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
 
-  project           Project?             @relation(fields: [projectId], references: [id])
-  department        Department?          @relation(fields: [departmentId], references: [id])
-  team              Team?                @relation(fields: [teamId], references: [id])
-  assignee          Employee?            @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  createdByUser     User?                @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
-  assignedByUser    User?                @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
+  parentTask        Task?               @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  childTasks        Task[]              @relation("TaskHierarchy")
+  project           Project?            @relation(fields: [projectId], references: [id])
+  department        Department?         @relation(fields: [departmentId], references: [id])
+  team              Team?               @relation(fields: [teamId], references: [id])
+  assignee          Employee?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdByUser     User?               @relation("TaskCreatedBy", fields: [createdByUserId], references: [id])
+  assignedByUser    User?               @relation("TaskAssignedBy", fields: [assignedByUserId], references: [id])
   requiredSkills    TaskRequiredSkill[]
   assignments       TaskAssignment[]
   aiTaskSuggestions AiTaskSuggestion[]
 
   @@index([projectId, departmentId, teamId, assigneeId, status, priority])
+  @@index([parentTaskId, status])
   @@index([dueDate])
   @@map("tasks")
 }
 
 model TaskRequiredSkill {
-  id                  Int               @id @default(autoincrement())
-  taskId              Int               @map("task_id")
-  skillId             Int               @map("skill_id")
-  requiredProficiency SkillProficiency? @map("required_proficiency")
-  weight              Decimal           @default(1.0) @db.Decimal(4, 2)
-  isRequired          Boolean           @default(true) @map("is_required")
-  createdAt           DateTime          @default(now()) @map("created_at")
+  id                  Int                 @id @default(autoincrement())
+  taskId              Int                 @map("task_id")
+  skillId             Int                 @map("skill_id")
+  requiredProficiency SkillProficiency    @map("required_proficiency")
+  importance          TaskSkillImportance @default(IMPORTANT)
+  createdAt           DateTime            @default(now()) @map("created_at")
 
   task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
   skill Skill @relation(fields: [skillId], references: [id])
@@ -551,13 +633,13 @@ model TaskRequiredSkill {
 }
 
 model TaskAssignment {
-  id             Int                @id @default(autoincrement())
-  taskId         Int                @map("task_id")
-  assigneeId     Int                @map("assignee_id")
-  assignedByUserId Int             @map("assigned_by")
-  assignmentType TaskAssignmentType @map("assignment_type")
-  note           String?            @db.Text
-  assignedAt     DateTime           @default(now()) @map("assigned_at")
+  id               Int                @id @default(autoincrement())
+  taskId           Int                @map("task_id")
+  assigneeId       Int                @map("assignee_id")
+  assignedByUserId Int                @map("assigned_by")
+  assignmentType   TaskAssignmentType @map("assignment_type")
+  note             String?            @db.Text
+  assignedAt       DateTime           @default(now()) @map("assigned_at")
 
   task           Task     @relation(fields: [taskId], references: [id])
   assignee       Employee @relation("TaskAssignmentAssignee", fields: [assigneeId], references: [id])
@@ -568,13 +650,13 @@ model TaskAssignment {
 }
 
 model AiTaskSuggestion {
-  id               Int                    @id @default(autoincrement())
-  taskId           Int                    @map("task_id")
-  requestedByUserId Int                   @map("requested_by")
-  algorithmVersion String                 @default("rule-based-v1") @map("algorithm_version") @db.VarChar(50)
-  inputSnapshot    Json?                  @map("input_snapshot")
-  status           AiTaskSuggestionStatus @default(GENERATED)
-  createdAt        DateTime               @default(now()) @map("created_at")
+  id                Int                    @id @default(autoincrement())
+  taskId            Int                    @map("task_id")
+  requestedByUserId Int                    @map("requested_by")
+  algorithmVersion  String                 @default("rule-based-v1") @map("algorithm_version") @db.VarChar(50)
+  inputSnapshot     Json?                  @map("input_snapshot")
+  status            AiTaskSuggestionStatus @default(GENERATED)
+  createdAt         DateTime               @default(now()) @map("created_at")
 
   task            Task                   @relation(fields: [taskId], references: [id])
   requestedByUser User                   @relation("AiTaskSuggestionRequestedBy", fields: [requestedByUserId], references: [id])

@@ -1,7 +1,6 @@
-import { SkillProficiency } from "@prisma/client";
+import { SkillProficiency, TaskSkillImportance } from "@prisma/client";
 export declare class TaskRequiredSkillDto {
     skillId: number;
-    requiredProficiency?: SkillProficiency;
-    weight?: number;
-    isRequired?: boolean;
+    requiredProficiency: SkillProficiency;
+    importance: TaskSkillImportance;
 }

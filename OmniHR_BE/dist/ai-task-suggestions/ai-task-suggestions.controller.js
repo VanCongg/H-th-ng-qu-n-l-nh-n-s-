@@ -20,6 +20,7 @@ const permissions_decorator_1 = require("../common/decorators/permissions.decora
 const request_context_decorator_1 = require("../common/decorators/request-context.decorator");
 const ai_task_suggestions_service_1 = require("./ai-task-suggestions.service");
 const ai_task_suggestion_query_dto_1 = require("./dto/ai-task-suggestion-query.dto");
+const cancel_ai_task_suggestion_dto_1 = require("./dto/cancel-ai-task-suggestion.dto");
 const generate_ai_task_suggestion_dto_1 = require("./dto/generate-ai-task-suggestion.dto");
 const select_ai_task_suggestion_dto_1 = require("./dto/select-ai-task-suggestion.dto");
 let AiTaskSuggestionsController = class AiTaskSuggestionsController {
@@ -41,6 +42,9 @@ let AiTaskSuggestionsController = class AiTaskSuggestionsController {
     }
     select(id, dto, user, context) {
         return this.suggestionsService.select(id, dto, user, context);
+    }
+    cancel(id, dto, user, context) {
+        return this.suggestionsService.cancel(id, dto, user, context);
     }
 };
 exports.AiTaskSuggestionsController = AiTaskSuggestionsController;
@@ -93,6 +97,17 @@ __decorate([
     __metadata("design:paramtypes", [Number, select_ai_task_suggestion_dto_1.SelectAiTaskSuggestionDto, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AiTaskSuggestionsController.prototype, "select", null);
+__decorate([
+    (0, permissions_decorator_1.Permissions)("AI_TASK_SELECT"),
+    (0, common_1.Post)("ai-task-suggestions/:id/cancel"),
+    __param(0, (0, common_1.Param)("id", common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, current_user_decorator_1.CurrentUser)()),
+    __param(3, (0, request_context_decorator_1.ReqContext)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Number, cancel_ai_task_suggestion_dto_1.CancelAiTaskSuggestionDto, Object, Object]),
+    __metadata("design:returntype", void 0)
+], AiTaskSuggestionsController.prototype, "cancel", null);
 exports.AiTaskSuggestionsController = AiTaskSuggestionsController = __decorate([
     (0, swagger_1.ApiTags)("ai-task-suggestions"),
     (0, swagger_1.ApiBearerAuth)(),

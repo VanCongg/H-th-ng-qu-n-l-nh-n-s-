@@ -3,14 +3,44 @@ import { ClipboardCheck, FileText, ShieldCheck } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { useTranslation } from "../../i18n";
 
+const policySections = [
+  {
+    title: "1. Account and permission policy",
+    body:
+      "Every employee has one system account linked to their employee profile. Access is assigned by roles such as Admin, Manager, and Employee. Admin manages all data; Manager only views and processes data within subordinate scope; Employee mainly uses personal workflows."
+  },
+  {
+    title: "2. Employee profile policy",
+    body:
+      "Employee profiles should be kept accurate for department, position, company email, employment status, and contact details. Important changes should be performed by Admin to keep HR data consistent."
+  },
+  {
+    title: "3. Attendance policy",
+    body:
+      "Employees check in and check out by work date. If attendance is missed, has incorrect time, or needs additional data, Admin can create an adjustment record with a reason for later review."
+  },
+  {
+    title: "4. Leave policy",
+    body:
+      "Employees create leave requests by selecting leave type, start date, end date, and reason. The system calculates leave days by work days and prevents overlapping pending or approved requests. Manager or Admin approves or rejects according to responsibility scope."
+  }
+];
+
+const dataPrinciples = [
+  "Do not share accounts with other people.",
+  "HR data must be updated from an accurate source.",
+  "Important operations are recorded in system audit logs.",
+  "Personal information may only be viewed within the authorized scope."
+];
+
 export function PoliciesPage() {
   const { tx } = useTranslation();
 
   return (
     <Stack gap="md">
       <PageHeader
-        title="Chính sách"
-        description="Văn bản chính sách nội bộ dùng để admin và quản lý tra cứu."
+        title="Policies"
+        description="Internal policy reference for admins and managers."
       />
 
       <Paper withBorder radius="md" p="xl" className="policy-document">
@@ -19,73 +49,36 @@ export function PoliciesPage() {
             <ThemeIcon size={44} radius="md" variant="light" color="blue">
               <FileText size={24} />
             </ThemeIcon>
-            <Title order={2}>Chính sách vận hành OmniHR</Title>
+            <Title order={2}>{tx("OmniHR operating policy")}</Title>
             <Text c="dimmed">
-              Tài liệu này mô tả các nguyên tắc sử dụng hệ thống nhân sự trong
-              giai đoạn hiện tại. Đây là nội dung hướng dẫn, không phải màn hình
-              cấu hình quyền động.
+              {tx(
+                "This document describes current operating principles for the HR system. It is guidance content, not a dynamic permission configuration screen."
+              )}
             </Text>
           </Stack>
 
-          <Stack gap="xs">
-            <Title order={3}>1. Chính sách tài khoản và phân quyền</Title>
-            <Text>
-              Mỗi nhân sự có một tài khoản hệ thống gắn với hồ sơ nhân viên.
-              Quyền truy cập được phân theo vai trò như Admin, Manager và
-              Employee. Admin quản trị toàn bộ dữ liệu; Manager chỉ xem và xử lý
-              dữ liệu trong phạm vi nhân viên cấp dưới; Employee chủ yếu sử dụng
-              các chức năng cá nhân.
-            </Text>
-          </Stack>
+          {policySections.map((section) => (
+            <Stack key={section.title} gap="xs">
+              <Title order={3}>{tx(section.title)}</Title>
+              <Text>{tx(section.body)}</Text>
+            </Stack>
+          ))}
 
           <Stack gap="xs">
-            <Title order={3}>2. Chính sách hồ sơ nhân sự</Title>
-            <Text>
-              Hồ sơ nhân sự cần được cập nhật đúng thông tin phòng ban, chức vụ,
-              email công ty, trạng thái làm việc và thông tin liên hệ. Các thay
-              đổi quan trọng nên do Admin thực hiện để bảo đảm dữ liệu nhân sự
-              nhất quán.
-            </Text>
-          </Stack>
-
-          <Stack gap="xs">
-            <Title order={3}>3. Chính sách chấm công</Title>
-            <Text>
-              Nhân viên thực hiện check-in và check-out theo ngày làm việc.
-              Trường hợp quên chấm công, sai giờ hoặc cần bổ sung dữ liệu, Admin
-              có thể tạo bản ghi điều chỉnh kèm lý do để phục vụ kiểm tra sau
-              này.
-            </Text>
-          </Stack>
-
-          <Stack gap="xs">
-            <Title order={3}>4. Chính sách nghỉ phép</Title>
-            <Text>
-              Nhân viên tạo đơn nghỉ phép bằng cách chọn loại nghỉ, ngày bắt đầu,
-              ngày kết thúc và lý do. Hệ thống tính số ngày nghỉ theo ngày làm
-              việc và không cho tạo đơn trùng với đơn đang chờ duyệt hoặc đã
-              được duyệt. Manager hoặc Admin xử lý duyệt/từ chối theo phạm vi
-              trách nhiệm.
-            </Text>
-          </Stack>
-
-          <Stack gap="xs">
-            <Title order={3}>5. Nguyên tắc xử lý dữ liệu</Title>
+            <Title order={3}>{tx("5. Data handling principles")}</Title>
             <List spacing="xs" icon={<ClipboardCheck size={16} />}>
-              <List.Item>Không chia sẻ tài khoản cho người khác sử dụng.</List.Item>
-              <List.Item>Dữ liệu nhân sự phải được cập nhật theo nguồn chính xác.</List.Item>
-              <List.Item>Các thao tác quan trọng được ghi nhận trong nhật ký hệ thống.</List.Item>
-              <List.Item>Thông tin cá nhân chỉ được xem trong phạm vi được phân quyền.</List.Item>
+              {dataPrinciples.map((principle) => (
+                <List.Item key={principle}>{tx(principle)}</List.Item>
+              ))}
             </List>
           </Stack>
 
           <Stack gap="xs">
-            <Title order={3}>6. Ghi chú về cài đặt hệ thống</Title>
+            <Title order={3}>{tx("6. System settings note")}</Title>
             <Text>
-              Các cài đặt như ngày làm việc, cách tính phép và cấu hình phase
-              được quản lý ở màn hình Cài đặt hệ thống. Khi thay đổi cài đặt,
-              Admin cần kiểm tra tác động đến nghiệp vụ trước khi áp dụng cho
-              toàn bộ công ty.
+              {tx(
+                "Settings such as work days, leave calculation, and phase configuration are managed in System Settings. When changing settings, Admin should review business impact before applying them company-wide."
+              )}
             </Text>
           </Stack>
 
@@ -96,8 +89,9 @@ export function PoliciesPage() {
               </ThemeIcon>
               <Text fw={700}>{tx("Note")}</Text>
               <Text size="sm" c="dimmed">
-                Trang này thay thế module quản lý policy dạng bảng. Nếu sau này
-                cần ABAC động, hệ thống có thể bổ sung rule engine riêng.
+                {tx(
+                  "This page replaces the table-style policy management module. If dynamic ABAC is needed later, the system can add a dedicated rule engine."
+                )}
               </Text>
             </Stack>
           </Paper>

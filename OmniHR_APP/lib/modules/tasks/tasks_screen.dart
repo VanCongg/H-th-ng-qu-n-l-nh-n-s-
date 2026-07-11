@@ -15,9 +15,7 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
-  late Future<List<TaskItem>> _future;
-  String _filter = 'OPEN';
-  int? _updatingTaskId;
+  late Future<List<LeaveType>> _future;
 
   @override
   void initState() {
@@ -25,12 +23,8 @@ class _TasksScreenState extends State<TasksScreen> {
     _future = _load();
   }
 
-  Future<List<TaskItem>> _load() {
-    return widget.session.api.getList(
-      '/tasks/me',
-      TaskItem.fromJson,
-      query: {'limit': 100},
-    );
+  Future<List<LeaveType>> _load() {
+    return widget.session.api.getList('/leave-types', LeaveType.fromJson);
   }
 
   Future<void> _refresh() async {
@@ -38,43 +32,189 @@ class _TasksScreenState extends State<TasksScreen> {
     await _future;
   }
 
-  Future<void> _updateStatus(TaskItem task, String status) async {
-    setState(() => _updatingTaskId = task.id);
-    try {
-      await widget.session.api.patch(
-        '/tasks/${task.id}/status',
-        body: {'status': status},
-      );
-      if (mounted) showAppSnack(context, 'Task status updated');
-      await _refresh();
-    } catch (error) {
-      if (mounted) showAppSnack(context, error.toString(), error: true);
-    } finally {
-      if (mounted) setState(() => _updatingTaskId = null);
-    }
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) return;
+    showAppSnack(context, message, error: error);
   }
 
-  List<TaskItem> _applyFilter(List<TaskItem> tasks) {
-    switch (_filter) {
-      case 'DONE':
-        return tasks.where((task) => task.status == 'DONE').toList();
-      case 'LATE':
-        return tasks.where((task) {
-          final dueDate = dateOf(task.dueDate);
-          return task.isOpen &&
-              dueDate != null &&
-              dueDate.isBefore(DateTime.now());
-        }).toList();
-      case 'ALL':
-        return tasks;
-      default:
-        return tasks.where((task) => task.isOpen).toList();
+  Future<void> _openCreateSheet(List<LeaveType> types) async {
+    if (!(widget.session.user?.permissions.contains('LEAVE_CREATE') ?? false)) {
+      showAppSnack(
+        context,
+        'Tài khoản chưa có quyền tạo đơn nghỉ.',
+        error: true,
+      );
+      return;
     }
+    if (types.isEmpty) {
+      showAppSnack(context, 'Chưa có loại nghỉ khả dụng.', error: true);
+      return;
+    }
+
+    final reasonController = TextEditingController();
+    int? leaveTypeId = types.first.id;
+    var startDate = DateTime.now();
+    var endDate = DateTime.now();
+    var submitting = false;
+
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> pickStart() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: startDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2035),
+              );
+              if (!context.mounted) return;
+              if (picked != null) {
+                setSheetState(() {
+                  startDate = picked;
+                  if (endDate.isBefore(startDate)) endDate = startDate;
+                });
+              }
+            }
+
+            Future<void> pickEnd() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: endDate,
+                firstDate: startDate,
+                lastDate: DateTime(2035),
+              );
+              if (!context.mounted) return;
+              if (picked != null) {
+                setSheetState(() => endDate = picked);
+              }
+            }
+
+            Future<void> submit() async {
+              if (reasonController.text.trim().isEmpty) {
+                showAppSnack(context, 'Nhập lý do xin nghỉ.', error: true);
+                return;
+              }
+
+              setSheetState(() => submitting = true);
+              try {
+                await widget.session.api.post(
+                  '/leave-requests',
+                  body: {
+                    'leaveTypeId': leaveTypeId,
+                    'startDate': apiDate(startDate),
+                    'endDate': apiDate(endDate),
+                    'reason': reasonController.text.trim(),
+                  },
+                );
+                if (context.mounted) Navigator.pop(context, true);
+              } catch (error) {
+                if (context.mounted) {
+                  showAppSnack(context, error.toString(), error: true);
+                }
+              } finally {
+                if (context.mounted) {
+                  setSheetState(() => submitting = false);
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Tạo đơn xin nghỉ',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int>(
+                      initialValue: leaveTypeId,
+                      decoration: const InputDecoration(
+                        labelText: 'Loại nghỉ',
+                        prefixIcon: Icon(Icons.category_outlined),
+                      ),
+                      items: types
+                          .map(
+                            (type) => DropdownMenuItem(
+                              value: type.id,
+                              child: Text(type.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: submitting
+                          ? null
+                          : (value) => setSheetState(() => leaveTypeId = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickStart,
+                            icon: const Icon(Icons.event_rounded),
+                            label: Text(formatDate(startDate)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickEnd,
+                            icon: const Icon(Icons.event_available_rounded),
+                            label: Text(formatDate(endDate)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Lý do',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: submitting ? null : submit,
+                      icon: submitting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_rounded),
+                      label: Text(submitting ? 'Đang gửi...' : 'Gửi đơn'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    reasonController.dispose();
+    if (created == true) _showSnack('Đã tạo đơn xin nghỉ.');
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<TaskItem>>(
+    return FutureBuilder<List<LeaveType>>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -84,60 +224,52 @@ class _TasksScreenState extends State<TasksScreen> {
           return ErrorView(error: snapshot.error.toString(), onRetry: _refresh);
         }
 
-        final tasks = snapshot.data ?? [];
-        final visibleTasks = _applyFilter(tasks);
-
+        final types = snapshot.data ?? const <LeaveType>[];
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 112),
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SegmentedButton<String>(
-                  selected: {_filter},
-                  onSelectionChanged: (value) {
-                    setState(() => _filter = value.first);
-                  },
-                  segments: const [
-                    ButtonSegment(
-                      value: 'OPEN',
-                      label: Text('Open'),
-                      icon: Icon(Icons.radio_button_unchecked),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: AppPanel(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const AppIconBadge(
+                          icon: Icons.beach_access_rounded,
+                          color: accentColor,
+                          size: 52,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Đơn xin nghỉ',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Tạm thời tab này chỉ dùng để tạo đơn xin nghỉ thủ công.',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: mutedTextColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: () => _openCreateSheet(types),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Tạo đơn xin nghỉ thủ công'),
+                        ),
+                      ],
                     ),
-                    ButtonSegment(
-                      value: 'LATE',
-                      label: Text('Late'),
-                      icon: Icon(Icons.warning_amber),
-                    ),
-                    ButtonSegment(
-                      value: 'DONE',
-                      label: Text('Done'),
-                      icon: Icon(Icons.check_circle_outline),
-                    ),
-                    ButtonSegment(
-                      value: 'ALL',
-                      label: Text('All'),
-                      icon: Icon(Icons.list),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              if (visibleTasks.isEmpty)
-                const EmptyState(
-                  icon: Icons.task_alt_outlined,
-                  title: 'No tasks',
-                  body: 'Tasks assigned to you will appear here.',
-                )
-              else
-                ...visibleTasks.map(
-                  (task) => TaskCard(
-                    task: task,
-                    updating: _updatingTaskId == task.id,
-                    onStatusChanged: (status) => _updateStatus(task, status),
                   ),
                 ),
+              ),
             ],
           ),
         );

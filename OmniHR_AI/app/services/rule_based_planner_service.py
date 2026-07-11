@@ -1,0 +1,345 @@
+import re
+import unicodedata
+from datetime import date, timedelta
+from uuid import uuid4
+
+from app.schemas.chat import (
+    ChatPlanRequest,
+    ChatPlanResponse,
+    Confirmation,
+    ToolCall,
+)
+
+
+class RuleBasedPlannerService:
+    def plan(self, request: ChatPlanRequest) -> ChatPlanResponse:
+        text = request.message.strip()
+        normalized = self._normalize(text)
+        available = {tool.name for tool in request.availableTools}
+
+        if self._is_cancel_leave_request(normalized):
+            return self._cancel_leave_request_plan(request, normalized, available)
+
+        if self._has_any(normalized, "con bao nhieu ngay phep", "so phep", "phep con"):
+            return self._tool_plan(
+                "get_my_leave_balance",
+                {"year": self._today(request).year},
+                available,
+                "Tôi sẽ kiểm tra số ngày phép còn lại của bạn.",
+            )
+
+        if self._has_any(
+            normalized,
+            "don nghi gan nhat",
+            "trang thai don nghi",
+            "don nghi cua toi",
+            "don xin nghi",
+            "duyet chua",
+        ):
+            return self._tool_plan(
+                "get_my_leave_requests",
+                {"limit": 5},
+                available,
+                "Tôi sẽ kiểm tra các đơn nghỉ gần đây của bạn.",
+            )
+
+        if self._is_leave_request(normalized):
+            return self._leave_request_plan(request, text, normalized, available)
+
+        if self._has_any(normalized, "check-in", "check in", "cham cong chua", "di muon hom nay"):
+            return self._tool_plan(
+                "get_today_attendance",
+                {},
+                available,
+                "Tôi sẽ kiểm tra chấm công hôm nay của bạn.",
+            )
+
+        if self._has_any(normalized, "di muon", "gio lam", "ban kinh cham cong", "quy dinh cham cong"):
+            return self._tool_plan(
+                "get_attendance_policy",
+                {},
+                available,
+                "Tôi sẽ kiểm tra cấu hình chấm công hiện tại.",
+            )
+
+        if self._has_any(normalized, "phong ban", "manager", "quan ly", "ho so", "toi la ai"):
+            return self._tool_plan(
+                "get_my_profile",
+                {},
+                available,
+                "Tôi sẽ kiểm tra hồ sơ nhân viên của bạn.",
+            )
+
+        if self._has_any(normalized, "sap den han", "qua han", "hom nay can lam", "can lam gi"):
+            return self._upcoming_tasks_plan(normalized, available)
+
+        if self._has_any(normalized, "task", "cong viec", "deadline", "den han"):
+            return self._tool_plan(
+                "get_my_tasks",
+                {"status": ["TODO", "IN_PROGRESS"], "limit": 10},
+                available,
+                "Tôi sẽ kiểm tra các task đang mở của bạn.",
+            )
+
+        if self._has_any(normalized, "loai nghi", "nghi phep nam", "nghi om"):
+            return self._tool_plan(
+                "get_leave_types",
+                {},
+                available,
+                "Tôi sẽ kiểm tra các loại nghỉ đang áp dụng.",
+            )
+
+        if self._has_any(normalized, "xin chao", "chao", "cam on", "thanks"):
+            return ChatPlanResponse(
+                type="answer",
+                intent="SMALL_TALK",
+                reply="Chao ban, toi la HRGenie. Ban muon hoi ve cham cong, nghi phep hay task?",
+                confidence=0.78,
+            )
+
+        return ChatPlanResponse(
+            type="answer",
+            intent="UNKNOWN",
+            reply=(
+                "Tôi có thể hỗ trợ bạn hỏi về chấm công, nghỉ phép, hồ sơ cá nhân "
+                "hoặc task. Bạn muốn kiểm tra thông tin nào?"
+            ),
+            confidence=0.62,
+        )
+
+    def _leave_request_plan(
+        self,
+        request: ChatPlanRequest,
+        original_text: str,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        if "create_leave_request_draft" not in available:
+            return ChatPlanResponse(
+                type="answer",
+                intent="CREATE_LEAVE_REQUEST_DRAFT",
+                reply="Bạn chưa có quyền tạo đơn nghỉ bằng HRGenie.",
+                confidence=0.7,
+            )
+
+        start_date = self._extract_start_date(request, normalized)
+        if start_date is None:
+            return ChatPlanResponse(
+                type="answer",
+                intent="CREATE_LEAVE_REQUEST_DRAFT",
+                reply="Bạn muốn nghỉ vào ngày nào?",
+                confidence=0.76,
+            )
+
+        days = self._extract_days(normalized)
+        end_date = start_date + timedelta(days=max(days - 1, 0))
+        leave_type_code = self._leave_type_code(normalized)
+        reason = self._extract_reason(original_text)
+        arguments = {
+            "leaveTypeCode": leave_type_code,
+            "startDate": start_date.isoformat(),
+            "endDate": end_date.isoformat(),
+            "reason": reason,
+        }
+
+        return ChatPlanResponse(
+            type="confirmation_required",
+            intent="CREATE_LEAVE_REQUEST_DRAFT",
+            reply="Tôi đã chuẩn bị nháp đơn nghỉ. Bạn xác nhận trước khi nộp nhé.",
+            toolCalls=[
+                ToolCall(
+                    id=f"call_{uuid4().hex[:8]}",
+                    toolName="create_leave_request_draft",
+                    arguments=arguments,
+                )
+            ],
+            needConfirmation=True,
+            confirmation=Confirmation(
+                title="Xác nhận nộp đơn nghỉ",
+                summary=arguments,
+            ),
+            confidence=0.88,
+        )
+
+    def _cancel_leave_request_plan(
+        self,
+        request: ChatPlanRequest,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        if "cancel_my_pending_leave_request" not in available:
+            return ChatPlanResponse(
+                type="answer",
+                intent="CANCEL_MY_PENDING_LEAVE_REQUEST",
+                reply="Bạn chưa có quyền hủy đơn nghỉ bằng HRGenie.",
+                confidence=0.7,
+            )
+
+        arguments: dict[str, object] = {}
+        start_date = self._extract_start_date(request, normalized)
+        if start_date is not None:
+            arguments["startDate"] = start_date.isoformat()
+
+        return ChatPlanResponse(
+            type="confirmation_required",
+            intent="CANCEL_MY_PENDING_LEAVE_REQUEST",
+            reply="Tôi sẽ tìm đơn nghỉ đang chờ duyệt phù hợp và tạo xác nhận hủy.",
+            toolCalls=[
+                ToolCall(
+                    id=f"call_{uuid4().hex[:8]}",
+                    toolName="cancel_my_pending_leave_request",
+                    arguments=arguments,
+                )
+            ],
+            needConfirmation=True,
+            confirmation=Confirmation(
+                title="Xác nhận hủy đơn nghỉ",
+                summary=arguments,
+            ),
+            confidence=0.86,
+        )
+
+    def _upcoming_tasks_plan(
+        self,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        mode = "upcoming"
+        if self._has_any(normalized, "qua han", "tre han"):
+            mode = "overdue"
+        elif self._has_any(normalized, "hom nay"):
+            mode = "today"
+
+        if "get_my_upcoming_tasks" not in available and "get_my_tasks" in available:
+            return self._tool_plan(
+                "get_my_tasks",
+                {"status": ["TODO", "IN_PROGRESS"], "limit": 10},
+                available,
+                "Tôi sẽ kiểm tra các task đang mở của bạn.",
+            )
+
+        return self._tool_plan(
+            "get_my_upcoming_tasks",
+            {"mode": mode, "days": 7, "limit": 10},
+            available,
+            "Tôi sẽ kiểm tra các task sắp đến hạn của bạn.",
+        )
+
+    def _tool_plan(
+        self,
+        tool_name: str,
+        arguments: dict[str, object],
+        available: set[str],
+        reply: str,
+    ) -> ChatPlanResponse:
+        if tool_name not in available:
+            return ChatPlanResponse(
+                type="answer",
+                intent=self._intent_for_tool(tool_name),
+                reply="Bạn chưa có quyền dùng chức năng này trong HRGenie.",
+                confidence=0.68,
+            )
+
+        return ChatPlanResponse(
+            type="tool_plan",
+            intent=self._intent_for_tool(tool_name),
+            reply=reply,
+            toolCalls=[
+                ToolCall(
+                    id=f"call_{uuid4().hex[:8]}",
+                    toolName=tool_name,
+                    arguments=arguments,
+                )
+            ],
+            confidence=0.84,
+        )
+
+    def _intent_for_tool(self, tool_name: str) -> str:
+        return {
+            "get_my_profile": "GET_MY_PROFILE",
+            "get_today_attendance": "GET_TODAY_ATTENDANCE",
+            "get_attendance_policy": "GET_ATTENDANCE_POLICY",
+            "get_my_leave_balance": "GET_MY_LEAVE_BALANCE",
+            "get_my_leave_requests": "GET_MY_LEAVE_REQUESTS",
+            "get_leave_types": "GET_LEAVE_TYPES",
+            "create_leave_request_draft": "CREATE_LEAVE_REQUEST_DRAFT",
+            "cancel_my_pending_leave_request": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+            "get_my_tasks": "GET_MY_TASKS",
+            "get_my_upcoming_tasks": "GET_MY_UPCOMING_TASKS",
+        }.get(tool_name, "UNKNOWN")
+
+    def _is_leave_request(self, normalized: str) -> bool:
+        return self._has_any(normalized, "muon nghi", "xin nghi", "nghi phep", "nghi om") and not self._has_any(
+            normalized,
+            "huy",
+            "con bao nhieu",
+            "la gi",
+            "quy dinh",
+            "loai nghi",
+        )
+
+    def _is_cancel_leave_request(self, normalized: str) -> bool:
+        return self._has_any(normalized, "huy don nghi", "huy nghi", "huy phep") or (
+            self._has_any(normalized, "huy") and self._has_any(normalized, "don nghi", "nghi phep")
+        )
+
+    def _extract_start_date(self, request: ChatPlanRequest, normalized: str) -> date | None:
+        today = self._today(request)
+        if "ngay kia" in normalized:
+            return today + timedelta(days=2)
+        if "mai" in normalized:
+            return today + timedelta(days=1)
+        if "hom nay" in normalized:
+            return today
+
+        match = re.search(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b", normalized)
+        if not match:
+            return None
+
+        day = int(match.group(1))
+        month = int(match.group(2))
+        year_text = match.group(3)
+        year = today.year if not year_text else int(year_text)
+        if year < 100:
+            year += 2000
+        try:
+            return date(year, month, day)
+        except ValueError:
+            return None
+
+    def _extract_days(self, normalized: str) -> int:
+        match = re.search(r"\b(\d{1,2})\s*ngay\b", normalized)
+        if not match:
+            return 1
+        return max(1, min(int(match.group(1)), 30))
+
+    def _leave_type_code(self, normalized: str) -> str:
+        if "khong luong" in normalized:
+            return "UNPAID_LEAVE"
+        if "om" in normalized or "benh" in normalized:
+            return "SICK_LEAVE"
+        return "ANNUAL_LEAVE"
+
+    def _extract_reason(self, text: str) -> str:
+        match = re.search(r"\b(vì|vi)\s+(.+)$", text, re.IGNORECASE)
+        if match:
+            return match.group(2).strip().rstrip(".")
+        return "Tạo từ HRGenie"
+
+    def _today(self, request: ChatPlanRequest) -> date:
+        try:
+            return date.fromisoformat(request.today)
+        except ValueError:
+            return date.today()
+
+    def _has_any(self, normalized: str, *phrases: str) -> bool:
+        return any(phrase in normalized for phrase in phrases)
+
+    def _normalize(self, value: str) -> str:
+        value = value.replace("đ", "d").replace("Đ", "D")
+        without_accents = "".join(
+            char
+            for char in unicodedata.normalize("NFD", value)
+            if unicodedata.category(char) != "Mn"
+        )
+        return re.sub(r"\s+", " ", without_accents.lower()).strip()

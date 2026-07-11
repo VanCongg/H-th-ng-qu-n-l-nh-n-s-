@@ -3,9 +3,227 @@ import 'package:flutter/material.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 
-class LogoMark extends StatelessWidget {
-  const LogoMark({super.key, this.size = 48});
+class BrandBackdrop extends StatelessWidget {
+  const BrandBackdrop({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+  });
 
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: appBackgroundColor,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            brandColor.withValues(alpha: 0.08),
+            brandGreen.withValues(alpha: 0.035),
+            appBackgroundColor,
+          ],
+          stops: const [0, 0.34, 0.78],
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [brandColor, brandGreen, accentColor],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -80,
+            top: 96,
+            child: Container(
+              width: 210,
+              height: 210,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: brandColor.withValues(alpha: 0.045),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -110,
+            bottom: -60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: brandGreen.withValues(alpha: 0.045),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(padding: padding, child: child),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LogoMark extends StatelessWidget {
+  const LogoMark({super.key, this.size = 48, this.showShadow = true});
+
+  final double size;
+  final bool showShadow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'OmniHR',
+      image: true,
+      child: ExcludeSemantics(
+        child: SizedBox.square(
+          dimension: size,
+          child: CustomPaint(painter: _LogoMarkPainter(showShadow: showShadow)),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoMarkPainter extends CustomPainter {
+  const _LogoMarkPainter({required this.showShadow});
+
+  final bool showShadow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide / 72;
+    canvas
+      ..save()
+      ..translate((size.width - 72 * scale) / 2, (size.height - 72 * scale) / 2)
+      ..scale(scale);
+
+    final badgePath = Path()
+      ..moveTo(36, 4.5)
+      ..lineTo(58.5, 17.7)
+      ..lineTo(58.5, 54.3)
+      ..lineTo(36, 67.5)
+      ..lineTo(13.5, 54.3)
+      ..lineTo(13.5, 17.7)
+      ..close();
+
+    if (showShadow) {
+      canvas.drawShadow(
+        badgePath,
+        const Color(0xFF127195).withValues(alpha: 0.32),
+        10,
+        false,
+      );
+    }
+
+    final badgePaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [brandGreen, brandColor, brandNavy],
+        stops: [0, 0.42, 1],
+      ).createShader(const Rect.fromLTWH(4, 4, 64, 64));
+    canvas.drawPath(badgePath, badgePaint);
+
+    final edgePath = Path()
+      ..moveTo(36, 7.8)
+      ..lineTo(55.6, 19.3)
+      ..lineTo(55.6, 52.7)
+      ..lineTo(36, 64.2)
+      ..lineTo(16.4, 52.7)
+      ..lineTo(16.4, 19.3)
+      ..close();
+    final edgePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFF3BF), Color(0xFF74C0FC), Color(0xFF63E6BE)],
+        stops: [0, 0.46, 1],
+      ).createShader(const Rect.fromLTWH(12, 8, 48, 58));
+    canvas.drawPath(edgePath, edgePaint);
+
+    final shinePath = Path()
+      ..moveTo(19.2, 20.8)
+      ..lineTo(36, 10.9)
+      ..lineTo(52.8, 20.8)
+      ..lineTo(52.8, 30.5)
+      ..cubicTo(41.6, 26.8, 30.4, 26.8, 19.2, 30.5)
+      ..close();
+    final shinePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withValues(alpha: 0.62),
+          Colors.white.withValues(alpha: 0),
+        ],
+      ).createShader(const Rect.fromLTWH(18, 10, 36, 46));
+    canvas.drawPath(shinePath, shinePaint);
+
+    final whiteStroke = Paint()
+      ..color = Colors.white.withValues(alpha: 0.92)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.4;
+    canvas.drawCircle(const Offset(35.9, 36), 17.7, whiteStroke);
+
+    final hPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas
+      ..drawLine(const Offset(27.8, 26.6), const Offset(27.8, 45.4), hPaint)
+      ..drawLine(const Offset(44.2, 26.6), const Offset(44.2, 45.4), hPaint)
+      ..drawLine(const Offset(27.8, 36), const Offset(44.2, 36), hPaint);
+
+    final arrowPaint = Paint()
+      ..color = const Color(0xFFFFE066)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.4
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final arrowPath = Path()
+      ..moveTo(48.9, 17.8)
+      ..lineTo(55.1, 21.4)
+      ..lineTo(51.5, 27.6);
+    canvas.drawPath(arrowPath, arrowPaint);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _LogoMarkPainter oldDelegate) {
+    return oldDelegate.showShadow != showShadow;
+  }
+}
+
+class AppIconBadge extends StatelessWidget {
+  const AppIconBadge({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.size = 44,
+  });
+
+  final IconData icon;
+  final Color color;
   final double size;
 
   @override
@@ -14,13 +232,185 @@ class LogoMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: brandColor,
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.10)),
       ),
-      child: Icon(
-        Icons.workspaces_filled,
+      child: Icon(icon, color: color, size: size * 0.48),
+    );
+  }
+}
+
+class AppPanel extends StatelessWidget {
+  const AppPanel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.margin = EdgeInsets.zero,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
         color: Colors.white,
-        size: size * 0.55,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: brandColor.withValues(alpha: 0.11)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF101828).withValues(alpha: 0.045),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class PageHeroCard extends StatelessWidget {
+  const PageHeroCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.color = brandColor,
+    this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color,
+            Color.lerp(color, brandGreen, 0.28) ?? color,
+            brandNavy,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.22),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -32,
+            top: -42,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppIconBadge(icon: icon, color: Colors.white, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.86),
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+              if (child != null) ...[const SizedBox(height: 18), child!],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionPanel extends StatelessWidget {
+  const ActionPanel({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AppIconBadge(icon: icon, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: mutedTextColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
       ),
     );
   }
@@ -41,41 +431,101 @@ class EmployeeHeader extends StatelessWidget {
       employee?.position?.name,
     ].where((item) => item != null && item.isNotEmpty).join(' - ');
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+    return AppPanel(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: brandColor.withValues(alpha: 0.12),
-              foregroundColor: brandColor,
-              child: Text(
-                name.isEmpty ? 'O' : name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      brandColor.withValues(alpha: 0.08),
+                      Colors.white,
+                      brandGreen.withValues(alpha: 0.06),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                  Container(
+                    width: 58,
+                    height: 58,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [brandColor, brandGreen],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: brandColor.withValues(alpha: 0.22),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
                         ),
+                      ],
+                    ),
+                    child: Text(
+                      name.isEmpty ? 'O' : name.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle.isEmpty ? textOf(user?.email, 'Employee') : subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF64748B),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle.isEmpty
+                              ? textOf(user?.email, 'Employee')
+                              : subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: mutedTextColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        if (user != null && user!.roles.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: user!.roles
+                                .map(
+                                  (role) => Pill(
+                                    label: role,
+                                    color: _roleColor(role),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -84,6 +534,19 @@ class EmployeeHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+Color _roleColor(String role) {
+  switch (role.toUpperCase()) {
+    case 'ADMIN':
+      return brandPurple;
+    case 'MANAGER':
+      return const Color(0xFF0B7285);
+    case 'EMPLOYEE':
+      return const Color(0xFF2B8A3E);
+    default:
+      return brandColor;
   }
 }
 
@@ -116,110 +579,113 @@ class TaskCard extends StatelessWidget {
         task.isOpen && dueDate != null && dueDate.isBefore(DateTime.now());
     final currentStatus = statuses.contains(task.status) ? task.status : null;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppIconBadge(
+                icon: Icons.task_alt_rounded,
+                color: statusColor(task.status),
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  task.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Pill(label: task.priority, color: priorityColor(task.priority)),
-              ],
-            ),
-            if (task.description != null && task.description!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                task.description!,
-                maxLines: compact ? 2 : 4,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Color(0xFF64748B)),
               ),
+              const SizedBox(width: 8),
+              Pill(label: task.priority, color: priorityColor(task.priority)),
             ],
+          ),
+          if (task.description != null && task.description!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              task.description!,
+              maxLines: compact ? 2 : 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Color(0xFF64748B)),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Pill(
+                label: friendlyStatus(task.status),
+                color: statusColor(task.status),
+              ),
+              if (task.project != null)
+                Pill(label: task.project!.name, color: const Color(0xFF2563EB)),
+              if (task.estimatedHours != null)
+                Pill(
+                  label: '${task.estimatedHours!.toStringAsFixed(1)}h',
+                  color: const Color(0xFF64748B),
+                ),
+              if (task.dueDate != null)
+                Pill(
+                  label: 'Due ${formatDate(task.dueDate)}',
+                  color: overdue ? dangerColor : const Color(0xFF64748B),
+                ),
+            ],
+          ),
+          if (!compact && task.requiredSkills.isNotEmpty) ...[
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [
-                Pill(
-                  label: friendlyStatus(task.status),
-                  color: statusColor(task.status),
-                ),
-                if (task.project != null)
-                  Pill(label: task.project!.name, color: const Color(0xFF2563EB)),
-                if (task.estimatedHours != null)
-                  Pill(
-                    label: '${task.estimatedHours!.toStringAsFixed(1)}h',
-                    color: const Color(0xFF64748B),
-                  ),
-                if (task.dueDate != null)
-                  Pill(
-                    label: 'Due ${formatDate(task.dueDate)}',
-                    color: overdue ? dangerColor : const Color(0xFF64748B),
-                  ),
-              ],
+              children: task.requiredSkills
+                  .map(
+                    (item) => Chip(
+                      label: Text(item.skill.name),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  )
+                  .toList(),
             ),
-            if (!compact && task.requiredSkills.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: task.requiredSkills
-                    .map(
-                      (item) => Chip(
-                        label: Text(item.skill.name),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ],
-            if (!compact && onStatusChanged != null) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: currentStatus,
-                decoration: InputDecoration(
-                  labelText: 'Status',
-                  prefixIcon: updating
-                      ? const Padding(
-                          padding: EdgeInsets.all(14),
-                          child: SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : const Icon(Icons.update),
-                ),
-                items: statuses
-                    .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(friendlyStatus(status)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: updating
-                    ? null
-                    : (value) {
-                        if (value != null && value != task.status) {
-                          onStatusChanged!(value);
-                        }
-                      },
-              ),
-            ],
           ],
-        ),
+          if (!compact && onStatusChanged != null) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: currentStatus,
+              decoration: InputDecoration(
+                labelText: 'Status',
+                prefixIcon: updating
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : const Icon(Icons.update),
+              ),
+              items: statuses
+                  .map(
+                    (status) => DropdownMenuItem(
+                      value: status,
+                      child: Text(friendlyStatus(status)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: updating
+                  ? null
+                  : (value) {
+                      if (value != null && value != task.status) {
+                        onStatusChanged!(value);
+                      }
+                    },
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -245,18 +711,43 @@ class AttendanceCard extends StatelessWidget {
       record.source,
     ].join(' - ');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              (isCheckIn ? brandColor : accentColor).withValues(alpha: 0.12),
-          foregroundColor: isCheckIn ? brandColor : accentColor,
-          child: Icon(isCheckIn ? Icons.login : Icons.logout),
-        ),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: Text(formatDate(record.workDate)),
+    final color = isCheckIn ? brandColor : accentColor;
+
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          AppIconBadge(
+            icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: mutedTextColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Pill(label: formatDate(record.workDate), color: color),
+        ],
       ),
     );
   }
@@ -300,60 +791,78 @@ class LeaveRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    request.leaveType.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+    final color = statusColor(request.status);
+
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AppIconBadge(
+                icon: Icons.beach_access_rounded,
+                color: color,
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  request.leaveType.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                Pill(
-                  label: friendlyStatus(request.status),
-                  color: statusColor(request.status),
-                ),
-              ],
+              ),
+              Pill(label: friendlyStatus(request.status), color: color),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Pill(
+                label:
+                    '${formatDate(request.startDate)} - ${formatDate(request.endDate)}',
+                color: brandColor,
+              ),
+              Pill(
+                label: '${request.totalDays.toStringAsFixed(1)} days',
+                color: accentColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            request.reason,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 8),
-            Text(
-              '${formatDate(request.startDate)} - ${formatDate(request.endDate)}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+          ),
+          if (request.rejectionReason != null &&
+              request.rejectionReason!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              request.reason,
-              style: const TextStyle(color: Color(0xFF64748B)),
+              'Rejected: ${request.rejectionReason}',
+              style: const TextStyle(color: dangerColor),
             ),
-            if (request.rejectionReason != null &&
-                request.rejectionReason!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Rejected: ${request.rejectionReason}',
-                style: const TextStyle(color: dangerColor),
-              ),
-            ],
-            if (onCancel != null) ...[
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: onCancel,
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Cancel request'),
-                ),
-              ),
-            ],
           ],
-        ),
+          if (onCancel != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onCancel,
+                icon: const Icon(Icons.cancel_outlined),
+                label: const Text('Cancel request'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -366,24 +875,49 @@ class EmployeeSkillCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: brandColor.withValues(alpha: 0.12),
-          foregroundColor: brandColor,
-          child: const Icon(Icons.psychology_alt),
-        ),
-        title: Text(skill.skill.name),
-        subtitle: Text(
-          [
-            if (skill.proficiency != null) skill.proficiency,
-            if (skill.yearsExperience != null)
-              '${skill.yearsExperience!.toStringAsFixed(1)} years',
-            if (skill.lastUsedAt != null)
-              'Last used ${formatDate(skill.lastUsedAt)}',
-          ].join(' - '),
-        ),
+    return AppPanel(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const AppIconBadge(
+            icon: Icons.psychology_alt_rounded,
+            color: brandPurple,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  skill.skill.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (skill.proficiency != null)
+                      Pill(label: skill.proficiency!, color: brandPurple),
+                    if (skill.yearsExperience != null)
+                      Pill(
+                        label:
+                            '${skill.yearsExperience!.toStringAsFixed(1)} years',
+                        color: brandColor,
+                      ),
+                    if (skill.lastUsedAt != null)
+                      Pill(
+                        label: 'Last ${formatDate(skill.lastUsedAt)}',
+                        color: mutedTextColor,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -405,30 +939,67 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return AppPanel(
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
           children: [
-            Icon(icon, color: color),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.white, color.withValues(alpha: 0.055)],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: Container(
+                height: 4,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [brandColor, brandGreen, accentColor, brandPurple],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  AppIconBadge(icon: icon, color: color, size: 38),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-              ],
+                      const SizedBox(height: 2),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: mutedTextColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -490,8 +1061,8 @@ class ProfileRow extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: const Color(0xFF64748B),
-                      ),
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -510,19 +1081,42 @@ class ProfileRow extends StatelessWidget {
 }
 
 class SectionTitle extends StatelessWidget {
-  const SectionTitle({super.key, required this.title});
+  const SectionTitle({super.key, required this.title, this.subtitle});
 
   final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: mutedTextColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
             ),
+          ),
+        ],
       ),
     );
   }
@@ -542,26 +1136,26 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(icon, size: 36, color: const Color(0xFF94A3B8)),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w800),
+    return AppPanel(
+      child: Column(
+        children: [
+          AppIconBadge(icon: icon, color: mutedTextColor, size: 52),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 4),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF64748B)),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -572,7 +1166,25 @@ class LoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return Center(
+      child: AppPanel(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Loading workspace',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -587,23 +1199,32 @@ class ErrorView extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 42, color: dangerColor),
-            const SizedBox(height: 12),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF475569)),
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
+        child: AppPanel(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppIconBadge(
+                icon: Icons.error_outline_rounded,
+                color: dangerColor,
+                size: 54,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                error,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       ),
     );

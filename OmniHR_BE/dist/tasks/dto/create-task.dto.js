@@ -15,11 +15,12 @@ const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
 const task_required_skill_dto_1 = require("./task-required-skill.dto");
 class CreateTaskDto {
+    parentTaskId;
     projectId;
-    departmentId;
     teamId;
     title;
     description;
+    technologies;
     priority;
     status;
     assigneeId;
@@ -35,13 +36,13 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
-], CreateTaskDto.prototype, "projectId", void 0);
+], CreateTaskDto.prototype, "parentTaskId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
-], CreateTaskDto.prototype, "departmentId", void 0);
+], CreateTaskDto.prototype, "projectId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
@@ -58,6 +59,14 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateTaskDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(30),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.MaxLength)(100, { each: true }),
+    __metadata("design:type", Array)
+], CreateTaskDto.prototype, "technologies", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.TaskPriority),

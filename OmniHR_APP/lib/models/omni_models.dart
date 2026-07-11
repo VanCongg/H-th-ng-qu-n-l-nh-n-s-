@@ -152,8 +152,9 @@ class Employee {
       birthDate: json['birthDate']?.toString(),
       hireDate: json['hireDate']?.toString(),
       status: textOf(json['status'], 'ACTIVE'),
-      department:
-          departmentMap.isEmpty ? null : Department.fromJson(departmentMap),
+      department: departmentMap.isEmpty
+          ? null
+          : Department.fromJson(departmentMap),
       position: positionMap.isEmpty ? null : Position.fromJson(positionMap),
     );
   }
@@ -264,8 +265,9 @@ class AttendanceRecord {
       latitude: doubleOf(json['latitude']),
       longitude: doubleOf(json['longitude']),
       address: json['address']?.toString(),
-      distanceMeters:
-          json['distanceMeters'] == null ? null : intOf(json['distanceMeters']),
+      distanceMeters: json['distanceMeters'] == null
+          ? null
+          : intOf(json['distanceMeters']),
       note: json['note']?.toString(),
     );
   }
@@ -378,8 +380,9 @@ class TaskItem {
   bool get isOpen => status != 'DONE' && status != 'CANCELLED';
 
   factory TaskItem.fromJson(Map<String, dynamic> json) {
-    final rawSkills =
-        json['requiredSkills'] is List ? json['requiredSkills'] as List : const [];
+    final rawSkills = json['requiredSkills'] is List
+        ? json['requiredSkills'] as List
+        : const [];
     final projectMap = mapOf(json['project']);
     final departmentMap = mapOf(json['department']);
     return TaskItem(
@@ -389,8 +392,9 @@ class TaskItem {
       priority: textOf(json['priority'], 'MEDIUM'),
       status: textOf(json['status'], 'TODO'),
       project: projectMap.isEmpty ? null : Project.fromJson(projectMap),
-      department:
-          departmentMap.isEmpty ? null : Department.fromJson(departmentMap),
+      department: departmentMap.isEmpty
+          ? null
+          : Department.fromJson(departmentMap),
       startDate: json['startDate']?.toString(),
       dueDate: json['dueDate']?.toString(),
       estimatedHours: doubleOf(json['estimatedHours']),

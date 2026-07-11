@@ -15,6 +15,8 @@ const class_validator_1 = require("class-validator");
 class GenerateAiTaskSuggestionDto {
     limit = 5;
     includeAvailability = true;
+    includeSelf = false;
+    includePendingLeave = true;
 }
 exports.GenerateAiTaskSuggestionDto = GenerateAiTaskSuggestionDto;
 __decorate([
@@ -31,4 +33,16 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], GenerateAiTaskSuggestionDto.prototype, "includeAvailability", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Boolean),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], GenerateAiTaskSuggestionDto.prototype, "includeSelf", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Boolean),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], GenerateAiTaskSuggestionDto.prototype, "includePendingLeave", void 0);
 //# sourceMappingURL=generate-ai-task-suggestion.dto.js.map

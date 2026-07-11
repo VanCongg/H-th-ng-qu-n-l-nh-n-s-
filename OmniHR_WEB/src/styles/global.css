@@ -206,6 +206,16 @@ select {
   box-shadow: 0 10px 28px rgba(16, 24, 40, 0.04);
 }
 
+.table-shell th,
+.table-shell td {
+  vertical-align: top;
+  white-space: normal;
+}
+
+.table-shell td {
+  overflow-wrap: anywhere;
+}
+
 .stat-card {
   position: relative;
   overflow: hidden;

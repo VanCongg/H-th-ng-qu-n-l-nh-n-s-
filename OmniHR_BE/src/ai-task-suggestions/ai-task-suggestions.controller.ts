@@ -14,6 +14,7 @@ import { ReqContext } from "../common/decorators/request-context.decorator";
 import { AuthUser, RequestContext } from "../common/types";
 import { AiTaskSuggestionsService } from "./ai-task-suggestions.service";
 import { AiTaskSuggestionQueryDto } from "./dto/ai-task-suggestion-query.dto";
+import { CancelAiTaskSuggestionDto } from "./dto/cancel-ai-task-suggestion.dto";
 import { GenerateAiTaskSuggestionDto } from "./dto/generate-ai-task-suggestion.dto";
 import { SelectAiTaskSuggestionDto } from "./dto/select-ai-task-suggestion.dto";
 
@@ -64,5 +65,16 @@ export class AiTaskSuggestionsController {
     @ReqContext() context: RequestContext
   ) {
     return this.suggestionsService.select(id, dto, user, context);
+  }
+
+  @Permissions("AI_TASK_SELECT")
+  @Post("ai-task-suggestions/:id/cancel")
+  cancel(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: CancelAiTaskSuggestionDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.suggestionsService.cancel(id, dto, user, context);
   }
 }

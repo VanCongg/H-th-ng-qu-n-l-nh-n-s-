@@ -17,6 +17,15 @@ services:
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@corehr.local}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-Admin@123456}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      AI_SERVICE_URL: ${DOCKER_AI_SERVICE_URL:-http://omnihr-ai:8000}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-change-me}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      CHATBOT_RATE_LIMIT_TTL_SECONDS: ${CHATBOT_RATE_LIMIT_TTL_SECONDS:-60}
+      CHATBOT_RATE_LIMIT_MAX: ${CHATBOT_RATE_LIMIT_MAX:-20}
+      CHATBOT_RATE_LIMIT_PER_MINUTE: ${CHATBOT_RATE_LIMIT_PER_MINUTE:-20}
+      CHATBOT_HISTORY_LIMIT: ${CHATBOT_HISTORY_LIMIT:-12}
+      CHATBOT_MAX_MESSAGE_LENGTH: ${CHATBOT_MAX_MESSAGE_LENGTH:-1000}
+      CHATBOT_PENDING_ACTION_TTL_MINUTES: ${CHATBOT_PENDING_ACTION_TTL_MINUTES:-30}
     ports:
       - "3000:3000"
     depends_on:
@@ -56,6 +65,31 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - omnihr-network
+
+  omnihr-ai:
+    build:
+      context: ../OmniHR_AI
+      dockerfile: Dockerfile
+    container_name: omnihr-ai
+    environment:
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:-change-me}
+      AI_PLANNER_MODE: ${AI_PLANNER_MODE:-rule_based}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-rule-based-vi-v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-800}
+      LLM_FALLBACK_TO_RULE_BASED: ${LLM_FALLBACK_TO_RULE_BASED:-true}
+      LLM_CONFIDENCE_THRESHOLD: ${LLM_CONFIDENCE_THRESHOLD:-0.6}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-none}
+    ports:
+      - "8000:8000"
     networks:
       - omnihr-network
 

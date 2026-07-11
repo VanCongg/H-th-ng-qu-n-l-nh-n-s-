@@ -31,10 +31,10 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(60),
     __metadata("design:type", Number)
 ], CreateEmployeeSkillDto.prototype, "yearsExperience", void 0);
 __decorate([
-    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(client_1.SkillProficiency),
     __metadata("design:type", String)
 ], CreateEmployeeSkillDto.prototype, "proficiency", void 0);

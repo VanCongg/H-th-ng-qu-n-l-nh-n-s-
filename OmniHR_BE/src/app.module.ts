@@ -7,6 +7,7 @@ import { AiTaskSuggestionsModule } from "./ai-task-suggestions/ai-task-suggestio
 import { AuditLogsModule } from "./audit-logs/audit-logs.module";
 import { AttendanceModule } from "./attendance/attendance.module";
 import { AuthModule } from "./auth/auth.module";
+import { ChatbotModule } from "./chatbot/chatbot.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
@@ -51,14 +52,23 @@ import { UsersModule } from "./users/users.module";
           .email({ tlds: { allow: false } })
           .default("admin@corehr.local"),
         DEFAULT_ADMIN_PASSWORD: Joi.string().min(8).default("Admin@123456"),
-        CORS_ORIGIN: Joi.string().default("http://localhost:5173")
-      })
+        CORS_ORIGIN: Joi.string().default("http://localhost:5173"),
+        AI_SERVICE_URL: Joi.string().default("http://localhost:8000"),
+        AI_INTERNAL_TOKEN: Joi.string().min(6).default("change-me"),
+        AI_TIMEOUT_MS: Joi.number().default(30000),
+        CHATBOT_RATE_LIMIT_TTL_SECONDS: Joi.number().default(60),
+        CHATBOT_RATE_LIMIT_MAX: Joi.number().default(20),
+        CHATBOT_RATE_LIMIT_PER_MINUTE: Joi.number().default(20),
+        CHATBOT_HISTORY_LIMIT: Joi.number().default(12),
+        CHATBOT_MAX_MESSAGE_LENGTH: Joi.number().default(1000),
+        CHATBOT_PENDING_ACTION_TTL_MINUTES: Joi.number().default(30),
+      }),
     }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 100
-      }
+        limit: 100,
+      },
     ]),
     PrismaModule,
     AuthModule,
@@ -81,33 +91,34 @@ import { UsersModule } from "./users/users.module";
     TasksModule,
     TaskAssignmentsModule,
     TaskWorkloadModule,
-    AiTaskSuggestionsModule
+    AiTaskSuggestionsModule,
+    ChatbotModule,
   ],
   providers: [
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter
+      useClass: HttpExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
-      useClass: ResponseInterceptor
+      useClass: ResponseInterceptor,
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard
+      useClass: ThrottlerGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard
+      useClass: JwtAuthGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: RolesGuard
+      useClass: RolesGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: PermissionsGuard
-    }
-  ]
+      useClass: PermissionsGuard,
+    },
+  ],
 })
 export class AppModule {}

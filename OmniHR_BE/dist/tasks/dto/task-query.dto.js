@@ -15,6 +15,7 @@ const class_validator_1 = require("class-validator");
 const client_1 = require("@prisma/client");
 const pagination_query_dto_1 = require("../../common/dto/pagination-query.dto");
 class TaskQueryDto extends pagination_query_dto_1.PaginationQueryDto {
+    parentTaskId;
     projectId;
     departmentId;
     teamId;
@@ -25,6 +26,12 @@ class TaskQueryDto extends pagination_query_dto_1.PaginationQueryDto {
     toDate;
 }
 exports.TaskQueryDto = TaskQueryDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], TaskQueryDto.prototype, "parentTaskId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

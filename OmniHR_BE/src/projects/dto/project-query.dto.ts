@@ -16,10 +16,5 @@ export class ProjectQueryDto extends PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  teamId?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
   managerId?: number;
 }
