@@ -9,7 +9,7 @@ import {
   Text
 } from "@mantine/core";
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "../../i18n";
 import { EmptyState } from "../EmptyState";
 
@@ -26,6 +26,9 @@ type DataTableProps<T> = {
   loading?: boolean;
   error?: string | null;
   emptyTitle?: string;
+  className?: string;
+  tableMinWidth?: number | string;
+  rowKey?: (item: T, index: number) => string | number;
   page?: number;
   total?: number;
   limit?: number;
@@ -38,6 +41,9 @@ export function DataTable<T>({
   loading,
   error,
   emptyTitle,
+  className,
+  tableMinWidth = 720,
+  rowKey,
   page = 1,
   total,
   limit = 20,
@@ -47,28 +53,18 @@ export function DataTable<T>({
   const [internalPage, setInternalPage] = useState(1);
   const isServerPaginated = total !== undefined && Boolean(onPageChange);
   const isClientPaginated = total === undefined && data.length > limit;
-  const activePage = isServerPaginated ? page : internalPage;
+  const clientPageCount = Math.max(1, Math.ceil(data.length / limit));
+  const effectiveInternalPage = isClientPaginated ? Math.min(internalPage, clientPageCount) : 1;
+  const activePage = isServerPaginated ? page : effectiveInternalPage;
   const activeTotal = isServerPaginated && total !== undefined ? total : data.length;
   const tableData = useMemo(() => {
     if (!isClientPaginated) {
       return data;
     }
 
-    const start = (internalPage - 1) * limit;
+    const start = (effectiveInternalPage - 1) * limit;
     return data.slice(start, start + limit);
-  }, [data, internalPage, isClientPaginated, limit]);
-
-  useEffect(() => {
-    if (!isClientPaginated) {
-      setInternalPage(1);
-      return;
-    }
-
-    const pageCount = Math.max(1, Math.ceil(data.length / limit));
-    if (internalPage > pageCount) {
-      setInternalPage(pageCount);
-    }
-  }, [data.length, internalPage, isClientPaginated, limit]);
+  }, [data, effectiveInternalPage, isClientPaginated, limit]);
 
   if (error) {
     return (
@@ -79,9 +75,9 @@ export function DataTable<T>({
   }
 
   return (
-    <Box className="table-shell">
+    <Box className={["table-shell", className].filter(Boolean).join(" ")}>
       <ScrollArea>
-        <Table striped highlightOnHover verticalSpacing="sm" miw={720}>
+        <Table striped highlightOnHover verticalSpacing="sm" miw={tableMinWidth}>
           <Table.Thead>
             <Table.Tr>
               {columns.map((column) => (
@@ -111,7 +107,7 @@ export function DataTable<T>({
               </Table.Tr>
             ) : (
               tableData.map((item, index) => (
-                <Table.Tr key={index}>
+                <Table.Tr key={rowKey ? rowKey(item, index) : index}>
                   {columns.map((column) => (
                     <Table.Td key={column.key}>{column.render(item)}</Table.Td>
                   ))}

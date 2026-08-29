@@ -432,7 +432,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     }
   }
 
-  function useAiCandidate(item: AiTaskSuggestionItem) {
+  function applyAiCandidate(item: AiTaskSuggestionItem) {
     assignForm.setFieldValue("assigneeId", String(item.employeeId));
     setSelectedAiItemId(item.suggestionItemId);
   }
@@ -1266,7 +1266,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
                           <ActionIcon
                             variant={isSelected ? "filled" : "light"}
                             color={isSelected ? "violet" : "teal"}
-                            onClick={() => useAiCandidate(item)}
+                            onClick={() => applyAiCandidate(item)}
                           >
                             <Check size={16} />
                           </ActionIcon>
