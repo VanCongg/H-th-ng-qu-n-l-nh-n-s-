@@ -4,7 +4,7 @@ import '../../core/attendance_location.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
-import '../../shared/widgets/common.dart';
+import '../../shared/widgets/widgets.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, required this.session});

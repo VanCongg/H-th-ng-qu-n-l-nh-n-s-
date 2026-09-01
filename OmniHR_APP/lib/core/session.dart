@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +18,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   static const _accessTokenKey = 'accessToken';
   static const _refreshTokenKey = 'refreshToken';
   static const _userKey = 'authUser';
+  static const _secureStorage = FlutterSecureStorage();
 
   late final ApiService api;
 
@@ -42,10 +44,10 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     _baseUrl = cleanBaseUrl(
       _prefs?.getString(_baseUrlKey) ?? defaultApiBaseUrl(),
     );
-    _accessToken = _prefs?.getString(_accessTokenKey);
-    refreshToken = _prefs?.getString(_refreshTokenKey);
+    _accessToken = await _secureStorage.read(key: _accessTokenKey);
+    refreshToken = await _secureStorage.read(key: _refreshTokenKey);
 
-    final rawUser = _prefs?.getString(_userKey);
+    final rawUser = await _secureStorage.read(key: _userKey);
     if (rawUser != null) {
       user = AuthUser.fromJson(mapOf(jsonDecode(rawUser)));
     }
@@ -85,10 +87,10 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
           )
           .timeout(const Duration(seconds: 20));
     } on FormatException {
-      throw ApiException('Invalid API URL: $candidateBaseUrl');
+      throw ApiException('API URL không hợp lệ: $candidateBaseUrl');
     } on Exception catch (error) {
       throw ApiException(
-        'Cannot connect to backend at $candidateBaseUrl. Check that the backend is running.',
+        'Không thể kết nối backend tại $candidateBaseUrl. Vui lòng kiểm tra máy chủ.',
         errorCode: error.toString(),
       );
     }
@@ -169,14 +171,25 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     await logoutLocal();
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await api.post(
+      '/auth/change-password',
+      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+    );
+    await loadCurrentUser();
+  }
+
   Future<void> logoutLocal({bool notify = true}) async {
     _accessToken = null;
     refreshToken = null;
     user = null;
     employee = null;
-    await _prefs?.remove(_accessTokenKey);
-    await _prefs?.remove(_refreshTokenKey);
-    await _prefs?.remove(_userKey);
+    await _secureStorage.delete(key: _accessTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
+    await _secureStorage.delete(key: _userKey);
     if (notify) notifyListeners();
   }
 
@@ -184,13 +197,16 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs?.setString(_baseUrlKey, _baseUrl);
     if (_accessToken != null) {
-      await _prefs?.setString(_accessTokenKey, _accessToken!);
+      await _secureStorage.write(key: _accessTokenKey, value: _accessToken!);
     }
     if (refreshToken != null) {
-      await _prefs?.setString(_refreshTokenKey, refreshToken!);
+      await _secureStorage.write(key: _refreshTokenKey, value: refreshToken!);
     }
     if (user != null) {
-      await _prefs?.setString(_userKey, jsonEncode(user!.toJson()));
+      await _secureStorage.write(
+        key: _userKey,
+        value: jsonEncode(user!.toJson()),
+      );
     }
   }
 }

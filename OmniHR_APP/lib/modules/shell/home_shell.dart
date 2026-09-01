@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/session.dart';
 import '../../core/utils.dart';
+import '../attendance/attendance_screen.dart';
 import '../chat/chat_screen.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../leave/leave_screen.dart';
 import '../profile/profile_screen.dart';
 import '../tasks/tasks_screen.dart';
 
@@ -21,6 +23,8 @@ class _HomeShellState extends State<HomeShell> {
 
   late final _pages = [
     DashboardScreen(session: widget.session),
+    AttendanceScreen(session: widget.session),
+    LeaveScreen(session: widget.session),
     TasksScreen(session: widget.session),
     ProfileScreen(session: widget.session),
   ];
@@ -44,11 +48,23 @@ class _HomeShellState extends State<HomeShell> {
         ),
         child: SafeArea(
           bottom: false,
-          child: IndexedStack(index: _index, children: _pages),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: IndexedStack(index: _index, children: _pages),
+                  ),
+                  _DraggableHrGenieBubble(
+                    session: widget.session,
+                    constraints: constraints,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
-      floatingActionButton: _HrGenieBubble(session: widget.session),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: _ShellNavigation(
         index: _index,
         onSelected: (value) => setState(() => _index = value),
@@ -80,20 +96,94 @@ class _ShellNavigation extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
+            label: 'Trang chủ',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.location_on_outlined),
+            selectedIcon: Icon(Icons.location_on_rounded),
+            label: 'Chấm công',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.beach_access_outlined),
+            selectedIcon: Icon(Icons.beach_access_rounded),
+            label: 'Nghỉ phép',
           ),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment_rounded),
-            label: 'Task',
+            label: 'Công việc',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
             selectedIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
+            label: 'Cá nhân',
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DraggableHrGenieBubble extends StatefulWidget {
+  const _DraggableHrGenieBubble({
+    required this.session,
+    required this.constraints,
+  });
+
+  final AppSession session;
+  final BoxConstraints constraints;
+
+  @override
+  State<_DraggableHrGenieBubble> createState() =>
+      _DraggableHrGenieBubbleState();
+}
+
+class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble> {
+  static const _size = 68.0;
+  static const _margin = 14.0;
+
+  Offset? _offset;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxX = (widget.constraints.maxWidth - _size - _margin)
+        .clamp(_margin, double.infinity)
+        .toDouble();
+    final maxY = (widget.constraints.maxHeight - _size - _margin)
+        .clamp(_margin, double.infinity)
+        .toDouble();
+    final offset = _clampOffset(
+      _offset ?? Offset(maxX, maxY),
+      maxX: maxX,
+      maxY: maxY,
+    );
+
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            _offset = _clampOffset(
+              offset + details.delta,
+              maxX: maxX,
+              maxY: maxY,
+            );
+          });
+        },
+        child: _HrGenieBubble(session: widget.session),
+      ),
+    );
+  }
+
+  Offset _clampOffset(
+    Offset value, {
+    required double maxX,
+    required double maxY,
+  }) {
+    return Offset(
+      value.dx.clamp(_margin, maxX).toDouble(),
+      value.dy.clamp(_margin, maxY).toDouble(),
     );
   }
 }
@@ -121,8 +211,8 @@ class _HrGenieBubble extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: Colors.white,
                 border: Border.all(
-                  color: brandColor.withValues(alpha: 0.14),
-                  width: 1.2,
+                  color: brandColor.withValues(alpha: 0.28),
+                  width: 1.6,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -147,52 +237,6 @@ class _HrGenieBubble extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => ChatScreen(session: session)),
     );
-    return;
-
-    /*
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const SizedBox.square(
-                      dimension: 46,
-                      child: CustomPaint(painter: _GenieMascotPainter()),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'HRGenie',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Trợ lý nhân sự sẽ được kết nối ở bước sau.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: mutedTextColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    */
   }
 }
 

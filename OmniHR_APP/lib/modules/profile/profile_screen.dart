@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
-import '../../shared/widgets/common.dart';
+import '../../shared/widgets/widgets.dart';
 
 class ProfileBundle {
   ProfileBundle({required this.employee});

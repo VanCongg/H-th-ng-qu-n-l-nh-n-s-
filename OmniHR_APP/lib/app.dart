@@ -4,7 +4,7 @@ import 'core/session.dart';
 import 'core/utils.dart';
 import 'modules/auth/login_screen.dart';
 import 'modules/shell/home_shell.dart';
-import 'shared/widgets/common.dart';
+import 'shared/widgets/widgets.dart';
 
 class OmniHrApp extends StatelessWidget {
   const OmniHrApp({super.key, required this.session});

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/session.dart';
 import '../../core/utils.dart';
-import '../../shared/widgets/common.dart';
+import '../../shared/widgets/widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.session});
