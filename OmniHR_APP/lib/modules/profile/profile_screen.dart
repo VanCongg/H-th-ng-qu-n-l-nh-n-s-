@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api_service.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
 
 class ProfileBundle {
-  ProfileBundle({required this.employee});
+  ProfileBundle({required this.employee, required this.skills});
 
   final Employee? employee;
+  final List<EmployeeSkill> skills;
 }
 
 class ProfileScreen extends StatefulWidget {
@@ -36,7 +38,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       employee = widget.session.employee;
     }
-    return ProfileBundle(employee: employee);
+
+    List<EmployeeSkill> skills = const [];
+    if (employee != null) {
+      try {
+        skills = await widget.session.api.getList(
+          '/employees/${employee.id}/skills',
+          EmployeeSkill.fromJson,
+        );
+      } catch (_) {
+        skills = const [];
+      }
+    }
+
+    return ProfileBundle(employee: employee, skills: skills);
   }
 
   Future<void> _refresh() async {
@@ -44,17 +59,210 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await _future;
   }
 
-  void _showSnack(String message, {bool error = false}) {
-    if (!mounted) return;
-    showAppSnack(context, message, error: error);
-  }
-
   Future<void> _openChangePassword() async {
     final changed = await showDialog<bool>(
       context: context,
       builder: (context) => ChangePasswordDialog(session: widget.session),
     );
-    if (changed == true) _showSnack('Đã đổi mật khẩu.');
+    if (changed == true && mounted) {
+      showAppSnack(context, 'Đã đổi mật khẩu.');
+    }
+  }
+
+  Future<void> _openAddSkillSheet(
+    Employee employee,
+    List<EmployeeSkill> existingSkills,
+  ) async {
+    List<Skill> catalog;
+    try {
+      catalog = await widget.session.api.getList('/skills', Skill.fromJson);
+    } catch (error) {
+      if (mounted) {
+        showAppSnack(
+          context,
+          error is ApiException ? error.message : error.toString(),
+          error: true,
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+
+    final existingSkillIds = existingSkills
+        .map((skill) => skill.skill.id)
+        .toSet();
+    final available = catalog
+        .where((skill) => !existingSkillIds.contains(skill.id))
+        .toList();
+
+    if (available.isEmpty) {
+      if (mounted) {
+        showAppSnack(context, 'Bạn đã thêm tất cả kỹ năng khả dụng.');
+      }
+      return;
+    }
+
+    int? skillId = available.first.id;
+    String proficiency = 'INTERMEDIATE';
+    final yearsController = TextEditingController();
+    final noteController = TextEditingController();
+    var submitting = false;
+
+    final added = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> submit() async {
+              if (skillId == null) {
+                showAppSnack(context, 'Vui lòng chọn kỹ năng.', error: true);
+                return;
+              }
+              setSheetState(() => submitting = true);
+              try {
+                await widget.session.api.post(
+                  '/employees/${employee.id}/skills',
+                  body: {
+                    'skillId': skillId,
+                    'proficiency': proficiency,
+                    if (yearsController.text.trim().isNotEmpty)
+                      'yearsExperience': double.tryParse(
+                        yearsController.text.trim(),
+                      ),
+                    if (noteController.text.trim().isNotEmpty)
+                      'note': noteController.text.trim(),
+                  },
+                );
+                if (context.mounted) Navigator.pop(context, true);
+              } catch (error) {
+                if (context.mounted) {
+                  showAppSnack(
+                    context,
+                    error is ApiException ? error.message : error.toString(),
+                    error: true,
+                  );
+                }
+              } finally {
+                if (context.mounted) {
+                  setSheetState(() => submitting = false);
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Thêm kỹ năng',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<int>(
+                    initialValue: skillId,
+                    decoration: const InputDecoration(
+                      labelText: 'Kỹ năng',
+                      prefixIcon: Icon(Icons.psychology_alt_outlined),
+                    ),
+                    items: available
+                        .map(
+                          (skill) => DropdownMenuItem(
+                            value: skill.id,
+                            child: Text(skill.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: submitting
+                        ? null
+                        : (value) => setSheetState(() => skillId = value),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: proficiency,
+                    decoration: const InputDecoration(
+                      labelText: 'Mức độ',
+                      prefixIcon: Icon(Icons.bar_chart_rounded),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'BEGINNER',
+                        child: Text('Mới bắt đầu'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'INTERMEDIATE',
+                        child: Text('Trung bình'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ADVANCED',
+                        child: Text('Khá'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'EXPERT',
+                        child: Text('Chuyên gia'),
+                      ),
+                    ],
+                    onChanged: submitting
+                        ? null
+                        : (value) => setSheetState(
+                            () => proficiency = value ?? proficiency,
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: yearsController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Số năm kinh nghiệm (tùy chọn)',
+                      prefixIcon: Icon(Icons.timelapse_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: noteController,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Ghi chú (tùy chọn)',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: submitting ? null : submit,
+                    icon: submitting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_rounded),
+                    label: Text(submitting ? 'Đang lưu...' : 'Lưu kỹ năng'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    yearsController.dispose();
+    noteController.dispose();
+    if (added == true) {
+      if (mounted) showAppSnack(context, 'Đã thêm kỹ năng.');
+      await _refresh();
+    }
   }
 
   Future<void> _logout() async {
@@ -89,129 +297,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _openProfileDetails(Employee? employee) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-            child: AppPanel(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ProfileRow(
-                    icon: Icons.mail_outline_rounded,
-                    label: 'Email công ty',
-                    value: employee?.companyEmail ?? widget.session.user?.email,
-                  ),
-                  ProfileRow(
-                    icon: Icons.phone_outlined,
-                    label: 'Số điện thoại',
-                    value: employee?.phone,
-                  ),
-                  ProfileRow(
-                    icon: Icons.business_outlined,
-                    label: 'Phòng ban',
-                    value: employee?.department?.name,
-                  ),
-                  ProfileRow(
-                    icon: Icons.badge_outlined,
-                    label: 'Chức danh',
-                    value: employee?.position?.name,
-                  ),
-                  ProfileRow(
-                    icon: Icons.event_outlined,
-                    label: 'Ngày vào làm',
-                    value: formatDate(employee?.hireDate),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _openPolicies() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                _ProfileMenuItem(
-                  icon: Icons.article_outlined,
-                  title: 'Nội quy công ty',
-                  subtitle: 'Đang chờ kết nối dữ liệu chính sách',
-                ),
-                _ProfileMenuItem(
-                  icon: Icons.health_and_safety_outlined,
-                  title: 'Phúc lợi',
-                  subtitle: 'Đang chờ kết nối dữ liệu chính sách',
-                ),
-                _ProfileMenuItem(
-                  icon: Icons.beach_access_outlined,
-                  title: 'Quy định nghỉ phép',
-                  subtitle: 'Đang chờ kết nối dữ liệu chính sách',
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _openSettings() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ProfileMenuItem(
-                  icon: Icons.password_rounded,
-                  title: 'Đổi mật khẩu',
-                  subtitle: 'Cập nhật mật khẩu đăng nhập',
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openChangePassword();
-                  },
-                ),
-                _ProfileMenuItem(
-                  icon: Icons.dns_outlined,
-                  title: 'API server',
-                  subtitle: widget.session.baseUrl,
-                ),
-                _ProfileMenuItem(
-                  icon: Icons.logout_rounded,
-                  title: 'Đăng xuất',
-                  subtitle: 'Thoát khỏi tài khoản hiện tại',
-                  color: dangerColor,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _logout();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ProfileBundle>(
@@ -224,50 +309,130 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return ErrorView(error: snapshot.error.toString(), onRetry: _refresh);
         }
 
-        final employee = snapshot.data!.employee;
-        final name =
-            employee?.fullName ??
-            widget.session.user?.username ??
-            'OmniHR user';
-        final roleLine = [
-          employee?.employeeCode,
-          employee?.department?.name,
-          employee?.position?.name,
-        ].where((item) => item != null && item.isNotEmpty).join(' - ');
+        final bundle = snapshot.data!;
+        final employee = bundle.employee;
+        final skills = bundle.skills;
+        final user = widget.session.user;
 
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 112),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
             children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    children: [
-                      _ProfileHeader(name: name, subtitle: roleLine),
-                      const SizedBox(height: 18),
-                      _ProfileMenuItem(
-                        icon: Icons.person_outline_rounded,
-                        title: 'Hồ sơ',
-                        subtitle: 'Thông tin cá nhân và công việc',
-                        onTap: () => _openProfileDetails(employee),
+              _ProfileHeader(employee: employee, user: user),
+              const SizedBox(height: 14),
+              AppPanel(
+                child: Column(
+                  children: [
+                    ProfileRow(
+                      icon: Icons.badge_outlined,
+                      label: 'Mã nhân viên',
+                      value: employee?.employeeCode,
+                    ),
+                    ProfileRow(
+                      icon: Icons.mail_outline_rounded,
+                      label: 'Email công ty',
+                      value: employee?.companyEmail ?? user?.email,
+                    ),
+                    ProfileRow(
+                      icon: Icons.business_outlined,
+                      label: 'Phòng ban',
+                      value: employee?.department?.name,
+                    ),
+                    ProfileRow(
+                      icon: Icons.work_outline_rounded,
+                      label: 'Chức danh',
+                      value: employee?.position?.name,
+                    ),
+                    ProfileRow(
+                      icon: Icons.verified_user_outlined,
+                      label: 'Trạng thái',
+                      value: employee == null
+                          ? null
+                          : friendlyStatus(employee.status),
+                    ),
+                    ProfileRow(
+                      icon: Icons.event_outlined,
+                      label: 'Ngày vào làm',
+                      value: formatDate(employee?.hireDate),
+                    ),
+                    ProfileRow(
+                      icon: Icons.phone_outlined,
+                      label: 'Số điện thoại',
+                      value: employee?.phone,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SectionTitle(
+                      title: 'Kỹ năng',
+                      subtitle: 'Kỹ năng bạn tự khai báo',
+                    ),
+                    if (skills.isEmpty)
+                      const EmptyState(
+                        icon: Icons.psychology_alt_outlined,
+                        title: 'Chưa có kỹ năng',
+                        body: 'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.',
+                      )
+                    else
+                      ...skills.map(
+                        (skill) => EmployeeSkillCard(skill: skill),
                       ),
-                      _ProfileMenuItem(
-                        icon: Icons.policy_outlined,
-                        title: 'Chính sách',
-                        subtitle: 'Nội quy, phúc lợi và quy định nghỉ phép',
-                        onTap: _openPolicies,
+                    const SizedBox(height: 4),
+                    FilledButton.icon(
+                      onPressed: employee == null
+                          ? null
+                          : () => _openAddSkillSheet(employee, skills),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Thêm kỹ năng'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SectionTitle(
+                      title: 'Tài khoản',
+                      subtitle: 'Thông tin đăng nhập và máy chủ đang dùng',
+                    ),
+                    ProfileRow(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Tên đăng nhập',
+                      value: user?.username,
+                    ),
+                    ProfileRow(
+                      icon: Icons.dns_outlined,
+                      label: 'Máy chủ API',
+                      value: widget.session.baseUrl,
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton.icon(
+                      onPressed: _openChangePassword,
+                      icon: const Icon(Icons.password_rounded),
+                      label: const Text('Đổi mật khẩu'),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _logout,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Đăng xuất'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: dangerColor,
+                        side: BorderSide(
+                          color: dangerColor.withValues(alpha: 0.32),
+                        ),
                       ),
-                      _ProfileMenuItem(
-                        icon: Icons.settings_outlined,
-                        title: 'Cài đặt',
-                        subtitle: 'Mật khẩu, máy chủ và đăng xuất',
-                        onTap: _openSettings,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -279,36 +444,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.name, required this.subtitle});
+  const _ProfileHeader({required this.employee, required this.user});
 
-  final String name;
-  final String subtitle;
+  final Employee? employee;
+  final AuthUser? user;
 
   @override
   Widget build(BuildContext context) {
+    final name = employee?.fullName ?? user?.username ?? 'Nhân viên OmniHR';
     final initial = name.trim().isEmpty ? 'O' : name.trim()[0].toUpperCase();
+    final subtitle = [
+      employee?.employeeCode,
+      employee?.department?.name,
+      employee?.position?.name,
+    ].where((item) => item != null && item.isNotEmpty).join(' - ');
 
     return AppPanel(
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 22),
+      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
       child: Column(
         children: [
           Container(
-            width: 96,
-            height: 96,
+            width: 88,
+            height: 88,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(8),
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [brandColor, brandGreen],
               ),
-              border: Border.all(color: Colors.white, width: 4),
               boxShadow: [
                 BoxShadow(
-                  color: brandColor.withValues(alpha: 0.24),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+                  color: brandColor.withValues(alpha: 0.22),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
@@ -316,7 +486,7 @@ class _ProfileHeader extends StatelessWidget {
               initial,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 38,
+                fontSize: 36,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -331,81 +501,25 @@ class _ProfileHeader extends StatelessWidget {
               context,
             ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
           ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 5),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: mutedTextColor,
-                fontWeight: FontWeight.w600,
-              ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle.isEmpty ? textOf(user?.email, '-') : subtitle,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (employee?.status != null) ...[
+            const SizedBox(height: 10),
+            Pill(
+              label: friendlyStatus(employee!.status),
+              color: statusColor(employee!.status),
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _ProfileMenuItem extends StatelessWidget {
-  const _ProfileMenuItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.color = brandColor,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppPanel(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          children: [
-            AppIconBadge(icon: icon, color: color, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: mutedTextColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (onTap != null) ...[
-              const SizedBox(width: 10),
-              const Icon(Icons.chevron_right_rounded, color: mutedTextColor),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -421,10 +535,12 @@ class ChangePasswordDialog extends StatefulWidget {
 }
 
 class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _submitting = false;
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -435,31 +551,17 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   Future<void> _submit() async {
-    if (_newController.text.length < 6) {
-      showAppSnack(
-        context,
-        'Mật khẩu mới phải có ít nhất 6 ký tự.',
-        error: true,
-      );
-      return;
-    }
-    if (_newController.text != _confirmController.text) {
-      showAppSnack(context, 'Xác nhận mật khẩu không khớp.', error: true);
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _submitting = true);
     try {
-      await widget.session.api.post(
-        '/auth/change-password',
-        body: {
-          'currentPassword': _currentController.text,
-          'newPassword': _newController.text,
-        },
+      await widget.session.changePassword(
+        currentPassword: _currentController.text,
+        newPassword: _newController.text,
       );
       _close(true);
     } catch (error) {
-      _showError(error.toString());
+      _showError(error is ApiException ? error.message : error.toString());
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -485,27 +587,72 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       ),
       title: const Text('Đổi mật khẩu'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _currentController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Mật khẩu hiện tại'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _newController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Mật khẩu mới'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _confirmController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Xác nhận mật khẩu'),
-            ),
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _currentController,
+                obscureText: _obscure,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu hiện tại',
+                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Vui lòng nhập mật khẩu hiện tại';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _newController,
+                obscureText: _obscure,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu mới',
+                  prefixIcon: Icon(Icons.password_rounded),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Vui lòng nhập mật khẩu mới';
+                  }
+                  if (value.length < 6) {
+                    return 'Mật khẩu mới phải có ít nhất 6 ký tự';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _confirmController,
+                obscureText: _obscure,
+                decoration: InputDecoration(
+                  labelText: 'Nhập lại mật khẩu mới',
+                  prefixIcon: const Icon(Icons.verified_outlined),
+                  suffixIcon: IconButton(
+                    tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Vui lòng nhập lại mật khẩu mới';
+                  }
+                  if (value != _newController.text) {
+                    return 'Mật khẩu nhập lại không khớp';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
