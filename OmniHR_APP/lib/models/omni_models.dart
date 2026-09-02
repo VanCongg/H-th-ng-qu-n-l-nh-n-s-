@@ -112,6 +112,22 @@ class Project {
   }
 }
 
+class Team {
+  Team({required this.id, required this.code, required this.name});
+
+  final int id;
+  final String code;
+  final String name;
+
+  factory Team.fromJson(Map<String, dynamic> json) {
+    return Team(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+    );
+  }
+}
+
 class Employee {
   Employee({
     required this.id,
@@ -145,7 +161,7 @@ class Employee {
     return Employee(
       id: intOf(json['id']),
       employeeCode: textOf(json['employeeCode']),
-      fullName: textOf(json['fullName'], 'Employee'),
+      fullName: textOf(json['fullName'], 'Nhân viên'),
       companyEmail: textOf(json['companyEmail']),
       personalEmail: json['personalEmail']?.toString(),
       phone: json['phone']?.toString(),
@@ -273,6 +289,29 @@ class AttendanceRecord {
   }
 }
 
+class LocationPolicy {
+  LocationPolicy({
+    this.companyLatitude,
+    this.companyLongitude,
+    required this.attendanceRadiusMeters,
+    required this.requireAttendanceLocation,
+  });
+
+  final double? companyLatitude;
+  final double? companyLongitude;
+  final double attendanceRadiusMeters;
+  final bool requireAttendanceLocation;
+
+  factory LocationPolicy.fromJson(Map<String, dynamic> json) {
+    return LocationPolicy(
+      companyLatitude: doubleOf(json['companyLatitude']),
+      companyLongitude: doubleOf(json['companyLongitude']),
+      attendanceRadiusMeters: doubleOf(json['attendanceRadiusMeters']) ?? 0,
+      requireAttendanceLocation: json['requireAttendanceLocation'] == true,
+    );
+  }
+}
+
 class Skill {
   Skill({
     required this.id,
@@ -354,9 +393,11 @@ class TaskItem {
     required this.title,
     required this.priority,
     required this.status,
+    this.parentTaskId,
     this.description,
     this.project,
     this.department,
+    this.team,
     this.startDate,
     this.dueDate,
     this.estimatedHours,
@@ -368,9 +409,11 @@ class TaskItem {
   final String title;
   final String priority;
   final String status;
+  final int? parentTaskId;
   final String? description;
   final Project? project;
   final Department? department;
+  final Team? team;
   final String? startDate;
   final String? dueDate;
   final double? estimatedHours;
@@ -378,6 +421,14 @@ class TaskItem {
   final List<TaskRequiredSkill> requiredSkills;
 
   bool get isOpen => status != 'DONE' && status != 'CANCELLED';
+  bool get isOverdue {
+    final due = dateOf(dueDate);
+    if (!isOpen || due == null) return false;
+    final today = DateTime.now();
+    final dueOnly = DateTime(due.year, due.month, due.day);
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    return dueOnly.isBefore(todayOnly);
+  }
 
   factory TaskItem.fromJson(Map<String, dynamic> json) {
     final rawSkills = json['requiredSkills'] is List
@@ -385,9 +436,13 @@ class TaskItem {
         : const [];
     final projectMap = mapOf(json['project']);
     final departmentMap = mapOf(json['department']);
+    final teamMap = mapOf(json['team']);
     return TaskItem(
       id: intOf(json['id']),
-      title: textOf(json['title'], 'Untitled task'),
+      title: textOf(json['title'], 'Công việc chưa đặt tên'),
+      parentTaskId: json['parentTaskId'] == null
+          ? null
+          : intOf(json['parentTaskId']),
       description: json['description']?.toString(),
       priority: textOf(json['priority'], 'MEDIUM'),
       status: textOf(json['status'], 'TODO'),
@@ -395,6 +450,7 @@ class TaskItem {
       department: departmentMap.isEmpty
           ? null
           : Department.fromJson(departmentMap),
+      team: teamMap.isEmpty ? null : Team.fromJson(teamMap),
       startDate: json['startDate']?.toString(),
       dueDate: json['dueDate']?.toString(),
       estimatedHours: doubleOf(json['estimatedHours']),
