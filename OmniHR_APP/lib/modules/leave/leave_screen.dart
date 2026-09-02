@@ -10,6 +10,16 @@ class LeaveBundle {
 
   final List<LeaveType> types;
   final List<LeaveRequest> requests;
+
+  double remainingFor(LeaveType type) {
+    final used = requests
+        .where(
+          (request) =>
+              request.leaveType.id == type.id && request.status == 'APPROVED',
+        )
+        .fold<double>(0, (sum, request) => sum + request.totalDays);
+    return (type.annualAllowance ?? 0) - used;
+  }
 }
 
 class LeaveScreen extends StatefulWidget {
@@ -49,9 +59,38 @@ class _LeaveScreenState extends State<LeaveScreen> {
   }
 
   Future<void> _cancel(LeaveRequest request) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          icon: const AppIconBadge(
+            icon: Icons.cancel_outlined,
+            color: dangerColor,
+            size: 54,
+          ),
+          title: const Text('Hủy đơn nghỉ phép'),
+          content: Text(
+            'Bạn muốn hủy đơn ${request.leaveType.name} từ ${formatDate(request.startDate)} đến ${formatDate(request.endDate)}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Không hủy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: dangerColor),
+              child: const Text('Xác nhận hủy'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+
     try {
       await widget.session.api.post('/leave-requests/${request.id}/cancel');
-      if (mounted) showAppSnack(context, 'Leave request cancelled');
+      if (mounted) showAppSnack(context, 'Đã hủy đơn nghỉ phép.');
       await _refresh();
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString(), error: true);
@@ -60,7 +99,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
   Future<void> _openCreateSheet(LeaveBundle bundle) async {
     if (bundle.types.isEmpty) {
-      showAppSnack(context, 'No active leave types found', error: true);
+      showAppSnack(context, 'Chưa có loại nghỉ khả dụng.', error: true);
       return;
     }
 
@@ -105,8 +144,20 @@ class _LeaveScreenState extends State<LeaveScreen> {
             }
 
             Future<void> submit() async {
+              if (leaveTypeId == null) {
+                showAppSnack(context, 'Vui lòng chọn loại nghỉ.', error: true);
+                return;
+              }
+              if (endDate.isBefore(startDate)) {
+                showAppSnack(
+                  context,
+                  'Ngày kết thúc không được trước ngày bắt đầu.',
+                  error: true,
+                );
+                return;
+              }
               if (reasonController.text.trim().isEmpty) {
-                showAppSnack(context, 'Enter leave reason', error: true);
+                showAppSnack(context, 'Vui lòng nhập lý do nghỉ.', error: true);
                 return;
               }
               setSheetState(() => submitting = true);
@@ -143,7 +194,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Create leave request',
+                    'Tạo đơn nghỉ phép',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -152,7 +203,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   DropdownButtonFormField<int>(
                     initialValue: leaveTypeId,
                     decoration: const InputDecoration(
-                      labelText: 'Leave type',
+                      labelText: 'Loại nghỉ',
                       prefixIcon: Icon(Icons.category_outlined),
                     ),
                     items: bundle.types
@@ -193,7 +244,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     minLines: 3,
                     maxLines: 5,
                     decoration: const InputDecoration(
-                      labelText: 'Reason',
+                      labelText: 'Lý do',
                       alignLabelWithHint: true,
                     ),
                   ),
@@ -206,7 +257,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.send),
-                    label: const Text('Submit request'),
+                    label: Text(submitting ? 'Đang gửi...' : 'Gửi đơn'),
                   ),
                 ],
               ),
@@ -218,7 +269,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
     reasonController.dispose();
     if (created == true) {
-      if (mounted) showAppSnack(context, 'Leave request created');
+      if (mounted) showAppSnack(context, 'Đã tạo đơn nghỉ phép.');
       await _refresh();
     }
   }
@@ -249,9 +300,8 @@ class _LeaveScreenState extends State<LeaveScreen> {
             children: [
               PageHeroCard(
                 icon: Icons.beach_access_rounded,
-                title: 'Leave planning',
-                subtitle:
-                    'Submit time off requests and keep approval progress visible.',
+                title: 'Nghỉ phép',
+                subtitle: 'Tạo đơn nghỉ và theo dõi trạng thái phê duyệt.',
                 color: accentColor,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -260,10 +310,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        Pill(label: '$pending pending', color: Colors.white),
-                        Pill(label: '$approved approved', color: Colors.white),
+                        Pill(label: '$pending chờ duyệt', color: Colors.white),
+                        Pill(label: '$approved đã duyệt', color: Colors.white),
                         Pill(
-                          label: '${bundle.requests.length} total',
+                          label: '${bundle.requests.length} tổng',
                           color: Colors.white,
                         ),
                       ],
@@ -272,7 +322,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                     FilledButton.icon(
                       onPressed: () => _openCreateSheet(bundle),
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('New leave request'),
+                      label: const Text('Tạo đơn nghỉ'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: brandColor,
@@ -283,14 +333,42 @@ class _LeaveScreenState extends State<LeaveScreen> {
               ),
               const SizedBox(height: 16),
               const SectionTitle(
-                title: 'My requests',
-                subtitle: 'Submitted requests and approval status',
+                title: 'Số ngày phép còn lại',
+                subtitle: 'Tính theo các đơn đã được duyệt',
+              ),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: bundle.types.map((type) {
+                  if (type.annualAllowance == null) {
+                    return Pill(
+                      label: '${type.name}: Không giới hạn',
+                      color: brandColor,
+                    );
+                  }
+                  final remaining = bundle.remainingFor(type);
+                  return SizedBox(
+                    width: 160,
+                    child: StatCard(
+                      label: type.name,
+                      value:
+                          '${remaining.toStringAsFixed(1)}/${type.annualAllowance!.toStringAsFixed(0)}',
+                      icon: Icons.beach_access_outlined,
+                      color: remaining <= 0 ? dangerColor : brandColor,
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              const SectionTitle(
+                title: 'Đơn nghỉ của tôi',
+                subtitle: 'Các đơn đã gửi và trạng thái xử lý',
               ),
               if (bundle.requests.isEmpty)
                 const EmptyState(
                   icon: Icons.beach_access_outlined,
-                  title: 'No leave requests',
-                  body: 'Submitted leave requests will appear here.',
+                  title: 'Chưa có đơn nghỉ',
+                  body: 'Đơn nghỉ đã gửi sẽ xuất hiện tại đây.',
                 )
               else
                 ...bundle.requests.map(
