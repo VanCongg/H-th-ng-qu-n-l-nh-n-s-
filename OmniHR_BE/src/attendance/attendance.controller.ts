@@ -28,6 +28,12 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Permissions("ATTENDANCE_CHECK_IN")
+  @Get("location-policy")
+  getLocationPolicy() {
+    return this.attendanceService.getLocationPolicy();
+  }
+
+  @Permissions("ATTENDANCE_CHECK_IN")
   @Post("check-in")
   checkIn(
     @Body() dto: AttendanceActionDto,

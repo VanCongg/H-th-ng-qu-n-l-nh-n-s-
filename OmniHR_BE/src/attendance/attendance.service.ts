@@ -64,6 +64,16 @@ export class AttendanceService {
     private readonly systemSettings: SystemSettingsService
   ) {}
 
+  async getLocationPolicy() {
+    const settings = await this.systemSettings.getSettings();
+    return {
+      companyLatitude: settings.companyLatitude,
+      companyLongitude: settings.companyLongitude,
+      attendanceRadiusMeters: settings.attendanceRadiusMeters,
+      requireAttendanceLocation: settings.requireAttendanceLocation
+    };
+  }
+
   async checkIn(
     user: AuthUser,
     dto: AttendanceActionDto,
