@@ -134,7 +134,8 @@ lib/
       profile_screen.dart
   shared/
     widgets/
-      common.dart
+      widgets.dart   # barrel export
+      task_card.dart, attendance_widgets.dart, ...
 ```
 
 ## Bottom Navigation Modules
