@@ -387,6 +387,32 @@ class TaskRequiredSkill {
   }
 }
 
+class TaskSummary {
+  TaskSummary({
+    required this.id,
+    required this.title,
+    required this.status,
+    this.startDate,
+    this.dueDate,
+  });
+
+  final int id;
+  final String title;
+  final String status;
+  final String? startDate;
+  final String? dueDate;
+
+  factory TaskSummary.fromJson(Map<String, dynamic> json) {
+    return TaskSummary(
+      id: intOf(json['id']),
+      title: textOf(json['title'], 'Công việc chưa đặt tên'),
+      status: textOf(json['status'], 'TODO'),
+      startDate: json['startDate']?.toString(),
+      dueDate: json['dueDate']?.toString(),
+    );
+  }
+}
+
 class TaskItem {
   TaskItem({
     required this.id,
@@ -398,11 +424,14 @@ class TaskItem {
     this.project,
     this.department,
     this.team,
+    this.assignee,
+    this.parentTask,
     this.startDate,
     this.dueDate,
     this.estimatedHours,
     this.actualHours,
     this.requiredSkills = const [],
+    this.childTasks = const [],
   });
 
   final int id;
@@ -414,11 +443,14 @@ class TaskItem {
   final Project? project;
   final Department? department;
   final Team? team;
+  final Employee? assignee;
+  final TaskSummary? parentTask;
   final String? startDate;
   final String? dueDate;
   final double? estimatedHours;
   final double? actualHours;
   final List<TaskRequiredSkill> requiredSkills;
+  final List<TaskItem> childTasks;
 
   bool get isOpen => status != 'DONE' && status != 'CANCELLED';
   bool get isOverdue {
@@ -434,9 +466,14 @@ class TaskItem {
     final rawSkills = json['requiredSkills'] is List
         ? json['requiredSkills'] as List
         : const [];
+    final rawChildTasks = json['childTasks'] is List
+        ? json['childTasks'] as List
+        : const [];
     final projectMap = mapOf(json['project']);
     final departmentMap = mapOf(json['department']);
     final teamMap = mapOf(json['team']);
+    final assigneeMap = mapOf(json['assignee']);
+    final parentTaskMap = mapOf(json['parentTask']);
     return TaskItem(
       id: intOf(json['id']),
       title: textOf(json['title'], 'Công việc chưa đặt tên'),
@@ -451,12 +488,19 @@ class TaskItem {
           ? null
           : Department.fromJson(departmentMap),
       team: teamMap.isEmpty ? null : Team.fromJson(teamMap),
+      assignee: assigneeMap.isEmpty ? null : Employee.fromJson(assigneeMap),
+      parentTask: parentTaskMap.isEmpty
+          ? null
+          : TaskSummary.fromJson(parentTaskMap),
       startDate: json['startDate']?.toString(),
       dueDate: json['dueDate']?.toString(),
       estimatedHours: doubleOf(json['estimatedHours']),
       actualHours: doubleOf(json['actualHours']),
       requiredSkills: rawSkills
           .map((item) => TaskRequiredSkill.fromJson(mapOf(item)))
+          .toList(),
+      childTasks: rawChildTasks
+          .map((item) => TaskItem.fromJson(mapOf(item)))
           .toList(),
     );
   }
