@@ -469,6 +469,10 @@ export class AccessControlService {
       return;
     }
 
+    if (user.employeeId === employeeId) {
+      return;
+    }
+
     if (this.isManager(user) && (await this.isSubordinate(user, employeeId))) {
       return;
     }

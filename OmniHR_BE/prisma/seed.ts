@@ -557,7 +557,11 @@ const employeePermissions = [
   "MANAGER_READ",
   "TASK_READ_SELF",
   "TASK_UPDATE_STATUS",
-  "EMPLOYEE_SKILL_READ"
+  "SKILL_READ",
+  "EMPLOYEE_SKILL_READ",
+  "EMPLOYEE_SKILL_CREATE",
+  "EMPLOYEE_SKILL_UPDATE",
+  "EMPLOYEE_SKILL_DELETE"
 ] as const;
 
 const managerExtraPermissions = [
