@@ -316,21 +316,14 @@ class _TasksScreenState extends State<TasksScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
             children: [
-              PageHeroCard(
-                icon: Icons.assignment_rounded,
-                title: 'Công việc của tôi',
-                subtitle:
-                    'Theo dõi công việc được giao, hạn hoàn thành và tiến độ.',
-                color: brandNavy,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Pill(label: '$openCount đang mở', color: Colors.white),
-                    Pill(label: '$overdueCount quá hạn', color: Colors.white),
-                    Pill(label: '$doneCount hoàn thành', color: Colors.white),
-                  ],
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Pill(label: '$openCount đang mở', color: brandColor),
+                  Pill(label: '$overdueCount quá hạn', color: dangerColor),
+                  Pill(label: '$doneCount hoàn thành', color: brandGreen),
+                ],
               ),
               const SizedBox(height: 14),
               SegmentedButton<_TaskFilter>(

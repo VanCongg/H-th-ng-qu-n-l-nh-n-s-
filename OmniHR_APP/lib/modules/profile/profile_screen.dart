@@ -362,44 +362,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: 'Số điện thoại',
                       value: employee?.phone,
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SectionTitle(
-                      title: 'Kỹ năng',
-                      subtitle: 'Kỹ năng bạn tự khai báo',
+                    Divider(
+                      height: 24,
+                      color: brandColor.withValues(alpha: 0.08),
                     ),
-                    if (skills.isEmpty)
-                      const EmptyState(
-                        icon: Icons.psychology_alt_outlined,
-                        title: 'Chưa có kỹ năng',
-                        body: 'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.',
-                      )
-                    else
-                      ...skills.map(
-                        (skill) => EmployeeSkillCard(skill: skill),
-                      ),
-                    const SizedBox(height: 4),
-                    FilledButton.icon(
-                      onPressed: employee == null
-                          ? null
-                          : () => _openAddSkillSheet(employee, skills),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Thêm kỹ năng'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
                     const SectionTitle(
                       title: 'Tài khoản',
                       subtitle: 'Thông tin đăng nhập và máy chủ đang dùng',
@@ -435,6 +401,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 14),
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SectionTitle(
+                      title: 'Kỹ năng',
+                      subtitle: 'Kỹ năng bạn tự khai báo',
+                    ),
+                    if (skills.isEmpty)
+                      const EmptyState(
+                        icon: Icons.psychology_alt_outlined,
+                        title: 'Chưa có kỹ năng',
+                        body: 'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.',
+                      )
+                    else
+                      ...skills.map(
+                        (skill) => EmployeeSkillCard(skill: skill),
+                      ),
+                    const SizedBox(height: 4),
+                    FilledButton.icon(
+                      onPressed: employee == null
+                          ? null
+                          : () => _openAddSkillSheet(employee, skills),
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Thêm kỹ năng'),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );
@@ -459,13 +455,13 @@ class _ProfileHeader extends StatelessWidget {
       employee?.position?.name,
     ].where((item) => item != null && item.isNotEmpty).join(' - ');
 
-    return AppPanel(
-      padding: const EdgeInsets.fromLTRB(18, 22, 18, 20),
-      child: Column(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
         children: [
           Container(
-            width: 88,
-            height: 88,
+            width: 56,
+            height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
@@ -474,46 +470,44 @@ class _ProfileHeader extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [brandColor, brandGreen],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: brandColor.withValues(alpha: 0.22),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: Text(
               initial,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 36,
+                fontSize: 22,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            subtitle.isEmpty ? textOf(user?.email, '-') : subtitle,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: mutedTextColor,
-              fontWeight: FontWeight.w600,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle.isEmpty ? textOf(user?.email, '-') : subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: mutedTextColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
           if (employee?.status != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(width: 8),
             Pill(
               label: friendlyStatus(employee!.status),
               color: statusColor(employee!.status),

@@ -343,18 +343,29 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              MonthAttendanceCalendar(
-                visibleMonth: _visibleMonth,
-                records: records,
-                selectedDay: _selectedDay,
-                onPreviousMonth: () => _changeMonth(-1),
-                onNextMonth: () => _changeMonth(1),
-                onDaySelected: (day) => setState(() => _selectedDay = day),
-              ),
-              const SizedBox(height: 14),
-              DayAttendanceDetails(
-                day: _selectedDay ?? DateTime.now(),
-                records: selectedRecords,
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    MonthAttendanceCalendar(
+                      visibleMonth: _visibleMonth,
+                      records: records,
+                      selectedDay: _selectedDay,
+                      onPreviousMonth: () => _changeMonth(-1),
+                      onNextMonth: () => _changeMonth(1),
+                      onDaySelected: (day) =>
+                          setState(() => _selectedDay = day),
+                    ),
+                    Divider(
+                      height: 28,
+                      color: brandColor.withValues(alpha: 0.08),
+                    ),
+                    DayAttendanceDetails(
+                      day: _selectedDay ?? DateTime.now(),
+                      records: selectedRecords,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -395,10 +406,9 @@ class MonthAttendanceCalendar extends StatelessWidget {
     final leading = firstDay.weekday - 1;
     final totalCells = (((leading + daysInMonth) + 6) ~/ 7) * 7;
 
-    return AppPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
           Row(
             children: [
               IconButton(
@@ -472,8 +482,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
               Pill(label: 'Chưa tới ngày', color: mutedTextColor),
             ],
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -577,10 +586,9 @@ class DayAttendanceDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           SectionTitle(
             title: formatDate(day),
             subtitle: records.isEmpty
@@ -597,8 +605,7 @@ class DayAttendanceDetails extends StatelessWidget {
             )
           else
             ...records.map((record) => _DayAttendanceRow(record: record)),
-        ],
-      ),
+      ],
     );
   }
 }

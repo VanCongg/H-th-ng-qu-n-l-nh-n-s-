@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/session.dart';
 import '../../core/utils.dart';
+import '../../shared/widgets/widgets.dart';
 import '../attendance/attendance_screen.dart';
 import '../chat/chat_screen.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -21,6 +22,21 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
+  static const _titles = [
+    'Trang chủ',
+    'Chấm công',
+    'Nghỉ phép',
+    'Công việc',
+    'Cá nhân',
+  ];
+  static const _subtitles = [
+    'Tổng quan công việc hôm nay',
+    'Theo dõi giờ vào/ra',
+    'Đơn nghỉ và số ngày còn lại',
+    'Công việc được giao',
+    'Hồ sơ và tài khoản',
+  ];
+
   late final _pages = [
     DashboardScreen(session: widget.session),
     AttendanceScreen(session: widget.session),
@@ -32,37 +48,31 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          color: appBackgroundColor,
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              brandColor.withValues(alpha: 0.11),
-              brandGreen.withValues(alpha: 0.045),
-              appBackgroundColor,
-            ],
-            stops: const [0, 0.36, 0.74],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: IndexedStack(index: _index, children: _pages),
-                  ),
-                  _DraggableHrGenieBubble(
-                    session: widget.session,
-                    constraints: constraints,
-                  ),
-                ],
-              );
-            },
-          ),
+      body: BrandBackdrop(
+        child: Column(
+          children: [
+            AppHeaderBar(
+              title: _titles[_index],
+              subtitle: _subtitles[_index],
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: IndexedStack(index: _index, children: _pages),
+                      ),
+                      _DraggableHrGenieBubble(
+                        session: widget.session,
+                        constraints: constraints,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: _ShellNavigation(

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../core/attendance_location.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
+import '../chat/chat_screen.dart';
 
-class HomeAttendanceData {
-  HomeAttendanceData({required this.employee, required this.attendance});
+class DashboardBundle {
+  DashboardBundle({
+    required this.employee,
+    required this.leaveRequests,
+    required this.tasks,
+  });
 
   final Employee? employee;
-  final List<AttendanceRecord> attendance;
+  final List<LeaveRequest> leaveRequests;
+  final List<TaskItem> tasks;
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -23,8 +28,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  late Future<HomeAttendanceData> _future;
-  bool _submittingAttendance = false;
+  late Future<DashboardBundle> _future;
 
   @override
   void initState() {
@@ -32,7 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _future = _load();
   }
 
-  Future<HomeAttendanceData> _load() async {
+  Future<DashboardBundle> _load() async {
     Employee? employee = widget.session.employee;
     try {
       employee = await widget.session.loadEmployeeProfile(silent: true);
@@ -40,18 +44,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
       employee = widget.session.employee;
     }
 
-    final canReadAttendance =
-        widget.session.user?.permissions.contains('ATTENDANCE_READ_SELF') ??
-        false;
-    final attendance = canReadAttendance
-        ? await widget.session.api.getList(
-            '/attendance/self',
-            AttendanceRecord.fromJson,
-            query: {'limit': 10},
-          )
-        : <AttendanceRecord>[];
+    final results = await Future.wait([
+      _safeList('/leave-requests/self', LeaveRequest.fromJson, limit: 5),
+      _safeList('/tasks/me', TaskItem.fromJson, limit: 5),
+    ]);
 
-    return HomeAttendanceData(employee: employee, attendance: attendance);
+    return DashboardBundle(
+      employee: employee,
+      leaveRequests: results[0].cast<LeaveRequest>(),
+      tasks: results[1].cast<TaskItem>(),
+    );
+  }
+
+  Future<List<T>> _safeList<T>(
+    String path,
+    T Function(Map<String, dynamic>) parser, {
+    required int limit,
+  }) async {
+    try {
+      return await widget.session.api.getList(
+        path,
+        parser,
+        query: {'limit': limit},
+      );
+    } catch (_) {
+      return <T>[];
+    }
   }
 
   Future<void> _refresh() async {
@@ -59,72 +77,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await _future;
   }
 
-  void _showSnack(String message, {bool error = false}) {
-    if (!mounted) return;
-    showAppSnack(context, message, error: error);
-  }
-
-  Future<void> _confirmAndRecord(String action) async {
-    final isCheckIn = action == 'check-in';
-    final permission = isCheckIn
-        ? 'ATTENDANCE_CHECK_IN'
-        : 'ATTENDANCE_CHECK_OUT';
-    if (!(widget.session.user?.permissions.contains(permission) ?? false)) {
-      showAppSnack(context, 'Tài khoản chưa có quyền chấm công.', error: true);
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          icon: AppIconBadge(
-            icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-            color: isCheckIn ? brandColor : accentColor,
-            size: 54,
-          ),
-          title: Text(isCheckIn ? 'Xác nhận check in' : 'Xác nhận check out'),
-          content: Text(
-            isCheckIn
-                ? 'Ứng dụng sẽ lấy vị trí hiện tại để ghi nhận check in hôm nay.'
-                : 'Ứng dụng sẽ lấy vị trí hiện tại để ghi nhận check out hôm nay.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Xác nhận'),
-            ),
-          ],
-        );
-      },
+  void _openChat() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatScreen(session: widget.session),
+      ),
     );
-
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _submittingAttendance = true);
-    try {
-      final locationPayload = await currentAttendanceLocationPayload();
-      await widget.session.api.post(
-        '/attendance/$action',
-        body: locationPayload,
-      );
-      if (!mounted) return;
-      _showSnack(isCheckIn ? 'Đã check in.' : 'Đã check out.');
-      await _refresh();
-    } catch (error) {
-      _showSnack(error.toString(), error: true);
-    } finally {
-      if (mounted) setState(() => _submittingAttendance = false);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<HomeAttendanceData>(
+    return FutureBuilder<DashboardBundle>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -135,47 +98,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         final data = snapshot.data!;
-        final today = DateTime.now();
-        final todayRecords =
-            data.attendance.where((record) {
-              final date = dateOf(record.workDate);
-              return date != null && sameDate(date, today);
-            }).toList()..sort((a, b) {
-              final first = dateOf(a.recordedAt) ?? DateTime(1970);
-              final second = dateOf(b.recordedAt) ?? DateTime(1970);
-              return second.compareTo(first);
-            });
-        final latestRecord = todayRecords.isEmpty ? null : todayRecords.first;
-        final nextAction = latestRecord?.recordType == 'CHECK_IN'
-            ? 'check-out'
-            : 'check-in';
-        final name =
-            data.employee?.fullName ??
-            widget.session.user?.username ??
-            'OmniHR user';
+        final upcomingTasks = data.tasks.where((task) => task.isOpen).toList();
 
         return RefreshIndicator(
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 112),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
             children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    children: [
-                      _GreetingPanel(name: name, today: today),
-                      const SizedBox(height: 18),
-                      _AttendancePanel(
-                        action: nextAction,
-                        latestRecord: latestRecord,
-                        todayCount: todayRecords.length,
-                        submitting: _submittingAttendance,
-                        onPressed: () => _confirmAndRecord(nextAction),
-                      ),
-                    ],
-                  ),
+              _EmployeeOverview(
+                employee: data.employee,
+                user: widget.session.user,
+              ),
+              const SizedBox(height: 12),
+              _HrGeniePanel(onOpen: _openChat),
+              const SizedBox(height: 14),
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _LeavePreview(requests: data.leaveRequests),
+                    Divider(
+                      height: 24,
+                      color: brandColor.withValues(alpha: 0.08),
+                    ),
+                    _TaskPreview(tasks: upcomingTasks),
+                  ],
                 ),
               ),
             ],
@@ -186,225 +134,257 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _GreetingPanel extends StatelessWidget {
-  const _GreetingPanel({required this.name, required this.today});
+class _EmployeeOverview extends StatelessWidget {
+  const _EmployeeOverview({required this.employee, required this.user});
 
-  final String name;
-  final DateTime today;
+  final Employee? employee;
+  final AuthUser? user;
 
   @override
   Widget build(BuildContext context) {
-    return AppPanel(
+    final name = employee?.fullName ?? user?.username ?? 'Nhân viên OmniHR';
+    final subtitle = [
+      employee?.employeeCode,
+      employee?.department?.name,
+      employee?.position?.name,
+    ].where((item) => item != null && item.isNotEmpty).join(' - ');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
         children: [
-          const LogoMark(size: 46, showShadow: false),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Xin chào, $name',
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Text(
-                  formatDate(today),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  subtitle.isEmpty ? textOf(user?.email, '-') : subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: mutedTextColor,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
           ),
+          Pill(label: formatDate(DateTime.now()), color: brandGreen),
         ],
       ),
     );
   }
 }
 
-class _AttendancePanel extends StatelessWidget {
-  const _AttendancePanel({
-    required this.action,
-    required this.latestRecord,
-    required this.todayCount,
-    required this.submitting,
-    required this.onPressed,
-  });
+class _LeavePreview extends StatelessWidget {
+  const _LeavePreview({required this.requests});
 
-  final String action;
-  final AttendanceRecord? latestRecord;
-  final int todayCount;
-  final bool submitting;
-  final VoidCallback onPressed;
+  final List<LeaveRequest> requests;
 
   @override
   Widget build(BuildContext context) {
-    final isCheckIn = action == 'check-in';
-    final color = isCheckIn ? brandColor : accentColor;
-    final label = isCheckIn ? 'Check in' : 'Check out';
-    final latestText = latestRecord == null
-        ? 'Hôm nay chưa có lượt chấm công.'
-        : 'Gần nhất: ${latestRecord!.recordType == 'CHECK_IN' ? 'Check in' : 'Check out'} lúc ${formatDateTime(latestRecord!.recordedAt)}';
-
-    return AppPanel(
-      padding: const EdgeInsets.fromLTRB(18, 24, 18, 20),
-      child: Column(
-        children: [
-          Text(
-            latestText,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: mutedTextColor,
-              fontWeight: FontWeight.w700,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+          const SectionTitle(
+            title: 'Nghỉ phép gần đây',
+            subtitle: 'Theo dõi trạng thái đơn đã gửi',
           ),
-          const SizedBox(height: 24),
-          _OrbAttendanceButton(
-            label: label,
-            icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-            color: color,
-            submitting: submitting,
-            onPressed: onPressed,
-          ),
-          const SizedBox(height: 18),
-          Pill(label: '$todayCount lượt hôm nay', color: color),
-        ],
-      ),
-    );
-  }
-}
-
-class _OrbAttendanceButton extends StatefulWidget {
-  const _OrbAttendanceButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.submitting,
-    required this.onPressed,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-  final bool submitting;
-  final VoidCallback onPressed;
-
-  @override
-  State<_OrbAttendanceButton> createState() => _OrbAttendanceButtonState();
-}
-
-class _OrbAttendanceButtonState extends State<_OrbAttendanceButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final dark = Color.lerp(widget.color, brandNavy, 0.46) ?? widget.color;
-    final light = Color.lerp(widget.color, Colors.white, 0.46) ?? widget.color;
-
-    return GestureDetector(
-      onTapDown: widget.submitting
-          ? null
-          : (_) => setState(() => _pressed = true),
-      onTapCancel: widget.submitting
-          ? null
-          : () => setState(() => _pressed = false),
-      onTapUp: widget.submitting
-          ? null
-          : (_) {
-              setState(() => _pressed = false);
-              widget.onPressed();
-            },
-      child: AnimatedScale(
-        duration: const Duration(milliseconds: 120),
-        scale: _pressed ? 0.97 : 1,
-        child: Container(
-          width: 184,
-          height: 184,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              center: const Alignment(-0.34, -0.42),
-              radius: 0.92,
-              colors: [
-                Colors.white.withValues(alpha: 0.98),
-                light,
-                widget.color,
-                dark,
-              ],
-              stops: const [0, 0.18, 0.58, 1],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withValues(alpha: 0.34),
-                blurRadius: 34,
-                spreadRadius: 2,
-                offset: const Offset(0, 18),
+          if (requests.isEmpty)
+            const Text(
+              'Chưa có đơn nghỉ phép.',
+              style: TextStyle(
+                color: mutedTextColor,
+                fontWeight: FontWeight.w600,
               ),
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.82),
-                blurRadius: 18,
-                offset: const Offset(-10, -10),
-              ),
-            ],
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.62),
-              width: 2,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 36,
-                top: 28,
-                child: Container(
-                  width: 54,
-                  height: 27,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    color: Colors.white.withValues(alpha: 0.44),
-                  ),
-                ),
-              ),
-              Center(
-                child: widget.submitting
-                    ? const SizedBox.square(
-                        dimension: 32,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
+            )
+          else
+            ...requests
+                .take(3)
+                .map(
+                  (request) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        AppIconBadge(
+                          icon: Icons.beach_access_rounded,
+                          color: statusColor(request.status),
+                          size: 38,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                request.leaveType.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${formatDate(request.startDate)} - ${formatDate(request.endDate)}',
+                                style: const TextStyle(
+                                  color: mutedTextColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
+                        Pill(
+                          label: friendlyStatus(request.status),
+                          color: statusColor(request.status),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+      ],
+    );
+  }
+}
+
+class _TaskPreview extends StatelessWidget {
+  const _TaskPreview({required this.tasks});
+
+  final List<TaskItem> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleTasks = tasks.take(3).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+          const SectionTitle(
+            title: 'Công việc sắp đến hạn',
+            subtitle: 'Các công việc đang mở cần chú ý',
+          ),
+          if (visibleTasks.isEmpty)
+            const Text(
+              'Không có công việc đang mở.',
+              style: TextStyle(
+                color: mutedTextColor,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            ...visibleTasks.map(
+              (task) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    AppIconBadge(
+                      icon: Icons.task_alt_rounded,
+                      color: task.isOverdue
+                          ? dangerColor
+                          : statusColor(task.status),
+                      size: 38,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(widget.icon, color: Colors.white, size: 42),
-                          const SizedBox(height: 10),
                           Text(
-                            widget.label,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  shadows: const [
-                                    Shadow(
-                                      color: Color(0x6606182C),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
+                            task.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            task.dueDate == null
+                                ? friendlyStatus(task.status)
+                                : 'Hạn ${formatDate(task.dueDate)}',
+                            style: TextStyle(
+                              color: task.isOverdue
+                                  ? dangerColor
+                                  : mutedTextColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
+                    ),
+                    Pill(
+                      label: task.isOverdue
+                          ? 'Quá hạn'
+                          : friendlyPriority(task.priority),
+                      color: task.isOverdue
+                          ? dangerColor
+                          : priorityColor(task.priority),
+                    ),
+                  ],
+                ),
               ),
+            ),
+      ],
+    );
+  }
+}
+
+class _HrGeniePanel extends StatelessWidget {
+  const _HrGeniePanel({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: brandGreen.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              AppIconBadge(
+                icon: Icons.auto_awesome_rounded,
+                color: brandGreen,
+                size: 36,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hỏi HRGenie',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      'Chấm công, nghỉ phép, công việc',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: mutedTextColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: mutedTextColor),
             ],
           ),
         ),

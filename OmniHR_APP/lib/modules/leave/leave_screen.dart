@@ -298,66 +298,63 @@ class _LeaveScreenState extends State<LeaveScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 104),
             children: [
-              PageHeroCard(
-                icon: Icons.beach_access_rounded,
-                title: 'Nghỉ phép',
-                subtitle: 'Tạo đơn nghỉ và theo dõi trạng thái phê duyệt.',
-                color: accentColor,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Pill(label: '$pending chờ duyệt', color: accentColor),
+                  Pill(label: '$approved đã duyệt', color: brandGreen),
+                  Pill(
+                    label: '${bundle.requests.length} tổng',
+                    color: brandColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: () => _openCreateSheet(bundle),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Tạo đơn nghỉ'),
+              ),
+              const SizedBox(height: 16),
+              AppPanel(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        Pill(label: '$pending chờ duyệt', color: Colors.white),
-                        Pill(label: '$approved đã duyệt', color: Colors.white),
-                        Pill(
-                          label: '${bundle.requests.length} tổng',
-                          color: Colors.white,
-                        ),
-                      ],
+                    const SectionTitle(
+                      title: 'Số ngày phép còn lại',
+                      subtitle: 'Tính theo các đơn đã được duyệt',
                     ),
-                    const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: () => _openCreateSheet(bundle),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Tạo đơn nghỉ'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: brandColor,
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final rows = bundle.types.map((type) {
+                          final isUnlimited = type.annualAllowance == null;
+                          final remaining = isUnlimited
+                              ? null
+                              : bundle.remainingFor(type);
+                          return _LeaveBalanceRow(
+                            name: type.name,
+                            valueText: isUnlimited
+                                ? 'Không giới hạn'
+                                : '${remaining!.toStringAsFixed(1)}/${type.annualAllowance!.toStringAsFixed(0)}',
+                            warn: !isUnlimited && remaining! <= 0,
+                          );
+                        }).toList();
+
+                        if (rows.length <= 3) {
+                          return Column(children: rows);
+                        }
+                        return ExpandMoreToggle(
+                          collapsed: Column(children: rows.take(3).toList()),
+                          expandedExtra: Column(
+                            children: rows.skip(3).toList(),
+                          ),
+                          expandLabel: 'Xem thêm (${rows.length - 3})',
+                        );
+                      },
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              const SectionTitle(
-                title: 'Số ngày phép còn lại',
-                subtitle: 'Tính theo các đơn đã được duyệt',
-              ),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: bundle.types.map((type) {
-                  if (type.annualAllowance == null) {
-                    return Pill(
-                      label: '${type.name}: Không giới hạn',
-                      color: brandColor,
-                    );
-                  }
-                  final remaining = bundle.remainingFor(type);
-                  return SizedBox(
-                    width: 160,
-                    child: StatCard(
-                      label: type.name,
-                      value:
-                          '${remaining.toStringAsFixed(1)}/${type.annualAllowance!.toStringAsFixed(0)}',
-                      icon: Icons.beach_access_outlined,
-                      color: remaining <= 0 ? dangerColor : brandColor,
-                    ),
-                  );
-                }).toList(),
               ),
               const SizedBox(height: 16),
               const SectionTitle(
@@ -383,6 +380,45 @@ class _LeaveScreenState extends State<LeaveScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _LeaveBalanceRow extends StatelessWidget {
+  const _LeaveBalanceRow({
+    required this.name,
+    required this.valueText,
+    required this.warn,
+  });
+
+  final String name;
+  final String valueText;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          AppIconBadge(
+            icon: Icons.beach_access_outlined,
+            color: warn ? dangerColor : brandColor,
+            size: 34,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          Text(
+            valueText,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: warn ? dangerColor : inkColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
