@@ -22,7 +22,6 @@ class AttendanceCard extends StatelessWidget {
       if (record.attendanceStatus != null)
         friendlyAttendanceStatus(record.attendanceStatus!),
       if (record.distanceMeters != null) '${record.distanceMeters} m',
-      record.source,
     ].join(' - ');
 
     final color = isCheckIn ? brandColor : accentColor;

@@ -20,7 +20,6 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   late Future<List<TaskItem>> _future;
   _TaskFilter _filter = _TaskFilter.all;
-  int? _updatingTaskId;
 
   @override
   void initState() {
@@ -73,7 +72,6 @@ class _TasksScreenState extends State<TasksScreen> {
       return;
     }
 
-    setState(() => _updatingTaskId = task.id);
     try {
       await widget.session.api.patch(
         '/tasks/${task.id}/status',
@@ -88,8 +86,6 @@ class _TasksScreenState extends State<TasksScreen> {
         error is ApiException ? error.message : error.toString(),
         error: true,
       );
-    } finally {
-      if (mounted) setState(() => _updatingTaskId = null);
     }
   }
 
@@ -160,6 +156,16 @@ class _TasksScreenState extends State<TasksScreen> {
                           fontWeight: FontWeight.w600,
                           height: 1.35,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_canUpdateTask(task)) ...[
+                      _TaskStatusEditor(
+                        currentStatus: task.status,
+                        onChanged: (status) async {
+                          Navigator.pop(context);
+                          await _updateStatus(task, status);
+                        },
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -346,10 +352,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              const SectionTitle(
-                title: 'Danh sách công việc',
-                subtitle: 'Chỉ hiển thị công việc của tài khoản hiện tại',
-              ),
+              const SectionTitle(title: 'Danh sách công việc'),
               if (tasks.isEmpty)
                 const EmptyState(
                   icon: Icons.assignment_outlined,
@@ -364,18 +367,42 @@ class _TasksScreenState extends State<TasksScreen> {
                 )
               else
                 ...visibleTasks.map(
-                  (task) => TaskCard(
-                    task: task,
-                    updating: _updatingTaskId == task.id,
-                    onStatusChanged: _canUpdateTask(task)
-                        ? (status) => _updateStatus(task, status)
-                        : null,
-                    onDetails: () => _openDetails(task),
-                  ),
+                  (task) => TaskCard(task: task, onDetails: () => _openDetails(task)),
                 ),
             ],
           ),
         );
+      },
+    );
+  }
+}
+
+class _TaskStatusEditor extends StatelessWidget {
+  const _TaskStatusEditor({required this.currentStatus, required this.onChanged});
+
+  static const _statuses = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
+
+  final String currentStatus;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: _statuses.contains(currentStatus) ? currentStatus : null,
+      decoration: const InputDecoration(
+        labelText: 'Đổi trạng thái',
+        prefixIcon: Icon(Icons.update),
+      ),
+      items: _statuses
+          .map(
+            (status) => DropdownMenuItem(
+              value: status,
+              child: Text(friendlyStatus(status)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value != null && value != currentStatus) onChanged(value);
       },
     );
   }

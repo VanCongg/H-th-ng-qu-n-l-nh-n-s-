@@ -357,10 +357,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const SectionTitle(
-                title: 'Đơn nghỉ của tôi',
-                subtitle: 'Các đơn đã gửi và trạng thái xử lý',
-              ),
+              const SectionTitle(title: 'Đơn nghỉ của tôi'),
               if (bundle.requests.isEmpty)
                 const EmptyState(
                   icon: Icons.beach_access_outlined,

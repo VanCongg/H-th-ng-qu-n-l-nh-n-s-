@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const brandColor = Color(0xFF1971C2);
+const brandColor = Color(0xFF228BE6);
 const brandGreen = Color(0xFF12B886);
 const brandNavy = Color(0xFF243B6B);
 const brandPurple = Color(0xFF7048E8);

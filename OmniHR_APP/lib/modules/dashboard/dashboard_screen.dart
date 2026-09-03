@@ -197,10 +197,7 @@ class _LeavePreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          const SectionTitle(
-            title: 'Nghỉ phép gần đây',
-            subtitle: 'Theo dõi trạng thái đơn đã gửi',
-          ),
+          const SectionTitle(title: 'Nghỉ phép gần đây'),
           if (requests.isEmpty)
             const Text(
               'Chưa có đơn nghỉ phép.',
@@ -271,10 +268,7 @@ class _TaskPreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          const SectionTitle(
-            title: 'Công việc sắp đến hạn',
-            subtitle: 'Các công việc đang mở cần chú ý',
-          ),
+          const SectionTitle(title: 'Công việc sắp đến hạn'),
           if (visibleTasks.isEmpty)
             const Text(
               'Không có công việc đang mở.',

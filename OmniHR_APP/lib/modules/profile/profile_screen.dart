@@ -326,24 +326,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     ProfileRow(
-                      icon: Icons.badge_outlined,
-                      label: 'Mã nhân viên',
-                      value: employee?.employeeCode,
-                    ),
-                    ProfileRow(
                       icon: Icons.mail_outline_rounded,
                       label: 'Email công ty',
                       value: employee?.companyEmail ?? user?.email,
-                    ),
-                    ProfileRow(
-                      icon: Icons.business_outlined,
-                      label: 'Phòng ban',
-                      value: employee?.department?.name,
-                    ),
-                    ProfileRow(
-                      icon: Icons.work_outline_rounded,
-                      label: 'Chức danh',
-                      value: employee?.position?.name,
                     ),
                     ProfileRow(
                       icon: Icons.verified_user_outlined,
@@ -366,10 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       height: 24,
                       color: brandColor.withValues(alpha: 0.08),
                     ),
-                    const SectionTitle(
-                      title: 'Tài khoản',
-                      subtitle: 'Thông tin đăng nhập và máy chủ đang dùng',
-                    ),
+                    const SectionTitle(title: 'Tài khoản'),
                     ProfileRow(
                       icon: Icons.person_outline_rounded,
                       label: 'Tên đăng nhập',

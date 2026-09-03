@@ -450,7 +450,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              mainAxisSpacing: 8,
+              mainAxisSpacing: 10,
               crossAxisSpacing: 6,
             ),
             itemCount: totalCells,
@@ -471,16 +471,6 @@ class MonthAttendanceCalendar extends StatelessWidget {
                 onTap: () => onDaySelected(day),
               );
             },
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              Pill(label: 'Đã chấm công', color: brandGreen),
-              Pill(label: 'Chưa chấm công', color: dangerColor),
-              Pill(label: 'Chưa tới ngày', color: mutedTextColor),
-            ],
           ),
       ],
     );
@@ -567,6 +557,7 @@ class _AttendanceDayCell extends StatelessWidget {
           style: TextStyle(
             color: future && !hasAttendance ? mutedTextColor : Colors.white,
             fontWeight: FontWeight.w900,
+            fontSize: 15,
           ),
         ),
       ),
