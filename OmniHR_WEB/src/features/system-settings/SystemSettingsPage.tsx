@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   NumberInput,
   Paper,
   SimpleGrid,
@@ -30,7 +31,18 @@ type SettingsFormValues = {
   morningShiftEnd: string;
   afternoonShiftStart: string;
   afternoonShiftEnd: string;
+  workWeek: string[];
 };
+
+const WORK_WEEK_DAYS = [
+  { value: "MONDAY", label: "Thứ 2" },
+  { value: "TUESDAY", label: "Thứ 3" },
+  { value: "WEDNESDAY", label: "Thứ 4" },
+  { value: "THURSDAY", label: "Thứ 5" },
+  { value: "FRIDAY", label: "Thứ 6" },
+  { value: "SATURDAY", label: "Thứ 7" },
+  { value: "SUNDAY", label: "Chủ nhật" }
+];
 
 const initialValues: SettingsFormValues = {
   companyName: "OmniHR",
@@ -44,7 +56,8 @@ const initialValues: SettingsFormValues = {
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
-  afternoonShiftEnd: "17:00"
+  afternoonShiftEnd: "17:00",
+  workWeek: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
 };
 
 export function SystemSettingsPage() {
@@ -56,7 +69,9 @@ export function SystemSettingsPage() {
       companyLatitude: (value) =>
         validateCoordinate(value, -90, 90, tx("Invalid coordinate")),
       companyLongitude: (value) =>
-        validateCoordinate(value, -180, 180, tx("Invalid coordinate"))
+        validateCoordinate(value, -180, 180, tx("Invalid coordinate")),
+      workWeek: (value) =>
+        value.length > 0 ? null : tx("Select at least one working day")
     }
   });
   const query = useQuery({
@@ -98,6 +113,19 @@ export function SystemSettingsPage() {
           )}
         >
           <Stack>
+            <Checkbox.Group
+              label={tx("Working days")}
+              description={tx(
+                "Days outside this list are not counted as leave days"
+              )}
+              {...form.getInputProps("workWeek")}
+            >
+              <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} mt="xs">
+                {WORK_WEEK_DAYS.map((day) => (
+                  <Checkbox key={day.value} value={day.value} label={day.label} />
+                ))}
+              </SimpleGrid>
+            </Checkbox.Group>
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput
                 label={tx("Company name")}
@@ -229,8 +257,15 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
     afternoonShiftEnd: stringValue(
       settings.afternoonShiftEnd,
       initialValues.afternoonShiftEnd
-    )
+    ),
+    workWeek: stringArrayValue(settings.workWeek, initialValues.workWeek)
   };
+}
+
+function stringArrayValue(value: unknown, fallback: string[]) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? (value as string[])
+    : fallback;
 }
 
 function stringValue(value: unknown, fallback: string) {

@@ -37,7 +37,7 @@ class BrandBackdrop extends StatelessWidget {
             top: 0,
             child: Container(
               height: 4,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [brandColor, brandGreen, accentColor],
                 ),

@@ -10,7 +10,7 @@ export class ChatbotAiClientService {
     const baseUrl = this.cleanBaseUrl(
       this.config.get<string>("AI_SERVICE_URL") ?? "http://localhost:8000",
     );
-    const token = this.config.get<string>("AI_INTERNAL_TOKEN") ?? "change-me";
+    const token = this.requiredConfig("AI_INTERNAL_TOKEN");
     const timeoutMs = Number(this.config.get<string>("AI_TIMEOUT_MS") ?? 30000);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -101,6 +101,14 @@ export class ChatbotAiClientService {
 
   private cleanBaseUrl(value: string) {
     return value.trim().replace(/\/+$/, "");
+  }
+
+  private requiredConfig(key: string) {
+    const value = this.config.get<string>(key);
+    if (!value) {
+      throw new Error(`Missing required config: ${key}`);
+    }
+    return value;
   }
 }
 

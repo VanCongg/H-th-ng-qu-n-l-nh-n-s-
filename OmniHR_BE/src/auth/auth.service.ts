@@ -86,9 +86,7 @@ export class AuthService {
     let payload: JwtRefreshPayload;
     try {
       payload = await this.jwt.verifyAsync<JwtRefreshPayload>(dto.refreshToken, {
-        secret:
-          this.config.get<string>("JWT_REFRESH_SECRET") ??
-          "change_me_refresh_secret"
+        secret: this.requiredConfig("JWT_REFRESH_SECRET")
       });
     } catch {
       throw new ApiError(
@@ -281,15 +279,12 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.signAsync(accessPayload, {
-        secret:
-          this.config.get<string>("JWT_ACCESS_SECRET") ?? "change_me_access_secret",
+        secret: this.requiredConfig("JWT_ACCESS_SECRET"),
         expiresIn: (this.config.get<string>("JWT_ACCESS_EXPIRES_IN") ??
           "15m") as any
       }),
       this.jwt.signAsync(refreshPayload, {
-        secret:
-          this.config.get<string>("JWT_REFRESH_SECRET") ??
-          "change_me_refresh_secret",
+        secret: this.requiredConfig("JWT_REFRESH_SECRET"),
         expiresIn: (this.config.get<string>("JWT_REFRESH_EXPIRES_IN") ??
           "7d") as any
       })
@@ -312,5 +307,13 @@ export class AuthService {
 
   private saltRounds() {
     return Number(this.config.get<string>("BCRYPT_SALT_ROUNDS") ?? 10);
+  }
+
+  private requiredConfig(key: string) {
+    const value = this.config.get<string>(key);
+    if (!value) {
+      throw new Error(`Missing required config: ${key}`);
+    }
+    return value;
   }
 }

@@ -1,134 +1,115 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../shared/widgets/widgets.dart';
-import '../attendance/attendance_screen.dart';
 import '../chat/chat_screen.dart';
 import '../dashboard/dashboard_screen.dart';
-import '../leave/leave_screen.dart';
 import '../profile/profile_screen.dart';
-import '../tasks/tasks_screen.dart';
 
-class HomeShell extends StatefulWidget {
+class HomeShell extends StatelessWidget {
   const HomeShell({super.key, required this.session});
 
   final AppSession session;
 
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int _index = 0;
-
-  static const _titles = [
-    'Trang chủ',
-    'Chấm công',
-    'Nghỉ phép',
-    'Công việc',
-    'Cá nhân',
-  ];
-  static const _subtitles = [
-    'Tổng quan công việc hôm nay',
-    'Theo dõi giờ vào/ra',
-    'Đơn nghỉ và số ngày còn lại',
-    'Công việc được giao',
-    'Hồ sơ và tài khoản',
-  ];
-
-  late final _pages = [
-    DashboardScreen(session: widget.session),
-    AttendanceScreen(session: widget.session),
-    LeaveScreen(session: widget.session),
-    TasksScreen(session: widget.session),
-    ProfileScreen(session: widget.session),
-  ];
+  void _openProfile(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            SubScreen(title: tx('Cá nhân'), child: ProfileScreen(session: session)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BrandBackdrop(
-        child: Column(
-          children: [
-            AppHeaderBar(
-              title: _titles[_index],
-              subtitle: _subtitles[_index],
-            ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IndexedStack(index: _index, children: _pages),
-                      ),
-                      _DraggableHrGenieBubble(
-                        session: widget.session,
-                        constraints: constraints,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: DashboardScreen(
+                    session: session,
+                    topInset: AppHeaderBar.preferredHeight + 10,
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: AppHeaderBar(
+                    title: tx('Trang chủ'),
+                    subtitle: tx('Tổng quan công việc hôm nay'),
+                    actions: [
+                      _ProfileAvatarButton(
+                        session: session,
+                        onTap: () => _openProfile(context),
                       ),
                     ],
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ),
+                _DraggableHrGenieBubble(
+                  session: session,
+                  constraints: constraints,
+                ),
+              ],
+            );
+          },
         ),
-      ),
-      bottomNavigationBar: _ShellNavigation(
-        index: _index,
-        onSelected: (value) => setState(() => _index = value),
       ),
     );
   }
 }
 
-class _ShellNavigation extends StatelessWidget {
-  const _ShellNavigation({required this.index, required this.onSelected});
+class _ProfileAvatarButton extends StatelessWidget {
+  const _ProfileAvatarButton({required this.session, required this.onTap});
 
-  final int index;
-  final ValueChanged<int> onSelected;
+  final AppSession session;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: brandColor.withValues(alpha: 0.10)),
+    final name =
+        session.employee?.fullName ?? session.user?.username ?? tx('Nhân viên');
+    final initial = name.trim().isEmpty ? 'O' : name.trim()[0].toUpperCase();
+
+    return Semantics(
+      label: tx('Cá nhân'),
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Hero(
+            tag: 'profile-avatar',
+            child: Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [brandColor, brandGreen],
+                ),
+              ),
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
-      child: NavigationBar(
-        height: 74,
-        selectedIndex: index,
-        onDestinationSelected: onSelected,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Trang chủ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.location_on_outlined),
-            selectedIcon: Icon(Icons.location_on_rounded),
-            label: 'Chấm công',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.beach_access_outlined),
-            selectedIcon: Icon(Icons.beach_access_rounded),
-            label: 'Nghỉ phép',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment_rounded),
-            label: 'Công việc',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: 'Cá nhân',
-          ),
-        ],
       ),
     );
   }
@@ -268,10 +249,10 @@ class _GenieMascotPainter extends CustomPainter {
     canvas.drawCircle(const Offset(36, 36), 31, glowPaint);
 
     final vaporPaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF74C0FC), brandColor, brandNavy],
+        colors: [const Color(0xFF74C0FC), brandColor, brandNavy],
       ).createShader(const Rect.fromLTWH(18, 10, 36, 46));
     final vapor = Path()
       ..moveTo(29, 49)
@@ -315,10 +296,10 @@ class _GenieMascotPainter extends CustomPainter {
       ..drawLine(const Offset(45, 38), const Offset(53, 43), armPaint);
 
     final lampPaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFFFFF3BF), accentColor, Color(0xFFE67700)],
+        colors: [const Color(0xFFFFF3BF), accentColor, const Color(0xFFE67700)],
       ).createShader(const Rect.fromLTWH(15, 47, 44, 18));
     final lamp = Path()
       ..moveTo(19, 55)

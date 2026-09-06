@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
 import 'app_containers.dart';
 
@@ -31,7 +32,7 @@ class EmptyState extends StatelessWidget {
           Text(
             body,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: mutedTextColor,
               fontWeight: FontWeight.w600,
             ),
@@ -52,15 +53,15 @@ class LoadingView extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            SizedBox.square(
+          children: [
+            const SizedBox.square(
               dimension: 20,
               child: CircularProgressIndicator(strokeWidth: 2.4),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Text(
-              'Đang tải dữ liệu',
-              style: TextStyle(fontWeight: FontWeight.w800),
+              tx('Đang tải dữ liệu'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ],
         ),
@@ -84,7 +85,7 @@ class ErrorView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const AppIconBadge(
+              AppIconBadge(
                 icon: Icons.error_outline_rounded,
                 color: dangerColor,
                 size: 54,
@@ -93,8 +94,8 @@ class ErrorView extends StatelessWidget {
               Text(
                 error,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF475569),
+                style: TextStyle(
+                  color: mutedTextColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -102,7 +103,7 @@ class ErrorView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Thử lại'),
+                label: Text(tx('Thử lại')),
               ),
             ],
           ),

@@ -8,6 +8,10 @@ import {
   MaxLength
 } from "class-validator";
 import { CareerLevel, EmployeeStatus } from "@prisma/client";
+import {
+  IsSafeAvatar,
+  MAX_AVATAR_VALUE_LENGTH
+} from "../../common/validators/avatar";
 
 export class UpdateEmployeeDto {
   @IsOptional()
@@ -27,7 +31,8 @@ export class UpdateEmployeeDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(1000000)
+  @MaxLength(MAX_AVATAR_VALUE_LENGTH)
+  @IsSafeAvatar()
   avatarUrl?: string | null;
 
   @IsOptional()

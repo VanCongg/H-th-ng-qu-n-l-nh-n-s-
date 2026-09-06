@@ -235,6 +235,82 @@ select {
   border-color: rgba(12, 166, 120, 0.15) !important;
 }
 
+.admin-mini-card {
+  border-color: rgba(25, 113, 194, 0.12) !important;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.04);
+}
+
+.role-permission-table td {
+  vertical-align: middle;
+}
+
+.role-identity,
+.role-identity .mantine-Stack-root {
+  min-width: 0;
+}
+
+.permission-chip-row {
+  align-items: flex-start;
+  max-width: 100%;
+}
+
+.permission-chip {
+  max-width: 180px;
+}
+
+.permission-chip .mantine-Badge-label,
+.audit-action-badge .mantine-Badge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-log-table td {
+  vertical-align: middle;
+}
+
+.audit-payload-preview {
+  min-height: 46px;
+  max-width: 430px;
+  padding: 8px 10px;
+  border: 1px solid rgba(25, 113, 194, 0.12);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.audit-payload-preview .mantine-Text-root {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.audit-detail-tile {
+  min-width: 0;
+  background: #ffffff;
+}
+
+.audit-detail-tile .mantine-Text-root {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-json-block {
+  min-height: 180px;
+  max-height: 360px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid rgba(25, 113, 194, 0.12);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .empty-state {
   min-height: 190px;
 }
@@ -275,6 +351,17 @@ select {
 [data-mantine-color-scheme="dark"] body {
   background: #101828;
   color: #edf2ff;
+}
+
+[data-mantine-color-scheme="dark"] {
+  --mantine-color-blue-text: #dbeafe;
+  --mantine-color-blue-light: rgba(96, 165, 250, 0.2);
+  --mantine-color-blue-light-hover: rgba(96, 165, 250, 0.28);
+  --mantine-color-blue-light-color: #dbeafe;
+  --mantine-color-blue-outline: #93c5fd;
+  --mantine-primary-color-light: rgba(96, 165, 250, 0.2);
+  --mantine-primary-color-light-hover: rgba(96, 165, 250, 0.28);
+  --mantine-primary-color-light-color: #dbeafe;
 }
 
 [data-mantine-color-scheme="dark"] .app-shell {
@@ -320,9 +407,34 @@ select {
   color: #d0d5dd;
 }
 
+[data-mantine-color-scheme="dark"] .side-nav-link svg {
+  color: #67e8f9;
+}
+
 [data-mantine-color-scheme="dark"] .side-nav-link[data-active="true"] {
-  color: #bfdbfe;
+  color: #eef6ff;
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.22), rgba(45, 212, 191, 0.12));
+}
+
+[data-mantine-color-scheme="dark"] .side-nav-link[data-active="true"] svg {
+  color: #bfdbfe;
+}
+
+[data-mantine-color-scheme="dark"] .admin-mini-card,
+[data-mantine-color-scheme="dark"] .audit-detail-tile {
+  background: #172033;
+  border-color: rgba(125, 211, 252, 0.14) !important;
+}
+
+[data-mantine-color-scheme="dark"] .audit-payload-preview {
+  border-color: rgba(125, 211, 252, 0.14);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+[data-mantine-color-scheme="dark"] .admin-json-block {
+  border-color: rgba(125, 211, 252, 0.18);
+  background: #0b1120;
+  color: #dbeafe;
 }
 
 .login-visual {

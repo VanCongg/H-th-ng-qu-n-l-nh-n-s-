@@ -10,6 +10,7 @@ import {
   MinLength
 } from "class-validator";
 import { Type } from "class-transformer";
+import { IsStrongPassword } from "../../common/validators/strong-password";
 import { CreateUserEmployeeProfileDto } from "./user-employee-profile.dto";
 
 export class CreateUserDto {
@@ -24,6 +25,7 @@ export class CreateUserDto {
   @IsString()
   @MinLength(8)
   @MaxLength(120)
+  @IsStrongPassword()
   password: string;
 
   @IsOptional()

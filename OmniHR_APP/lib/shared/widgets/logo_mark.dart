@@ -55,11 +55,11 @@ class _LogoMarkPainter extends CustomPainter {
     }
 
     final badgePaint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [brandGreen, brandColor, brandNavy],
-        stops: [0, 0.42, 1],
+        stops: const [0, 0.42, 1],
       ).createShader(const Rect.fromLTWH(4, 4, 64, 64));
     canvas.drawPath(badgePath, badgePaint);
 

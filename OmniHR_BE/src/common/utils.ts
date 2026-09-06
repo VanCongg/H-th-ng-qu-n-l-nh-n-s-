@@ -18,13 +18,40 @@ export function formatDateDdMmYyyy(value: string | Date): string {
   return `${day}${month}${year}`;
 }
 
-export function calculateLeaveDays(startDate: Date, endDate: Date): number {
+const DAY_NAME_TO_UTC_INDEX: Record<string, number> = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6
+};
+
+export const DEFAULT_WORK_WEEK = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY"
+];
+
+export function calculateLeaveDays(
+  startDate: Date,
+  endDate: Date,
+  workWeek: string[] = DEFAULT_WORK_WEEK
+): number {
+  const workDayIndexes = new Set(
+    workWeek
+      .map((day) => DAY_NAME_TO_UTC_INDEX[day.toUpperCase()])
+      .filter((index): index is number => index !== undefined)
+  );
+
   let total = 0;
   const current = new Date(startDate);
 
   while (current <= endDate) {
-    const day = current.getUTCDay();
-    if (day !== 0 && day !== 6) {
+    if (workDayIndexes.has(current.getUTCDay())) {
       total += 1;
     }
     current.setUTCDate(current.getUTCDate() + 1);

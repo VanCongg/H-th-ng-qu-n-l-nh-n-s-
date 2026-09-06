@@ -19,6 +19,13 @@ class PlannerIntent(str, Enum):
     CANCEL_MY_PENDING_LEAVE_REQUEST = "CANCEL_MY_PENDING_LEAVE_REQUEST"
     GET_MY_TASKS = "GET_MY_TASKS"
     GET_MY_UPCOMING_TASKS = "GET_MY_UPCOMING_TASKS"
+    GET_EMPLOYEE_BIRTHDAYS = "GET_EMPLOYEE_BIRTHDAYS"
+    GET_WHO_IS_ON_LEAVE_TODAY = "GET_WHO_IS_ON_LEAVE_TODAY"
+    GET_UPCOMING_LEAVES = "GET_UPCOMING_LEAVES"
+    GET_TEAM_ATTENDANCE_SUMMARY = "GET_TEAM_ATTENDANCE_SUMMARY"
+    GET_TEAM_TASK_SUMMARY = "GET_TEAM_TASK_SUMMARY"
+    GET_DEPARTMENT_HEADCOUNT = "GET_DEPARTMENT_HEADCOUNT"
+    GET_MY_MANAGER = "GET_MY_MANAGER"
     UNKNOWN = "UNKNOWN"
     OUT_OF_SCOPE = "OUT_OF_SCOPE"
     FORBIDDEN_REQUEST = "FORBIDDEN_REQUEST"
@@ -35,6 +42,13 @@ class PlannerToolName(str, Enum):
     CANCEL_MY_PENDING_LEAVE_REQUEST = "cancel_my_pending_leave_request"
     GET_MY_TASKS = "get_my_tasks"
     GET_MY_UPCOMING_TASKS = "get_my_upcoming_tasks"
+    GET_EMPLOYEE_BIRTHDAYS = "get_employee_birthdays"
+    GET_WHO_IS_ON_LEAVE_TODAY = "get_who_is_on_leave_today"
+    GET_UPCOMING_LEAVES = "get_upcoming_leaves"
+    GET_TEAM_ATTENDANCE_SUMMARY = "get_team_attendance_summary"
+    GET_TEAM_TASK_SUMMARY = "get_team_task_summary"
+    GET_DEPARTMENT_HEADCOUNT = "get_department_headcount"
+    GET_MY_MANAGER = "get_my_manager"
 
 
 class PlannerToolCall(BaseModel):
@@ -76,6 +90,13 @@ READ_TOOLS = {
     PlannerToolName.GET_LEAVE_TYPES,
     PlannerToolName.GET_MY_TASKS,
     PlannerToolName.GET_MY_UPCOMING_TASKS,
+    PlannerToolName.GET_EMPLOYEE_BIRTHDAYS,
+    PlannerToolName.GET_WHO_IS_ON_LEAVE_TODAY,
+    PlannerToolName.GET_UPCOMING_LEAVES,
+    PlannerToolName.GET_TEAM_ATTENDANCE_SUMMARY,
+    PlannerToolName.GET_TEAM_TASK_SUMMARY,
+    PlannerToolName.GET_DEPARTMENT_HEADCOUNT,
+    PlannerToolName.GET_MY_MANAGER,
 }
 
 WRITE_TOOLS = {
@@ -91,7 +112,20 @@ TOOL_ARGUMENT_ALLOWLISTS = {
     PlannerToolName.GET_MY_LEAVE_REQUESTS: {"status", "limit"},
     PlannerToolName.GET_LEAVE_TYPES: set(),
     PlannerToolName.GET_MY_TASKS: {"status", "limit"},
-    PlannerToolName.GET_MY_UPCOMING_TASKS: {"mode", "days", "limit"},
+    PlannerToolName.GET_MY_UPCOMING_TASKS: {"mode", "days", "limit", "includeOverdue"},
+    PlannerToolName.GET_EMPLOYEE_BIRTHDAYS: {
+        "month",
+        "year",
+        "fromDate",
+        "toDate",
+        "scope",
+    },
+    PlannerToolName.GET_WHO_IS_ON_LEAVE_TODAY: {"date", "scope"},
+    PlannerToolName.GET_UPCOMING_LEAVES: {"fromDate", "toDate", "scope"},
+    PlannerToolName.GET_TEAM_ATTENDANCE_SUMMARY: {"date", "scope"},
+    PlannerToolName.GET_TEAM_TASK_SUMMARY: {"scope", "includeOverdue"},
+    PlannerToolName.GET_DEPARTMENT_HEADCOUNT: {"scope"},
+    PlannerToolName.GET_MY_MANAGER: set(),
     PlannerToolName.CREATE_LEAVE_REQUEST_DRAFT: {
         "leaveTypeCode",
         "leaveTypeId",

@@ -5,6 +5,12 @@ import { useTranslation } from "../../i18n";
 import { EmployeeAvatar } from "../EmployeeAvatar";
 
 const MAX_AVATAR_BYTES = 700 * 1024;
+const ALLOWED_AVATAR_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif"
+]);
 
 type EmployeeAvatarUploadProps = {
   value?: string | null;
@@ -25,8 +31,8 @@ export function EmployeeAvatarUpload({
     if (!file) {
       return;
     }
-    if (!file.type.startsWith("image/")) {
-      setError(tx("Image file is required"));
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      setError(tx("PNG, JPG, WebP, or GIF image is required"));
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
@@ -48,7 +54,7 @@ export function EmployeeAvatarUpload({
           size={132}
         />
         <FileInput
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp,image/gif"
           leftSection={<ImageUp size={16} />}
           placeholder={tx("Upload image")}
           onChange={handleFile}

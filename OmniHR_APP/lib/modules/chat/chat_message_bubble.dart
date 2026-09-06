@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';
-import 'chat_models.dart';
+import '../../models/chat_models.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({super.key, required this.message});
@@ -11,7 +11,7 @@ class ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == ChatMessageRole.user;
-    final color = isUser ? brandColor : Colors.white;
+    final color = isUser ? brandColor : surfaceColor;
     final textColor = isUser ? Colors.white : inkColor;
 
     return Align(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
+import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
@@ -66,7 +67,7 @@ class _TasksScreenState extends State<TasksScreen> {
     if (!_canUpdateStatus) {
       showAppSnack(
         context,
-        'Tài khoản chưa có quyền cập nhật trạng thái công việc.',
+        tx('Tài khoản chưa có quyền cập nhật trạng thái công việc.'),
         error: true,
       );
       return;
@@ -77,7 +78,9 @@ class _TasksScreenState extends State<TasksScreen> {
         '/tasks/${task.id}/status',
         body: {'status': status},
       );
-      if (mounted) showAppSnack(context, 'Đã cập nhật trạng thái công việc.');
+      if (mounted) {
+        showAppSnack(context, tx('Đã cập nhật trạng thái công việc.'));
+      }
       await _refresh();
     } catch (error) {
       if (!mounted) return;
@@ -135,8 +138,8 @@ class _TasksScreenState extends State<TasksScreen> {
                                     color: priorityColor(task.priority),
                                   ),
                                   if (task.isOverdue)
-                                    const Pill(
-                                      label: 'Quá hạn',
+                                    Pill(
+                                      label: tx('Quá hạn'),
                                       color: dangerColor,
                                     ),
                                 ],
@@ -171,34 +174,34 @@ class _TasksScreenState extends State<TasksScreen> {
                     ],
                     ProfileRow(
                       icon: Icons.event_available_outlined,
-                      label: 'Ngày bắt đầu',
+                      label: tx('Ngày bắt đầu'),
                       value: formatDate(task.startDate),
                     ),
                     ProfileRow(
                       icon: Icons.event_busy_outlined,
-                      label: 'Hạn hoàn thành',
+                      label: tx('Hạn hoàn thành'),
                       value: formatDate(task.dueDate),
                     ),
                     ProfileRow(
                       icon: Icons.work_outline_rounded,
-                      label: 'Dự án',
+                      label: tx('Dự án'),
                       value: task.project?.name,
                     ),
                     ProfileRow(
                       icon: Icons.groups_outlined,
-                      label: 'Nhóm',
+                      label: tx('Nhóm'),
                       value: task.team?.name ?? task.department?.name,
                     ),
                     ProfileRow(
                       icon: Icons.timer_outlined,
-                      label: 'Giờ dự kiến',
+                      label: tx('Giờ dự kiến'),
                       value: task.estimatedHours == null
                           ? null
                           : '${task.estimatedHours!.toStringAsFixed(1)}h',
                     ),
                     if (task.requiredSkills.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      const SectionTitle(title: 'Kỹ năng cần có'),
+                      SectionTitle(title: tx('Kỹ năng cần có')),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -214,7 +217,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     ],
                     if (task.parentTask != null) ...[
                       const SizedBox(height: 8),
-                      const SectionTitle(title: 'Công việc cha'),
+                      SectionTitle(title: tx('Công việc cha')),
                       AppPanel(
                         padding: const EdgeInsets.all(12),
                         child: Row(
@@ -237,12 +240,15 @@ class _TasksScreenState extends State<TasksScreen> {
                     if (task.childTasks.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       SectionTitle(
-                        title: 'Công việc con (${task.childTasks.length})',
+                        title: tx(
+                          'Công việc con ({count})',
+                          {'count': '${task.childTasks.length}'},
+                        ),
                       ),
                       ...task.childTasks.map(
                         (child) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: InkWell(
+                          child: PressableScale(
                             borderRadius: BorderRadius.circular(8),
                             onTap: () => _openDetails(child),
                             child: AppPanel(
@@ -326,44 +332,44 @@ class _TasksScreenState extends State<TasksScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  Pill(label: '$openCount đang mở', color: brandColor),
-                  Pill(label: '$overdueCount quá hạn', color: dangerColor),
-                  Pill(label: '$doneCount hoàn thành', color: brandGreen),
+                  Pill(label: '$openCount ${tx('đang mở')}', color: brandColor),
+                  Pill(label: '$overdueCount ${tx('quá hạn')}', color: dangerColor),
+                  Pill(label: '$doneCount ${tx('hoàn thành')}', color: brandGreen),
                 ],
               ),
               const SizedBox(height: 14),
               SegmentedButton<_TaskFilter>(
                 showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: _TaskFilter.all, label: Text('Tất cả')),
+                segments: [
+                  ButtonSegment(value: _TaskFilter.all, label: Text(tx('Tất cả'))),
                   ButtonSegment(
                     value: _TaskFilter.open,
-                    label: Text('Đang mở'),
+                    label: Text(tx('Đang mở')),
                   ),
                   ButtonSegment(
                     value: _TaskFilter.overdue,
-                    label: Text('Quá hạn'),
+                    label: Text(tx('Quá hạn')),
                   ),
-                  ButtonSegment(value: _TaskFilter.done, label: Text('Xong')),
+                  ButtonSegment(value: _TaskFilter.done, label: Text(tx('Xong'))),
                 ],
                 selected: {_filter},
                 onSelectionChanged: (value) {
                   setState(() => _filter = value.first);
                 },
               ),
-              const SizedBox(height: 16),
-              const SectionTitle(title: 'Danh sách công việc'),
+              const SizedBox(height: 20),
+              SectionTitle(title: tx('Danh sách công việc')),
               if (tasks.isEmpty)
-                const EmptyState(
+                EmptyState(
                   icon: Icons.assignment_outlined,
-                  title: 'Chưa có công việc',
-                  body: 'Công việc được giao cho bạn sẽ xuất hiện tại đây.',
+                  title: tx('Chưa có công việc'),
+                  body: tx('Công việc được giao cho bạn sẽ xuất hiện tại đây.'),
                 )
               else if (visibleTasks.isEmpty)
-                const EmptyState(
+                EmptyState(
                   icon: Icons.filter_alt_off_outlined,
-                  title: 'Không có công việc phù hợp',
-                  body: 'Đổi bộ lọc để xem các công việc khác.',
+                  title: tx('Không có công việc phù hợp'),
+                  body: tx('Đổi bộ lọc để xem các công việc khác.'),
                 )
               else
                 ...visibleTasks.map(
@@ -389,9 +395,9 @@ class _TaskStatusEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
       initialValue: _statuses.contains(currentStatus) ? currentStatus : null,
-      decoration: const InputDecoration(
-        labelText: 'Đổi trạng thái',
-        prefixIcon: Icon(Icons.update),
+      decoration: InputDecoration(
+        labelText: tx('Đổi trạng thái'),
+        prefixIcon: const Icon(Icons.update),
       ),
       items: _statuses
           .map(

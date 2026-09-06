@@ -8,6 +8,6 @@ void main() {
     await tester.pumpWidget(OmniHrApp(session: session));
 
     expect(find.text('OmniHR'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Đăng nhập'), findsWidgets);
   });
 }

@@ -1,12 +1,17 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
+  AttendanceRecordType,
+  AttendanceStatus,
   ChatbotActionStatus,
   ChatbotActionType,
+  EmployeeStatus,
   LeaveRequestStatus,
+  Prisma,
   TaskStatus,
 } from "@prisma/client";
 import { ApiError } from "../common/api-error";
 import { currentEmployeeWhere } from "../common/prisma-where";
+import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser, RequestContext } from "../common/types";
@@ -21,12 +26,20 @@ import {
 } from "./types/chatbot.types";
 
 const DEFAULT_PENDING_ACTION_TTL_MINUTES = 30;
+const ACTIVE_TASK_STATUSES = [
+  TaskStatus.TODO,
+  TaskStatus.IN_PROGRESS,
+  TaskStatus.IN_REVIEW,
+];
+const MAX_BIRTHDAY_RANGE_DAYS = 93;
+const MAX_LEAVE_RANGE_DAYS = 31;
 
 @Injectable()
 export class ChatbotToolsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly accessControl: AccessControlService,
     private readonly systemSettings: SystemSettingsService,
     private readonly leaveRequests: LeaveRequestsService,
   ) {}
@@ -50,6 +63,30 @@ export class ChatbotToolsService {
         description:
           "Get current employee profile, department, position, and manager",
       });
+      tools.push({
+        name: "get_my_manager",
+        description:
+          "Get current employee department and direct or department manager",
+      });
+    }
+
+    if (
+      this.hasAny(
+        user,
+        "EMPLOYEE_READ_ALL",
+        "EMPLOYEE_READ_TEAM",
+        "EMPLOYEE_READ_SELF",
+      )
+    ) {
+      tools.push({
+        name: "get_employee_birthdays",
+        description:
+          "Find employee birthdays in the allowed scope without exposing birth year",
+      });
+      tools.push({
+        name: "get_department_headcount",
+        description: "Count active employees in company, team, or department scope",
+      });
     }
 
     if (
@@ -63,6 +100,17 @@ export class ChatbotToolsService {
       tools.push({
         name: "get_my_leave_requests",
         description: "Get recent leave requests of the current employee",
+      });
+    }
+
+    if (this.hasAny(user, "LEAVE_READ_ALL", "LEAVE_READ_TEAM", "LEAVE_READ_SELF")) {
+      tools.push({
+        name: "get_who_is_on_leave_today",
+        description: "Find approved leaves on a specific date in allowed scope",
+      });
+      tools.push({
+        name: "get_upcoming_leaves",
+        description: "Find approved leaves in an upcoming date range in allowed scope",
       });
     }
 
@@ -89,6 +137,21 @@ export class ChatbotToolsService {
       });
     }
 
+    if (
+      this.hasAny(
+        user,
+        "ATTENDANCE_READ_ALL",
+        "ATTENDANCE_READ_TEAM",
+        "ATTENDANCE_READ_SELF",
+      )
+    ) {
+      tools.push({
+        name: "get_team_attendance_summary",
+        description:
+          "Summarize attendance for today or a date in the allowed employee scope",
+      });
+    }
+
     if (user.employeeId && this.hasAny(user, "TASK_READ_SELF")) {
       tools.push({
         name: "get_my_tasks",
@@ -97,6 +160,13 @@ export class ChatbotToolsService {
       tools.push({
         name: "get_my_upcoming_tasks",
         description: "Get current employee upcoming or overdue tasks",
+      });
+    }
+
+    if (this.hasAny(user, "TASK_READ_ALL", "TASK_READ_TEAM")) {
+      tools.push({
+        name: "get_team_task_summary",
+        description: "Summarize active and overdue tasks in allowed team scope",
       });
     }
 
@@ -123,6 +193,8 @@ export class ChatbotToolsService {
       switch (call.toolName) {
         case "get_my_profile":
           return this.success(call.toolName, await this.getMyProfile(user));
+        case "get_my_manager":
+          return this.success(call.toolName, await this.getMyManager(user));
         case "get_my_leave_balance":
           return this.success(
             call.toolName,
@@ -135,6 +207,26 @@ export class ChatbotToolsService {
           );
         case "get_leave_types":
           return this.success(call.toolName, await this.getLeaveTypes());
+        case "get_employee_birthdays":
+          return this.success(
+            call.toolName,
+            await this.getEmployeeBirthdays(user, call.arguments),
+          );
+        case "get_who_is_on_leave_today":
+          return this.success(
+            call.toolName,
+            await this.getWhoIsOnLeaveToday(user, call.arguments),
+          );
+        case "get_upcoming_leaves":
+          return this.success(
+            call.toolName,
+            await this.getUpcomingLeaves(user, call.arguments),
+          );
+        case "get_team_attendance_summary":
+          return this.success(
+            call.toolName,
+            await this.getTeamAttendanceSummary(user, call.arguments),
+          );
         case "create_leave_request_draft":
           return this.success(
             call.toolName,
@@ -174,6 +266,16 @@ export class ChatbotToolsService {
           return this.success(
             call.toolName,
             await this.getMyUpcomingTasks(user, call.arguments),
+          );
+        case "get_team_task_summary":
+          return this.success(
+            call.toolName,
+            await this.getTeamTaskSummary(user, call.arguments),
+          );
+        case "get_department_headcount":
+          return this.success(
+            call.toolName,
+            await this.getDepartmentHeadcount(user, call.arguments),
           );
         default:
           return {
@@ -372,6 +474,65 @@ export class ChatbotToolsService {
     };
   }
 
+  private async getMyManager(user: AuthUser) {
+    const employeeId = this.requireEmployee(user);
+    const today = toDateOnly(new Date());
+    const employee = await this.prisma.employee.findFirst({
+      where: currentEmployeeWhere({ id: employeeId, status: EmployeeStatus.ACTIVE }),
+      include: {
+        department: {
+          include: {
+            manager: {
+              include: { department: true, position: true },
+            },
+          },
+        },
+        position: true,
+        subordinateRelations: {
+          where: {
+            isActive: true,
+            OR: [{ endDate: null }, { endDate: { gte: today } }],
+          },
+          include: {
+            manager: { include: { department: true, position: true } },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
+    });
+    if (!employee) {
+      throw new ApiError(
+        HttpStatus.NOT_FOUND,
+        "Employee profile not found",
+        "EMPLOYEE_NOT_FOUND",
+      );
+    }
+
+    const departmentManager =
+      employee.department?.manager &&
+      employee.department.manager.id !== employee.id
+        ? employee.department.manager
+        : null;
+    const directManager = employee.subordinateRelations[0]?.manager ?? null;
+    const manager = departmentManager ?? directManager;
+
+    return {
+      employeeId: String(employee.id),
+      fullName: employee.fullName,
+      departmentName: employee.department?.name ?? null,
+      positionName: employee.position?.name ?? null,
+      manager: manager
+        ? {
+            employeeId: String(manager.id),
+            fullName: manager.fullName,
+            positionName: manager.position?.name ?? null,
+            departmentName: manager.department?.name ?? null,
+          }
+        : null,
+    };
+  }
+
   private async getMyLeaveBalance(
     user: AuthUser,
     args: Record<string, unknown>,
@@ -453,6 +614,217 @@ export class ChatbotToolsService {
     });
   }
 
+  private async getEmployeeBirthdays(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const range = this.birthdayRange(args, today);
+    const employeeIds = await this.readableEmployeeIds(user, args, {
+      all: "EMPLOYEE_READ_ALL",
+      team: "EMPLOYEE_READ_TEAM",
+      self: "EMPLOYEE_READ_SELF",
+    });
+    if (!employeeIds.length) {
+      return {
+        month: range.month,
+        fromDate: this.dateKey(range.fromDate),
+        toDate: this.dateKey(range.toDate),
+        items: [],
+      };
+    }
+
+    const employees = await this.prisma.employee.findMany({
+      where: currentEmployeeWhere({
+        id: { in: employeeIds },
+        status: EmployeeStatus.ACTIVE,
+      }),
+      select: {
+        id: true,
+        fullName: true,
+        birthDate: true,
+        department: { select: { name: true } },
+      },
+    });
+
+    const items = employees
+      .filter((employee) =>
+        this.birthdayInRange(employee.birthDate, range.fromDate, range.toDate),
+      )
+      .sort((left, right) => {
+        const leftNext = this.nextBirthdayTime(left.birthDate, range.fromDate);
+        const rightNext = this.nextBirthdayTime(right.birthDate, range.fromDate);
+        return leftNext - rightNext || left.fullName.localeCompare(right.fullName);
+      })
+      .map((employee) => ({
+        employeeId: String(employee.id),
+        fullName: employee.fullName,
+        departmentName: employee.department?.name ?? null,
+        birthday: this.birthdayKey(employee.birthDate),
+      }));
+
+    return {
+      month: range.month,
+      fromDate: this.dateKey(range.fromDate),
+      toDate: this.dateKey(range.toDate),
+      items,
+    };
+  }
+
+  private async getWhoIsOnLeaveToday(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const date =
+      typeof args.date === "string" && args.date.trim()
+        ? this.dateArg(args.date, "date")
+        : today;
+    const employeeIds = await this.readableEmployeeIds(user, args, {
+      all: "LEAVE_READ_ALL",
+      team: "LEAVE_READ_TEAM",
+      self: "LEAVE_READ_SELF",
+    });
+
+    return {
+      date: this.dateKey(date),
+      items: await this.leaveItems(employeeIds, date, date),
+    };
+  }
+
+  private async getUpcomingLeaves(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const range = this.dateRange(args, today, 7, MAX_LEAVE_RANGE_DAYS);
+    const employeeIds = await this.readableEmployeeIds(user, args, {
+      all: "LEAVE_READ_ALL",
+      team: "LEAVE_READ_TEAM",
+      self: "LEAVE_READ_SELF",
+    });
+
+    return {
+      fromDate: this.dateKey(range.fromDate),
+      toDate: this.dateKey(range.toDate),
+      items: await this.leaveItems(employeeIds, range.fromDate, range.toDate),
+    };
+  }
+
+  private async leaveItems(employeeIds: number[], fromDate: Date, toDate: Date) {
+    if (!employeeIds.length) {
+      return [];
+    }
+
+    const requests = await this.prisma.leaveRequest.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: LeaveRequestStatus.APPROVED,
+        startDate: { lte: toDate },
+        endDate: { gte: fromDate },
+      },
+      include: {
+        employee: { include: { department: true } },
+        leaveType: true,
+      },
+      orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    });
+
+    return requests.map((request) => ({
+      employeeId: String(request.employeeId),
+      fullName: request.employee.fullName,
+      departmentName: request.employee.department?.name ?? null,
+      leaveTypeName: request.leaveType?.name ?? null,
+      startDate: this.dateKey(request.startDate),
+      endDate: this.dateKey(request.endDate),
+    }));
+  }
+
+  private async getTeamAttendanceSummary(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const date =
+      typeof args.date === "string" && args.date.trim()
+        ? this.dateArg(args.date, "date")
+        : today;
+    const employeeIds = await this.readableEmployeeIds(user, args, {
+      all: "ATTENDANCE_READ_ALL",
+      team: "ATTENDANCE_READ_TEAM",
+      self: "ATTENDANCE_READ_SELF",
+    });
+    const employees = employeeIds.length
+      ? await this.prisma.employee.findMany({
+          where: currentEmployeeWhere({
+            id: { in: employeeIds },
+            status: EmployeeStatus.ACTIVE,
+          }),
+          select: { id: true, fullName: true },
+          orderBy: { fullName: "asc" },
+        })
+      : [];
+    const scopedIds = employees.map((employee) => employee.id);
+    const records = scopedIds.length
+      ? await this.prisma.attendanceRecord.findMany({
+          where: {
+            employeeId: { in: scopedIds },
+            workDate: date,
+          },
+          orderBy: { recordedAt: "asc" },
+        })
+      : [];
+
+    const checkedInIds = new Set(
+      records
+        .filter((record) => record.recordType === AttendanceRecordType.CHECK_IN)
+        .map((record) => record.employeeId),
+    );
+    const lateByEmployee = new Map<number, Date>();
+    const earlyOutIds = new Set<number>();
+    for (const record of records) {
+      if (
+        record.recordType === AttendanceRecordType.CHECK_IN &&
+        record.attendanceStatus === AttendanceStatus.LATE &&
+        !lateByEmployee.has(record.employeeId)
+      ) {
+        lateByEmployee.set(record.employeeId, record.recordedAt);
+      }
+      if (
+        record.recordType === AttendanceRecordType.CHECK_OUT &&
+        record.attendanceStatus === AttendanceStatus.EARLY_OUT
+      ) {
+        earlyOutIds.add(record.employeeId);
+      }
+    }
+
+    return {
+      date: this.dateKey(date),
+      totalEmployees: employees.length,
+      checkedInCount: checkedInIds.size,
+      notCheckedInCount: employees.length - checkedInIds.size,
+      lateCount: lateByEmployee.size,
+      earlyOutCount: earlyOutIds.size,
+      notCheckedInEmployees: employees
+        .filter((employee) => !checkedInIds.has(employee.id))
+        .map((employee) => ({
+          employeeId: String(employee.id),
+          fullName: employee.fullName,
+        })),
+      lateEmployees: employees
+        .filter((employee) => lateByEmployee.has(employee.id))
+        .map((employee) => ({
+          employeeId: String(employee.id),
+          fullName: employee.fullName,
+          recordedAt: lateByEmployee.get(employee.id)!.toISOString(),
+        })),
+    };
+  }
+
   private async createLeaveRequestDraft(
     conversationId: number,
     user: AuthUser,
@@ -482,7 +854,8 @@ export class ChatbotToolsService {
       );
     }
 
-    const totalDays = calculateLeaveDays(startDate, endDate);
+    const settings = await this.systemSettings.getSettings();
+    const totalDays = calculateLeaveDays(startDate, endDate, settings.workWeek);
     if (totalDays <= 0) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
@@ -679,6 +1052,7 @@ export class ChatbotToolsService {
     const employeeId = this.requireEmployee(user);
     const limit = Math.min(Math.max(this.integerArg(args.limit, 10), 1), 20);
     const mode = this.stringArg(args.mode, "upcoming");
+    const includeOverdue = this.booleanArg(args.includeOverdue, mode === "overdue");
     const days = Math.min(Math.max(this.integerArg(args.days, 7), 1), 30);
     const today = toDateOnly(new Date());
     const endDate = new Date(today);
@@ -689,14 +1063,16 @@ export class ChatbotToolsService {
         ? { lt: today }
         : mode === "today"
           ? { gte: today, lte: today }
-          : { gte: today, lte: endDate };
+          : includeOverdue
+            ? { lte: endDate }
+            : { gte: today, lte: endDate };
 
-    return this.prisma.task.findMany({
+    const tasks = await this.prisma.task.findMany({
       where: {
         assigneeId: employeeId,
         deletedAt: null,
         status: {
-          in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.IN_REVIEW],
+          in: ACTIVE_TASK_STATUSES,
         },
         dueDate,
       },
@@ -708,6 +1084,120 @@ export class ChatbotToolsService {
       orderBy: [{ dueDate: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
       take: limit,
     });
+
+    return {
+      items: tasks.map((task) => ({
+        taskId: String(task.id),
+        title: task.title,
+        status: task.status,
+        priority: task.priority,
+        dueDate: task.dueDate ? this.dateKey(task.dueDate) : null,
+        projectName: task.project?.name ?? null,
+        isOverdue: Boolean(task.dueDate && toDateOnly(task.dueDate) < today),
+      })),
+    };
+  }
+
+  private async getTeamTaskSummary(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const where = await this.teamTaskWhere(user, args);
+    const today = toDateOnly(new Date());
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        ...where,
+        deletedAt: null,
+        status: { in: ACTIVE_TASK_STATUSES },
+      },
+      include: {
+        assignee: { select: { id: true, fullName: true } },
+      },
+      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      take: 500,
+    });
+
+    const byStatus: Record<string, number> = {};
+    for (const status of ACTIVE_TASK_STATUSES) {
+      byStatus[status] = 0;
+    }
+    const assigneeCounts = new Map<number, { fullName: string; count: number }>();
+    let overdueTaskCount = 0;
+
+    for (const task of tasks) {
+      byStatus[task.status] = (byStatus[task.status] ?? 0) + 1;
+      if (task.dueDate && toDateOnly(task.dueDate) < today) {
+        overdueTaskCount += 1;
+      }
+      if (task.assignee) {
+        const current = assigneeCounts.get(task.assignee.id) ?? {
+          fullName: task.assignee.fullName,
+          count: 0,
+        };
+        current.count += 1;
+        assigneeCounts.set(task.assignee.id, current);
+      }
+    }
+
+    return {
+      totalActiveTasks: tasks.length,
+      overdueTaskCount,
+      byStatus,
+      topAssignees: Array.from(assigneeCounts.entries())
+        .map(([employeeId, value]) => ({
+          employeeId: String(employeeId),
+          fullName: value.fullName,
+          activeTaskCount: value.count,
+        }))
+        .sort((left, right) => right.activeTaskCount - left.activeTaskCount)
+        .slice(0, 5),
+    };
+  }
+
+  private async getDepartmentHeadcount(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const scope = this.scopeArg(args.scope);
+    const employeeIds = await this.readableEmployeeIds(user, args, {
+      all: "EMPLOYEE_READ_ALL",
+      team: "EMPLOYEE_READ_TEAM",
+      self: "EMPLOYEE_READ_SELF",
+    });
+    const employees = employeeIds.length
+      ? await this.prisma.employee.findMany({
+          where: currentEmployeeWhere({
+            id: { in: employeeIds },
+            status: EmployeeStatus.ACTIVE,
+          }),
+          include: { department: true },
+          orderBy: { fullName: "asc" },
+        })
+      : [];
+    const departmentCounts = new Map<
+      number,
+      { departmentId: string; departmentName: string; count: number }
+    >();
+    for (const employee of employees) {
+      if (!employee.department) {
+        continue;
+      }
+      const current = departmentCounts.get(employee.department.id) ?? {
+        departmentId: String(employee.department.id),
+        departmentName: employee.department.name,
+        count: 0,
+      };
+      current.count += 1;
+      departmentCounts.set(employee.department.id, current);
+    }
+
+    return {
+      scope,
+      count: employees.length,
+      departments: Array.from(departmentCounts.values()).sort((left, right) =>
+        left.departmentName.localeCompare(right.departmentName),
+      ),
+    };
   }
 
   private async loadOwnedAction(actionId: number, userId: number) {
@@ -952,6 +1442,265 @@ export class ChatbotToolsService {
       "Forbidden",
       "FORBIDDEN",
     );
+  }
+
+  private async readableEmployeeIds(
+    user: AuthUser,
+    args: Record<string, unknown>,
+    permissions: { all: string; team: string; self: string },
+  ) {
+    const scope = this.scopeArg(args.scope);
+    if (this.accessControl.isAdmin(user) || this.hasAny(user, permissions.all)) {
+      if (scope === "my_team" && user.employeeId) {
+        const ids = await this.accessControl.teamEmployeeIds(user);
+        return ids.length ? ids : [user.employeeId];
+      }
+      if (scope === "my_department" && user.employeeId) {
+        const ids = await this.departmentEmployeeIdsForEmployee(user.employeeId);
+        return ids.length ? ids : [user.employeeId];
+      }
+      return this.allActiveEmployeeIds();
+    }
+
+    if (scope === "company") {
+      throw new ApiError(HttpStatus.FORBIDDEN, "Forbidden", "FORBIDDEN");
+    }
+
+    if (this.hasAny(user, permissions.team) && user.employeeId) {
+      if (scope === "my_department") {
+        const employee = await this.prisma.employee.findFirst({
+          where: currentEmployeeWhere({ id: user.employeeId }),
+          select: { departmentId: true },
+        });
+        if (
+          employee?.departmentId &&
+          (await this.accessControl.isDepartmentHead(user, employee.departmentId))
+        ) {
+          const ids = await this.departmentEmployeeIds(employee.departmentId);
+          return ids.length ? ids : [user.employeeId];
+        }
+      }
+      const ids = await this.accessControl.teamEmployeeIds(user);
+      return ids.length ? ids : [user.employeeId];
+    }
+
+    if (this.hasAny(user, permissions.self) && user.employeeId) {
+      return [user.employeeId];
+    }
+
+    return [];
+  }
+
+  private async allActiveEmployeeIds() {
+    const employees = await this.prisma.employee.findMany({
+      where: currentEmployeeWhere({ status: EmployeeStatus.ACTIVE }),
+      select: { id: true },
+    });
+    return employees.map((employee) => employee.id);
+  }
+
+  private async departmentEmployeeIdsForEmployee(employeeId: number) {
+    const employee = await this.prisma.employee.findFirst({
+      where: currentEmployeeWhere({ id: employeeId }),
+      select: { departmentId: true },
+    });
+    return employee?.departmentId
+      ? this.departmentEmployeeIds(employee.departmentId)
+      : [];
+  }
+
+  private async departmentEmployeeIds(departmentId: number) {
+    const employees = await this.prisma.employee.findMany({
+      where: currentEmployeeWhere({
+        departmentId,
+        status: EmployeeStatus.ACTIVE,
+      }),
+      select: { id: true },
+    });
+    return employees.map((employee) => employee.id);
+  }
+
+  private async teamTaskWhere(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ): Promise<Prisma.TaskWhereInput> {
+    const scope = this.scopeArg(args.scope);
+    if (this.accessControl.isAdmin(user) || this.hasAny(user, "TASK_READ_ALL")) {
+      if (scope === "my_team" && user.employeeId) {
+        const managedTeamIds = await this.accessControl.managedTeamIds(user);
+        return {
+          teamId: { in: managedTeamIds.length ? managedTeamIds : [-1] },
+        };
+      }
+      if (scope === "my_department" && user.employeeId) {
+        return {
+          OR: [
+            { department: { managerId: user.employeeId } },
+            { project: { department: { managerId: user.employeeId } } },
+          ],
+        };
+      }
+      return {};
+    }
+
+    if (!user.employeeId || !this.hasAny(user, "TASK_READ_TEAM")) {
+      throw new ApiError(HttpStatus.FORBIDDEN, "Forbidden", "FORBIDDEN");
+    }
+    if (scope === "company") {
+      throw new ApiError(HttpStatus.FORBIDDEN, "Forbidden", "FORBIDDEN");
+    }
+
+    const teamEmployeeIds = await this.accessControl.teamEmployeeIds(user);
+    const managedTeamIds = await this.accessControl.managedTeamIds(user);
+    const filters: Prisma.TaskWhereInput[] = [];
+    if (teamEmployeeIds.length) {
+      filters.push({ assigneeId: { in: teamEmployeeIds } });
+    }
+    if (managedTeamIds.length) {
+      filters.push({ teamId: { in: managedTeamIds } });
+    }
+    filters.push(
+      { department: { managerId: user.employeeId } },
+      { project: { department: { managerId: user.employeeId } } },
+    );
+
+    return { OR: filters.length ? filters : [{ id: -1 }] };
+  }
+
+  private birthdayRange(args: Record<string, unknown>, today: Date) {
+    if (
+      (typeof args.fromDate === "string" && args.fromDate.trim()) ||
+      (typeof args.toDate === "string" && args.toDate.trim())
+    ) {
+      const range = this.dateRange(args, today, 1, MAX_BIRTHDAY_RANGE_DAYS);
+      return { ...range, month: undefined as number | undefined };
+    }
+
+    const currentMonth = today.getUTCMonth() + 1;
+    const currentYear = today.getUTCFullYear();
+    const month = this.integerArg(args.month, currentMonth);
+    const year = this.integerArg(args.year, currentYear);
+    if (month < 1 || month > 12) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Month must be between 1 and 12",
+        "VALIDATION_ERROR",
+      );
+    }
+
+    return {
+      month,
+      fromDate: new Date(Date.UTC(year, month - 1, 1)),
+      toDate: new Date(Date.UTC(year, month, 0)),
+    };
+  }
+
+  private dateRange(
+    args: Record<string, unknown>,
+    today: Date,
+    defaultDays: number,
+    maxDays: number,
+  ) {
+    const hasFrom = typeof args.fromDate === "string" && args.fromDate.trim();
+    const hasTo = typeof args.toDate === "string" && args.toDate.trim();
+    const fromDate = hasFrom ? this.dateArg(args.fromDate, "fromDate") : today;
+    const toDate = hasTo
+      ? this.dateArg(args.toDate, "toDate")
+      : this.addDays(fromDate, defaultDays - 1);
+
+    if (toDate < fromDate) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "toDate must be after or equal to fromDate",
+        "VALIDATION_ERROR",
+      );
+    }
+    if (this.daysBetween(fromDate, toDate) > maxDays) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Date range is too wide",
+        "CHATBOT_DATE_RANGE_TOO_WIDE",
+      );
+    }
+
+    return { fromDate, toDate };
+  }
+
+  private birthdayInRange(birthDate: Date, fromDate: Date, toDate: Date) {
+    const birthMonth = birthDate.getUTCMonth();
+    const birthDay = birthDate.getUTCDate();
+    for (
+      let year = fromDate.getUTCFullYear();
+      year <= toDate.getUTCFullYear();
+      year += 1
+    ) {
+      const birthday = new Date(Date.UTC(year, birthMonth, birthDay));
+      if (birthday >= fromDate && birthday <= toDate) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private nextBirthdayTime(birthDate: Date, fromDate: Date) {
+    let birthday = new Date(
+      Date.UTC(
+        fromDate.getUTCFullYear(),
+        birthDate.getUTCMonth(),
+        birthDate.getUTCDate(),
+      ),
+    );
+    if (birthday < fromDate) {
+      birthday = new Date(
+        Date.UTC(
+          fromDate.getUTCFullYear() + 1,
+          birthDate.getUTCMonth(),
+          birthDate.getUTCDate(),
+        ),
+      );
+    }
+    return birthday.getTime();
+  }
+
+  private birthdayKey(value: Date) {
+    const date = toDateOnly(value);
+    return `${this.pad2(date.getUTCDate())}/${this.pad2(date.getUTCMonth() + 1)}`;
+  }
+
+  private scopeArg(value: unknown) {
+    const scope = this.stringArg(value, "allowed");
+    return ["company", "my_department", "my_team", "allowed"].includes(scope)
+      ? scope
+      : "allowed";
+  }
+
+  private booleanArg(value: unknown, fallback = false) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      if (["true", "1", "yes"].includes(value.toLowerCase())) {
+        return true;
+      }
+      if (["false", "0", "no"].includes(value.toLowerCase())) {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  private addDays(date: Date, days: number) {
+    const next = new Date(date);
+    next.setUTCDate(next.getUTCDate() + days);
+    return next;
+  }
+
+  private daysBetween(fromDate: Date, toDate: Date) {
+    return Math.floor((toDate.getTime() - fromDate.getTime()) / 86_400_000) + 1;
+  }
+
+  private pad2(value: number) {
+    return value.toString().padStart(2, "0");
   }
 
   private stringArg(value: unknown, fallback = "") {

@@ -32,6 +32,36 @@ import { TasksModule } from "./tasks/tasks.module";
 import { TeamsModule } from "./teams/teams.module";
 import { UsersModule } from "./users/users.module";
 
+const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const insecureProductionValues = new Map<string, string[]>([
+  ["JWT_ACCESS_SECRET", ["change_me_access_secret"]],
+  ["JWT_REFRESH_SECRET", ["change_me_refresh_secret"]],
+  ["AI_INTERNAL_TOKEN", ["change-me"]],
+  ["DEFAULT_ADMIN_PASSWORD", ["Admin@123456"]],
+]);
+
+function rejectInsecureProductionConfig(
+  env: Record<string, unknown>,
+  helpers: Joi.CustomHelpers
+) {
+  if (env.NODE_ENV !== "production") {
+    return env;
+  }
+
+  for (const [key, blockedValues] of insecureProductionValues.entries()) {
+    const value = String(env[key] ?? "");
+    if (blockedValues.includes(value) || value.startsWith("replace-with-")) {
+      return helpers.error("any.invalid");
+    }
+  }
+
+  if (String(env.CORS_ORIGIN ?? "").includes("*")) {
+    return helpers.error("any.invalid");
+  }
+
+  return env;
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -42,19 +72,22 @@ import { UsersModule } from "./users/users.module";
           .default("development"),
         PORT: Joi.number().default(3000),
         DATABASE_URL: Joi.string().required(),
-        JWT_ACCESS_SECRET: Joi.string().min(12).required(),
-        JWT_REFRESH_SECRET: Joi.string().min(12).required(),
+        JWT_ACCESS_SECRET: Joi.string().min(32).required(),
+        JWT_REFRESH_SECRET: Joi.string().min(32).required(),
         JWT_ACCESS_EXPIRES_IN: Joi.string().default("15m"),
         JWT_REFRESH_EXPIRES_IN: Joi.string().default("7d"),
-        BCRYPT_SALT_ROUNDS: Joi.number().default(10),
+        BCRYPT_SALT_ROUNDS: Joi.number().integer().min(10).max(14).default(10),
         DEFAULT_ADMIN_USERNAME: Joi.string().default("admin"),
         DEFAULT_ADMIN_EMAIL: Joi.string()
           .email({ tlds: { allow: false } })
           .default("admin@corehr.local"),
-        DEFAULT_ADMIN_PASSWORD: Joi.string().min(8).default("Admin@123456"),
+        DEFAULT_ADMIN_PASSWORD: Joi.string()
+          .min(12)
+          .pattern(strongPasswordPattern)
+          .default("Admin@123456"),
         CORS_ORIGIN: Joi.string().default("http://localhost:5173"),
         AI_SERVICE_URL: Joi.string().default("http://localhost:8000"),
-        AI_INTERNAL_TOKEN: Joi.string().min(6).default("change-me"),
+        AI_INTERNAL_TOKEN: Joi.string().min(32).required(),
         AI_TIMEOUT_MS: Joi.number().default(30000),
         CHATBOT_RATE_LIMIT_TTL_SECONDS: Joi.number().default(60),
         CHATBOT_RATE_LIMIT_MAX: Joi.number().default(20),
@@ -62,7 +95,11 @@ import { UsersModule } from "./users/users.module";
         CHATBOT_HISTORY_LIMIT: Joi.number().default(12),
         CHATBOT_MAX_MESSAGE_LENGTH: Joi.number().default(1000),
         CHATBOT_PENDING_ACTION_TTL_MINUTES: Joi.number().default(30),
-      }),
+      })
+        .custom(rejectInsecureProductionConfig, "production security guard")
+        .messages({
+          "any.invalid": "Production config must not use insecure default secrets",
+        }),
     }),
     ThrottlerModule.forRoot([
       {

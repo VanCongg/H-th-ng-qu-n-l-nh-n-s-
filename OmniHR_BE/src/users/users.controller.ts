@@ -10,7 +10,6 @@ import {
   Query
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
 import { Permissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { ReqContext } from "../common/decorators/request-context.decorator";
@@ -19,6 +18,7 @@ import { AssignRoleDto } from "./dto/assign-role.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ResetUserPasswordDto } from "./dto/reset-user-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UserQueryDto } from "./dto/user-query.dto";
 import { UsersService } from "./users.service";
 
 @ApiTags("users")
@@ -29,7 +29,7 @@ export class UsersController {
 
   @Permissions("USER_READ")
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
+  findAll(@Query() query: UserQueryDto) {
     return this.usersService.findAll(query);
   }
 

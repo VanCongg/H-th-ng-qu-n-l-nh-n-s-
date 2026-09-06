@@ -19,11 +19,28 @@ describe("common utils", () => {
     );
   });
 
-  it("counts leave days excluding weekends", () => {
+  it("counts leave days excluding weekends by default", () => {
     const start = toDateOnly("2026-06-05");
     const end = toDateOnly("2026-06-09");
 
     expect(calculateLeaveDays(start, end)).toBe(3);
+  });
+
+  it("counts Saturday as a working day when configured in the work week", () => {
+    const start = toDateOnly("2026-06-06");
+    const end = toDateOnly("2026-06-07");
+
+    expect(calculateLeaveDays(start, end)).toBe(0);
+    expect(
+      calculateLeaveDays(start, end, [
+        "MONDAY",
+        "TUESDAY",
+        "WEDNESDAY",
+        "THURSDAY",
+        "FRIDAY",
+        "SATURDAY"
+      ])
+    ).toBe(1);
   });
 
   it("bounds pagination input", () => {

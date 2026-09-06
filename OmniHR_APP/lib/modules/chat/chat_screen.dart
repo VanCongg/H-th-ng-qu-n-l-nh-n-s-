@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
+import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
+import '../../models/chat_models.dart';
 import 'chat_message_bubble.dart';
-import 'chat_models.dart';
 import 'pending_action_card.dart';
 
 const _quickReplies = [
   'Hôm nay tôi đã chấm công chưa?',
   'Tôi còn bao nhiêu ngày phép?',
   'Tôi muốn xin nghỉ',
-  'Xem task của tôi',
+  'Công việc nào của tôi sắp đến hạn?',
+  'Tháng này có ai sinh nhật?',
+  'Manager của tôi là ai?',
 ];
 
 class ChatScreen extends StatefulWidget {
@@ -26,11 +29,13 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final _messages = <ChatMessage>[
-    const ChatMessage(
+  late final _messages = <ChatMessage>[
+    ChatMessage(
       role: ChatMessageRole.assistant,
-      content:
-          'Xin chào, tôi là HRGenie. Bạn muốn hỏi về chấm công, nghỉ phép hay task?',
+      content: tx(
+        'Xin chào, tôi là HRGenie. Bạn muốn hỏi về chấm công, nghỉ phép hay '
+        'công việc?',
+      ),
     ),
   ];
 
@@ -79,7 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add(
           ChatMessage(
             role: ChatMessageRole.assistant,
-            content: textOf(data['reply'], 'Tôi chưa có phản hồi phù hợp.'),
+            content: textOf(data['reply'], tx('Tôi chưa có phản hồi phù hợp.')),
             pendingAction: pendingAction,
           ),
         );
@@ -115,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add(
           ChatMessage(
             role: ChatMessageRole.assistant,
-            content: textOf(data['reply'], 'Đã xác nhận thao tác.'),
+            content: textOf(data['reply'], tx('Đã xác nhận thao tác.')),
           ),
         );
       });
@@ -144,7 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add(
           ChatMessage(
             role: ChatMessageRole.assistant,
-            content: textOf(data['reply'], 'Đã hủy thao tác.'),
+            content: textOf(data['reply'], tx('Đã hủy thao tác.')),
           ),
         );
       });
@@ -198,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('HRGenie'),
         actions: [
           IconButton(
-            tooltip: 'Làm mới',
+            tooltip: tx('Làm mới'),
             onPressed: _sending || _actionBusy
                 ? null
                 : () {
@@ -207,10 +212,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       _messages
                         ..clear()
                         ..add(
-                          const ChatMessage(
+                          ChatMessage(
                             role: ChatMessageRole.assistant,
-                            content:
-                                'Tôi đã mở hội thoại mới. Bạn muốn hỏi gì?',
+                            content: tx(
+                              'Tôi đã mở hội thoại mới. Bạn muốn hỏi gì?',
+                            ),
                           ),
                         );
                     });
@@ -270,10 +276,7 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _QuickReplies extends StatelessWidget {
-  const _QuickReplies({
-    required this.enabled,
-    required this.onSelected,
-  });
+  const _QuickReplies({required this.enabled, required this.onSelected});
 
   final bool enabled;
   final ValueChanged<String> onSelected;
@@ -282,7 +285,7 @@ class _QuickReplies extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         border: Border(
           top: BorderSide(color: brandColor.withValues(alpha: 0.06)),
         ),
@@ -295,7 +298,7 @@ class _QuickReplies extends StatelessWidget {
             for (final reply in _quickReplies) ...[
               ActionChip(
                 avatar: const Icon(Icons.bolt_rounded, size: 16),
-                label: Text(reply),
+                label: Text(tx(reply)),
                 onPressed: enabled ? () => onSelected(reply) : null,
               ),
               const SizedBox(width: 8),
@@ -322,7 +325,7 @@ class _Composer extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         border: Border(
           top: BorderSide(color: brandColor.withValues(alpha: 0.08)),
         ),
@@ -338,9 +341,9 @@ class _Composer extends StatelessWidget {
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSend(),
-                decoration: const InputDecoration(
-                  hintText: 'Nhập câu hỏi cho HRGenie',
-                  prefixIcon: Icon(Icons.auto_awesome_rounded),
+                decoration: InputDecoration(
+                  hintText: tx('Nhập câu hỏi cho HRGenie'),
+                  prefixIcon: const Icon(Icons.auto_awesome_rounded),
                 ),
               ),
             ),
@@ -374,7 +377,7 @@ class _TypingIndicator extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: brandColor.withValues(alpha: 0.08)),
         ),

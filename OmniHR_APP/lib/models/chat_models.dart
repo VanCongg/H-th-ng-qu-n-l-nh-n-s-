@@ -1,4 +1,5 @@
-import '../../core/utils.dart';
+import '../core/i18n.dart';
+import '../core/utils.dart';
 
 enum ChatMessageRole { user, assistant }
 
@@ -33,7 +34,7 @@ class PendingChatAction {
     return PendingChatAction(
       actionId: intOf(json['actionId']),
       type: textOf(json['type']),
-      title: textOf(json['title'], 'Xác nhận thao tác'),
+      title: textOf(json['title'], tx('Xác nhận thao tác')),
       summary: mapOf(json['summary']),
       expiresAt: dateOf(json['expiresAt']),
     );

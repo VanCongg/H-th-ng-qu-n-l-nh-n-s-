@@ -32,6 +32,21 @@ class ToolPlannerServiceTest(unittest.TestCase):
             ],
         )
 
+    def smart_request(self, message: str) -> ChatPlanRequest:
+        request = self.request(message)
+        request.availableTools.extend(
+            [
+                ToolDefinition(name="get_employee_birthdays"),
+                ToolDefinition(name="get_who_is_on_leave_today"),
+                ToolDefinition(name="get_upcoming_leaves"),
+                ToolDefinition(name="get_team_attendance_summary"),
+                ToolDefinition(name="get_team_task_summary"),
+                ToolDefinition(name="get_department_headcount"),
+                ToolDefinition(name="get_my_manager"),
+            ]
+        )
+        return request
+
     def test_leave_request_tomorrow(self) -> None:
         response = self.planner.plan(self.request("Mai tôi muốn nghỉ 1 ngày"))
 
@@ -65,6 +80,24 @@ class ToolPlannerServiceTest(unittest.TestCase):
 
         self.assertEqual(response.type, "tool_plan")
         self.assertEqual(response.toolCalls[0].toolName, "get_my_tasks")
+
+    def test_employee_birthdays(self) -> None:
+        response = self.planner.plan(
+            self.smart_request("Tháng này có ai sinh nhật không?")
+        )
+
+        self.assertEqual(response.type, "tool_plan")
+        self.assertEqual(response.intent, "GET_EMPLOYEE_BIRTHDAYS")
+        self.assertEqual(response.toolCalls[0].toolName, "get_employee_birthdays")
+
+    def test_team_task_summary(self) -> None:
+        response = self.planner.plan(
+            self.smart_request("Team tôi có task nào quá hạn không?")
+        )
+
+        self.assertEqual(response.type, "tool_plan")
+        self.assertEqual(response.intent, "GET_TEAM_TASK_SUMMARY")
+        self.assertEqual(response.toolCalls[0].toolName, "get_team_task_summary")
 
 
 if __name__ == "__main__":

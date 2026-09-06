@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/omni_models.dart';
 import 'api_service.dart';
+import 'i18n.dart';
 import 'utils.dart';
 
 class AppSession extends ChangeNotifier implements ApiClientSession {
@@ -18,6 +19,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   static const _accessTokenKey = 'accessToken';
   static const _refreshTokenKey = 'refreshToken';
   static const _userKey = 'authUser';
+  static const _themeModeKey = 'themeMode';
+  static const _languageKey = 'language';
   static const _secureStorage = FlutterSecureStorage();
 
   late final ApiService api;
@@ -29,6 +32,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   String? refreshToken;
   AuthUser? user;
   Employee? employee;
+  ThemeMode _themeMode = ThemeMode.light;
+  AppLanguage _language = AppLanguage.vi;
 
   @override
   String get baseUrl => _baseUrl;
@@ -38,6 +43,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
 
   bool get bootstrapping => _bootstrapping;
   bool get isLoggedIn => _accessToken != null && user != null;
+  ThemeMode get themeMode => _themeMode;
+  AppLanguage get language => _language;
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
@@ -52,6 +59,17 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       user = AuthUser.fromJson(mapOf(jsonDecode(rawUser)));
     }
 
+    _themeMode = (_prefs?.getString(_themeModeKey)) == 'dark'
+        ? ThemeMode.dark
+        : ThemeMode.light;
+    applyAppBrightness(
+      _themeMode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+    );
+    _language = (_prefs?.getString(_languageKey)) == 'en'
+        ? AppLanguage.en
+        : AppLanguage.vi;
+    currentLanguage = _language;
+
     if (_accessToken != null) {
       try {
         await loadCurrentUser();
@@ -62,6 +80,27 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     }
 
     _bootstrapping = false;
+    notifyListeners();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    if (_themeMode == mode) return;
+    _themeMode = mode;
+    applyAppBrightness(mode == ThemeMode.dark ? Brightness.dark : Brightness.light);
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.setString(_themeModeKey, mode == ThemeMode.dark ? 'dark' : 'light');
+    notifyListeners();
+  }
+
+  Future<void> setLanguage(AppLanguage language) async {
+    if (_language == language) return;
+    _language = language;
+    currentLanguage = language;
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.setString(
+      _languageKey,
+      language == AppLanguage.en ? 'en' : 'vi',
+    );
     notifyListeners();
   }
 
@@ -87,10 +126,15 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
           )
           .timeout(const Duration(seconds: 20));
     } on FormatException {
-      throw ApiException('API URL không hợp lệ: $candidateBaseUrl');
+      throw ApiException(
+        tx('API URL không hợp lệ: {url}', {'url': candidateBaseUrl}),
+      );
     } on Exception catch (error) {
       throw ApiException(
-        'Không thể kết nối backend tại $candidateBaseUrl. Vui lòng kiểm tra máy chủ.',
+        tx(
+          'Không thể kết nối backend tại {url}. Vui lòng kiểm tra máy chủ.',
+          {'url': candidateBaseUrl},
+        ),
         errorCode: error.toString(),
       );
     }

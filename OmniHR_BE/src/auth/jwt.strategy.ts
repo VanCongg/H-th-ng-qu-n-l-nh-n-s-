@@ -14,7 +14,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>("JWT_ACCESS_SECRET") ?? "change_me_access_secret"
+      secretOrKey: requiredConfig(config, "JWT_ACCESS_SECRET")
     });
   }
 
@@ -26,4 +26,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     return user;
   }
+}
+
+function requiredConfig(config: ConfigService, key: string) {
+  const value = config.get<string>(key);
+  if (!value) {
+    throw new Error(`Missing required config: ${key}`);
+  }
+  return value;
 }

@@ -191,12 +191,18 @@ export class ChatbotService {
       this.systemSettings.getSettings(),
     ]);
 
+    const currentDate = this.dateKeyForOffset(
+      new Date(),
+      settings.timezoneOffsetMinutes,
+    );
+
     return {
       conversationId: String(conversationId),
       message,
       locale: "vi",
       timezone: "Asia/Ho_Chi_Minh",
-      today: this.dateKeyForOffset(new Date(), settings.timezoneOffsetMinutes),
+      today: currentDate,
+      currentDate,
       userContext,
       availableTools,
       history,
@@ -235,19 +241,33 @@ export class ChatbotService {
     switch (first.toolName) {
       case "get_my_profile":
         return this.profileReply(first.data);
+      case "get_my_manager":
+        return this.myManagerReply(first.data);
       case "get_my_leave_balance":
         return this.leaveBalanceReply(first.data);
       case "get_my_leave_requests":
         return this.leaveRequestsReply(first.data);
       case "get_leave_types":
         return this.leaveTypesReply(first.data);
+      case "get_employee_birthdays":
+        return this.birthdaysReply(first.data);
+      case "get_who_is_on_leave_today":
+        return this.leaveTodayReply(first.data);
+      case "get_upcoming_leaves":
+        return this.upcomingLeavesReply(first.data);
       case "get_today_attendance":
         return this.attendanceReply(first.data);
+      case "get_team_attendance_summary":
+        return this.attendanceSummaryReply(first.data);
       case "get_attendance_policy":
         return this.attendancePolicyReply(first.data);
       case "get_my_tasks":
       case "get_my_upcoming_tasks":
         return this.tasksReply(first.data);
+      case "get_team_task_summary":
+        return this.teamTaskSummaryReply(first.data);
+      case "get_department_headcount":
+        return this.headcountReply(first.data);
       default:
         return fallback || "Tôi đã lấy được thông tin bạn cần.";
     }
@@ -283,6 +303,19 @@ export class ChatbotService {
       `Phòng ban: ${profile.department ?? "-"}.`,
       `Vị trí: ${profile.position ?? "-"}.`,
       `Quản lý trực tiếp: ${profile.manager ?? "chưa có thông tin"}.`,
+    ].join("\n");
+  }
+
+  private myManagerReply(data: unknown) {
+    const profile = this.record(data);
+    const manager = this.record(profile.manager);
+    const managerText = manager.fullName
+      ? `${manager.fullName}${manager.positionName ? ` - ${manager.positionName}` : ""}`
+      : "chua co thong tin quan ly";
+    return [
+      `Phong ban cua ban: ${profile.departmentName ?? "-"}.`,
+      `Vi tri: ${profile.positionName ?? "-"}.`,
+      `Quan ly/nguoi duyet chinh: ${managerText}.`,
     ].join("\n");
   }
 
@@ -330,6 +363,37 @@ export class ChatbotService {
     return `Các loại nghỉ đang dùng: ${types.map((type) => type.name ?? type.code).join(", ")}.`;
   }
 
+  private birthdaysReply(data: unknown) {
+    const items = this.items(data);
+    if (!items.length) {
+      return "Chua co nhan vien nao trong pham vi ban duoc xem co sinh nhat trong khoang thoi gian nay.";
+    }
+    const lines = items.slice(0, 8).map((item, index) => {
+      const department = item.departmentName ? ` - ${item.departmentName}` : "";
+      return `${index + 1}. ${item.fullName ?? "Nhan vien"}: ${item.birthday ?? "-"}${department}`;
+    });
+    const suffix = items.length > 8 ? `\n... va ${items.length - 8} nguoi khac.` : "";
+    return `Danh sach sinh nhat trong pham vi ban duoc xem:\n${lines.join("\n")}${suffix}`;
+  }
+
+  private leaveTodayReply(data: unknown) {
+    const payload = this.record(data);
+    const items = this.items(data);
+    if (!items.length) {
+      return `Ngay ${this.formatDate(payload.date)}, chua co nhan vien nao trong pham vi ban duoc xem nghi phep.`;
+    }
+    return `Ngay ${this.formatDate(payload.date)}, co ${items.length} nhan vien nghi:\n${this.leaveLines(items)}`;
+  }
+
+  private upcomingLeavesReply(data: unknown) {
+    const payload = this.record(data);
+    const items = this.items(data);
+    if (!items.length) {
+      return `Tu ${this.formatDate(payload.fromDate)} den ${this.formatDate(payload.toDate)}, chua co nhan vien nao trong pham vi ban duoc xem nghi phep.`;
+    }
+    return `Lich nghi tu ${this.formatDate(payload.fromDate)} den ${this.formatDate(payload.toDate)}:\n${this.leaveLines(items)}`;
+  }
+
   private attendanceReply(data: unknown) {
     const attendance = this.record(data);
     const latest = attendance.latestRecordedAt
@@ -346,18 +410,98 @@ export class ChatbotService {
     return `Giờ làm việc hiện tại: sáng ${settings.morningShiftStart ?? "08:00"}-${settings.morningShiftEnd ?? "12:00"}, chiều ${settings.afternoonShiftStart ?? "13:00"}-${settings.afternoonShiftEnd ?? "17:00"}. Bán kính chấm công: ${settings.attendanceRadiusMeters ?? 100}m.`;
   }
 
+  private attendanceSummaryReply(data: unknown) {
+    const summary = this.record(data);
+    const notCheckedIn = this.items(summary.notCheckedInEmployees);
+    const late = this.items(summary.lateEmployees);
+    const lines = [
+      `Tinh hinh cham cong ngay ${this.formatDate(summary.date)}:`,
+      `- Tong nhan vien: ${summary.totalEmployees ?? 0}`,
+      `- Da check-in: ${summary.checkedInCount ?? 0}`,
+      `- Chua check-in: ${summary.notCheckedInCount ?? 0}`,
+      `- Di muon: ${summary.lateCount ?? 0}`,
+      `- Ve som: ${summary.earlyOutCount ?? 0}`,
+    ];
+    if (notCheckedIn.length) {
+      lines.push(
+        `Chua check-in: ${notCheckedIn
+          .slice(0, 6)
+          .map((item) => item.fullName)
+          .join(", ")}.`,
+      );
+    }
+    if (late.length) {
+      lines.push(
+        `Di muon: ${late
+          .slice(0, 6)
+          .map((item) => item.fullName)
+          .join(", ")}.`,
+      );
+    }
+    return lines.join("\n");
+  }
+
   private tasksReply(data: unknown) {
     const tasks = Array.isArray(data)
       ? data.map((item) => this.record(item))
-      : [];
+      : this.items(data);
     if (!tasks.length) {
       return "Bạn không có task mở nào trong danh sách hiện tại.";
     }
     const lines = tasks.slice(0, 5).map((task, index) => {
       const due = task.dueDate ? `, hạn ${this.formatDate(task.dueDate)}` : "";
-      return `${index + 1}. ${task.title ?? "Task"} (${task.status ?? "-"})${due}`;
+      const overdue = task.isOverdue ? " - qua han" : "";
+      return `${index + 1}. ${task.title ?? "Task"} (${task.status ?? "-"})${due}${overdue}`;
     });
     return `Các task sắp tới của bạn:\n${lines.join("\n")}`;
+  }
+
+  private teamTaskSummaryReply(data: unknown) {
+    const summary = this.record(data);
+    const byStatus = this.record(summary.byStatus);
+    const topAssignees = this.items(summary.topAssignees);
+    const lines = [
+      `Team/pham vi cua ban hien co ${summary.totalActiveTasks ?? 0} task dang mo.`,
+      `Task qua han: ${summary.overdueTaskCount ?? 0}.`,
+      `Theo trang thai: TODO ${byStatus.TODO ?? 0}, IN_PROGRESS ${byStatus.IN_PROGRESS ?? 0}, IN_REVIEW ${byStatus.IN_REVIEW ?? 0}.`,
+    ];
+    if (topAssignees.length) {
+      lines.push(
+        `Nguoi dang co nhieu task: ${topAssignees
+          .map((item) => `${item.fullName} (${item.activeTaskCount})`)
+          .join(", ")}.`,
+      );
+    }
+    return lines.join("\n");
+  }
+
+  private headcountReply(data: unknown) {
+    const payload = this.record(data);
+    const departments = this.items(payload.departments);
+    const lines = [`So nhan vien active trong pham vi nay: ${payload.count ?? 0}.`];
+    if (departments.length > 1) {
+      lines.push(
+        departments
+          .slice(0, 8)
+          .map(
+            (department) =>
+              `- ${department.departmentName ?? "Phong ban"}: ${department.count ?? 0}`,
+          )
+          .join("\n"),
+      );
+    }
+    return lines.join("\n");
+  }
+
+  private leaveLines(items: Array<Record<string, unknown>>) {
+    return items
+      .slice(0, 8)
+      .map((item, index) => {
+        const type = item.leaveTypeName ? ` - ${item.leaveTypeName}` : "";
+        const department = item.departmentName ? ` (${item.departmentName})` : "";
+        return `${index + 1}. ${item.fullName ?? "Nhan vien"}${department}${type}: ${this.formatDate(item.startDate)} den ${this.formatDate(item.endDate)}`;
+      })
+      .join("\n");
   }
 
   private assertMessageLength(message: string) {
@@ -488,6 +632,16 @@ export class ChatbotService {
     return typeof value === "object" && value !== null && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+  }
+
+  private items(value: unknown): Array<Record<string, unknown>> {
+    const record = this.record(value);
+    const source = Array.isArray(value)
+      ? value
+      : Array.isArray(record.items)
+        ? record.items
+        : [];
+    return source.map((item) => this.record(item));
   }
 
   private toJsonValue(value: unknown) {

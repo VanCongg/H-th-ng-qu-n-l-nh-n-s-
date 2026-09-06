@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/attendance_location.dart';
 import '../../core/api_service.dart';
+import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
@@ -139,25 +140,31 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          icon: const AppIconBadge(
+          icon: AppIconBadge(
             icon: Icons.location_off_outlined,
             color: dangerColor,
             size: 54,
           ),
-          title: const Text('Ngoài khu vực công ty'),
+          title: Text(tx('Ngoài khu vực công ty')),
           content: Text(
-            'Bạn đang cách văn phòng ${distance.round()}m, vượt quá bán kính '
-            'cho phép ${policy.attendanceRadiusMeters.round()}m. Vẫn tiếp tục?',
+            tx(
+              'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho '
+              'phép {radius}m. Vẫn tiếp tục?',
+              {
+                'distance': '${distance.round()}',
+                'radius': '${policy.attendanceRadiusMeters.round()}',
+              },
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
+              child: Text(tx('Hủy')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: dangerColor),
-              child: const Text('Vẫn tiếp tục'),
+              child: Text(tx('Vẫn tiếp tục')),
             ),
           ],
         );
@@ -172,7 +179,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ? 'ATTENDANCE_CHECK_IN'
         : 'ATTENDANCE_CHECK_OUT';
     if (!_hasPermission(permission)) {
-      showAppSnack(context, 'Tài khoản chưa có quyền chấm công.', error: true);
+      showAppSnack(context, tx('Tài khoản chưa có quyền chấm công.'), error: true);
       return;
     }
 
@@ -181,7 +188,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (!isCheckIn && latestRecord?.recordType != 'CHECK_IN') {
       showAppSnack(
         context,
-        'Bạn chưa chấm công vào nên không thể chấm công ra.',
+        tx('Bạn chưa chấm công vào nên không thể chấm công ra.'),
         error: true,
       );
       return;
@@ -196,18 +203,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             color: isCheckIn ? brandColor : accentColor,
             size: 54,
           ),
-          title: Text(isCheckIn ? 'Chấm công vào' : 'Chấm công ra'),
-          content: const Text(
-            'Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.',
+          title: Text(tx(isCheckIn ? 'Chấm công vào' : 'Chấm công ra')),
+          content: Text(
+            tx('Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.'),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
+              child: Text(tx('Hủy')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Xác nhận'),
+              child: Text(tx('Xác nhận')),
             ),
           ],
         );
@@ -230,7 +237,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       if (mounted) {
         showAppSnack(
           context,
-          isCheckIn ? 'Đã chấm công vào.' : 'Đã chấm công ra.',
+          tx(isCheckIn ? 'Đã chấm công vào.' : 'Đã chấm công ra.'),
         );
       }
       await _refresh();
@@ -262,8 +269,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final todayRecords = _todayRecords(records);
         final latestRecord = todayRecords.isEmpty ? null : todayRecords.first;
         final latestText = latestRecord == null
-            ? 'Hôm nay chưa có lượt chấm công.'
-            : '${friendlyRecordType(latestRecord.recordType)} lúc ${formatDateTime(latestRecord.recordedAt)}';
+            ? tx('Hôm nay chưa có lượt chấm công.')
+            : tx(
+                '{type} lúc {time}',
+                {
+                  'type': friendlyRecordType(latestRecord.recordType),
+                  'time': formatDateTime(latestRecord.recordedAt),
+                },
+              );
         final nextAction = latestRecord?.recordType == 'CHECK_IN'
             ? 'check-out'
             : 'check-in';
@@ -283,7 +296,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             children: [
               ActionPanel(
                 icon: Icons.location_on_outlined,
-                title: 'Chấm công hôm nay',
+                title: tx('Chấm công hôm nay'),
                 subtitle: latestText,
                 color: nextAction == 'check-in' ? brandColor : accentColor,
                 child: Column(
@@ -294,7 +307,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       runSpacing: 8,
                       children: [
                         Pill(
-                          label: '${todayRecords.length} lượt hôm nay',
+                          label: '${todayRecords.length} ${tx('lượt hôm nay')}',
                           color: brandColor,
                         ),
                         if (latestRecord?.shift != null)
@@ -316,12 +329,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     const SizedBox(height: 14),
                     Center(
                       child: AttendanceActionOrb(
-                        label: nextIsCheckIn ? 'Chấm công vào' : 'Chấm công ra',
-                        helperText: _submitting
-                            ? 'Đang lấy GPS'
-                            : nextIsCheckIn
-                            ? 'Bắt đầu ca'
-                            : 'Kết thúc ca',
+                        label: tx(nextIsCheckIn ? 'Chấm công vào' : 'Chấm công ra'),
+                        helperText: tx(
+                          _submitting
+                              ? 'Đang lấy GPS'
+                              : nextIsCheckIn
+                              ? 'Bắt đầu ca'
+                              : 'Kết thúc ca',
+                        ),
                         icon: nextIsCheckIn
                             ? Icons.login_rounded
                             : Icons.logout_rounded,
@@ -342,7 +357,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               AppPanel(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -395,8 +410,10 @@ class MonthAttendanceCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final monthTitle =
-        'Tháng ${visibleMonth.month.toString().padLeft(2, '0')}/${visibleMonth.year}';
+    final monthTitle = tx('Tháng {month}/{year}', {
+      'month': visibleMonth.month.toString().padLeft(2, '0'),
+      'year': '${visibleMonth.year}',
+    });
     final firstDay = DateTime(visibleMonth.year, visibleMonth.month);
     final daysInMonth = DateTime(
       visibleMonth.year,
@@ -412,7 +429,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                tooltip: 'Tháng trước',
+                tooltip: tx('Tháng trước'),
                 onPressed: onPreviousMonth,
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
@@ -426,7 +443,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Tháng sau',
+                tooltip: tx('Tháng sau'),
                 onPressed: onNextMonth,
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
@@ -434,14 +451,14 @@ class MonthAttendanceCalendar extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Row(
-            children: const [
-              _WeekdayLabel('T2'),
-              _WeekdayLabel('T3'),
-              _WeekdayLabel('T4'),
-              _WeekdayLabel('T5'),
-              _WeekdayLabel('T6'),
-              _WeekdayLabel('T7'),
-              _WeekdayLabel('CN'),
+            children: [
+              _WeekdayLabel(tx('T2')),
+              _WeekdayLabel(tx('T3')),
+              _WeekdayLabel(tx('T4')),
+              _WeekdayLabel(tx('T5')),
+              _WeekdayLabel(tx('T6')),
+              _WeekdayLabel(tx('T7')),
+              _WeekdayLabel(tx('CN')),
             ],
           ),
           const SizedBox(height: 8),
@@ -539,7 +556,7 @@ class _AttendanceDayCell extends StatelessWidget {
           shape: BoxShape.circle,
           color: color.withValues(alpha: backgroundOpacity),
           border: Border.all(
-            color: selected ? brandNavy : Colors.white,
+            color: selected ? brandColor : surfaceColor,
             width: selected ? 2.4 : 1.2,
           ),
           boxShadow: selected
@@ -583,12 +600,12 @@ class DayAttendanceDetails extends StatelessWidget {
           SectionTitle(
             title: formatDate(day),
             subtitle: records.isEmpty
-                ? 'Chưa có lượt chấm công trong ngày này'
-                : '${records.length} lượt chấm công',
+                ? tx('Chưa có lượt chấm công trong ngày này')
+                : tx('{count} lượt chấm công', {'count': '${records.length}'}),
           ),
           if (records.isEmpty)
-            const Text(
-              'Ngày này chưa ghi nhận chấm công.',
+            Text(
+              tx('Ngày này chưa ghi nhận chấm công.'),
               style: TextStyle(
                 color: mutedTextColor,
                 fontWeight: FontWeight.w600,

@@ -18,11 +18,11 @@ Quy tac bat buoc:
 
 JSON schema bat buoc:
 {
-  "intent": "SMALL_TALK | GET_MY_PROFILE | GET_TODAY_ATTENDANCE | GET_ATTENDANCE_POLICY | GET_MY_LEAVE_BALANCE | GET_MY_LEAVE_REQUESTS | GET_LEAVE_TYPES | CREATE_LEAVE_REQUEST_DRAFT | CANCEL_MY_PENDING_LEAVE_REQUEST | GET_MY_TASKS | GET_MY_UPCOMING_TASKS | UNKNOWN | OUT_OF_SCOPE | FORBIDDEN_REQUEST",
+  "intent": "SMALL_TALK | GET_MY_PROFILE | GET_TODAY_ATTENDANCE | GET_ATTENDANCE_POLICY | GET_MY_LEAVE_BALANCE | GET_MY_LEAVE_REQUESTS | GET_LEAVE_TYPES | CREATE_LEAVE_REQUEST_DRAFT | CANCEL_MY_PENDING_LEAVE_REQUEST | GET_MY_TASKS | GET_MY_UPCOMING_TASKS | GET_EMPLOYEE_BIRTHDAYS | GET_WHO_IS_ON_LEAVE_TODAY | GET_UPCOMING_LEAVES | GET_TEAM_ATTENDANCE_SUMMARY | GET_TEAM_TASK_SUMMARY | GET_DEPARTMENT_HEADCOUNT | GET_MY_MANAGER | UNKNOWN | OUT_OF_SCOPE | FORBIDDEN_REQUEST",
   "reply": "string",
   "toolCalls": [
     {
-      "toolName": "get_my_profile | get_today_attendance | get_attendance_policy | get_my_leave_balance | get_my_leave_requests | get_leave_types | create_leave_request_draft | cancel_my_pending_leave_request | get_my_tasks | get_my_upcoming_tasks",
+      "toolName": "get_my_profile | get_today_attendance | get_attendance_policy | get_my_leave_balance | get_my_leave_requests | get_leave_types | create_leave_request_draft | cancel_my_pending_leave_request | get_my_tasks | get_my_upcoming_tasks | get_employee_birthdays | get_who_is_on_leave_today | get_upcoming_leaves | get_team_attendance_summary | get_team_task_summary | get_department_headcount | get_my_manager",
       "arguments": {}
     }
   ],
@@ -39,13 +39,27 @@ Allowed arguments:
 - get_my_leave_balance: year
 - get_my_leave_requests: status, limit
 - get_my_tasks: status, limit
-- get_my_upcoming_tasks: mode, days, limit
+- get_my_upcoming_tasks: mode, days, limit, includeOverdue
+- get_employee_birthdays: month, year, fromDate, toDate, scope
+- get_who_is_on_leave_today: date, scope
+- get_upcoming_leaves: fromDate, toDate, scope
+- get_team_attendance_summary: date, scope
+- get_team_task_summary: scope, includeOverdue
+- get_department_headcount: scope
+- get_my_manager: no arguments
 - create_leave_request_draft: leaveTypeCode, startDate, endDate, reason
 - cancel_my_pending_leave_request: leaveRequestId, startDate
 
 Intent examples:
 - "Huy don nghi gan nhat cua toi", "Huy don nghi dang cho duyet" => CANCEL_MY_PENDING_LEAVE_REQUEST + cancel_my_pending_leave_request, confirmationRequired true.
 - "Toi co task nao sap den han khong", "Task nao qua han" => GET_MY_UPCOMING_TASKS + get_my_upcoming_tasks.
+- "Thang nay co ai sinh nhat khong" => GET_EMPLOYEE_BIRTHDAYS + get_employee_birthdays.
+- "Hom nay team toi co ai nghi khong" => GET_WHO_IS_ON_LEAVE_TODAY + get_who_is_on_leave_today.
+- "Tuan nay ai nghi" => GET_UPCOMING_LEAVES + get_upcoming_leaves.
+- "Hom nay team toi co ai chua check-in khong" => GET_TEAM_ATTENDANCE_SUMMARY + get_team_attendance_summary.
+- "Team toi co task nao qua han khong" => GET_TEAM_TASK_SUMMARY + get_team_task_summary.
+- "Phong toi co bao nhieu nguoi" => GET_DEPARTMENT_HEADCOUNT + get_department_headcount.
+- "Manager cua toi la ai" => GET_MY_MANAGER + get_my_manager.
 - "Toi muon nghi phep" thieu ngay nghi => CREATE_LEAVE_REQUEST_DRAFT, khong toolCalls, missingFields ["startDate"].
 
 Khong dua employeeId, approverId, status, createdBy, approvedBy vao arguments.

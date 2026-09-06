@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
 
+import 'i18n.dart';
+
 class AttendanceLocationException implements Exception {
   const AttendanceLocationException(this.message);
 
@@ -16,8 +18,8 @@ Future<Map<String, Object?>> currentAttendanceLocationPayload() async {
   try {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw const AttendanceLocationException(
-        'Không lấy được vị trí hiện tại. Vui lòng bật GPS và thử lại.',
+      throw AttendanceLocationException(
+        tx('Không lấy được vị trí hiện tại. Vui lòng bật GPS và thử lại.'),
       );
     }
 
@@ -27,21 +29,25 @@ Future<Map<String, Object?>> currentAttendanceLocationPayload() async {
     }
 
     if (permission == LocationPermission.denied) {
-      throw const AttendanceLocationException(
-        'Ứng dụng chưa được cấp quyền vị trí. Vui lòng cấp quyền và thử lại.',
+      throw AttendanceLocationException(
+        tx(
+          'Ứng dụng chưa được cấp quyền vị trí. Vui lòng cấp quyền và thử lại.',
+        ),
       );
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw const AttendanceLocationException(
-        'Quyền vị trí đang bị chặn. Vui lòng mở cài đặt thiết bị để cấp quyền.',
+      throw AttendanceLocationException(
+        tx(
+          'Quyền vị trí đang bị chặn. Vui lòng mở cài đặt thiết bị để cấp quyền.',
+        ),
       );
     }
 
     final position = await _currentOrLastKnownPosition();
     if (position == null) {
-      throw const AttendanceLocationException(
-        'Không lấy được vị trí hiện tại. Vui lòng bật GPS và thử lại.',
+      throw AttendanceLocationException(
+        tx('Không lấy được vị trí hiện tại. Vui lòng bật GPS và thử lại.'),
       );
     }
 
@@ -49,8 +55,11 @@ Future<Map<String, Object?>> currentAttendanceLocationPayload() async {
   } on AttendanceLocationException {
     rethrow;
   } catch (_) {
-    throw const AttendanceLocationException(
-      'Không lấy được vị trí hiện tại. Vui lòng bật GPS, cấp quyền vị trí và thử lại.',
+    throw AttendanceLocationException(
+      tx(
+        'Không lấy được vị trí hiện tại. Vui lòng bật GPS, cấp quyền vị trí '
+        'và thử lại.',
+      ),
     );
   }
 }

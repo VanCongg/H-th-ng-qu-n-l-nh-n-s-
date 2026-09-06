@@ -30,6 +30,28 @@ class PlannerSchemaTest(unittest.TestCase):
 
         self.assertEqual(validated.toolCalls[0].arguments, {})
 
+    def test_strips_sensitive_arguments_from_birthday_tool(self):
+        response = PlannerResponse.model_validate(
+            {
+                "intent": "GET_EMPLOYEE_BIRTHDAYS",
+                "reply": "Toi se kiem tra sinh nhat.",
+                "toolCalls": [
+                    {
+                        "toolName": "get_employee_birthdays",
+                        "arguments": {"month": 7, "employeeId": 999, "birthYear": 1996},
+                    }
+                ],
+                "confirmationRequired": False,
+                "missingFields": [],
+                "confidence": 0.9,
+                "safety": {"allowed": True, "reason": None},
+            }
+        )
+
+        validated = validate_planner_response(response, {"get_employee_birthdays"})
+
+        self.assertEqual(validated.toolCalls[0].arguments, {"month": 7})
+
     def test_rejects_tool_not_available(self):
         response = PlannerResponse.model_validate(
             {

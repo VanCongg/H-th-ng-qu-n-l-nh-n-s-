@@ -9,11 +9,11 @@ import { AuthUser, RequestContext } from "../common/types";
 import { omitSensitiveUser, pagination, toDateOnly } from "../common/utils";
 import { currentUserWhere } from "../common/prisma-where";
 import { isManagerPosition, type PositionRoleShape } from "../common/position-role";
-import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { AssignRoleDto } from "./dto/assign-role.dto";
 import { ResetUserPasswordDto } from "./dto/reset-user-password.dto";
+import { UserQueryDto } from "./dto/user-query.dto";
 import {
   CreateUserEmployeeProfileDto,
   UpdateUserEmployeeProfileDto
@@ -45,11 +45,19 @@ export class UsersService {
     private readonly audit: AuditService
   ) {}
 
-  async findAll(query: PaginationQueryDto) {
+  async findAll(query: UserQueryDto) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
-    const where: Prisma.UserWhereInput = {
-      ...currentUserWhere(),
-      ...(query.search
+    const employeeFilter: Prisma.EmployeeWhereInput = {
+      departmentId: query.departmentId,
+      positionId: query.positionId,
+      status: query.employeeStatus,
+      careerLevel: query.careerLevel
+    };
+    const hasEmployeeFilter = Object.values(employeeFilter).some(
+      (value) => value !== undefined
+    );
+    const where = currentUserWhere(
+      query.search
         ? {
             OR: [
               { username: { contains: query.search, mode: "insensitive" } },
@@ -87,8 +95,14 @@ export class UsersService {
               }
             ]
           }
-        : {})
-    };
+        : undefined,
+      query.roleId ? { userRoles: { some: { roleId: query.roleId } } } : undefined,
+      query.isActive !== undefined ? { isActive: query.isActive } : undefined,
+      query.mustChangePassword !== undefined
+        ? { mustChangePassword: query.mustChangePassword }
+        : undefined,
+      hasEmployeeFilter ? { employee: { is: employeeFilter } } : undefined
+    );
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({

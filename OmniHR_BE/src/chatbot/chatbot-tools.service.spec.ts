@@ -3,6 +3,7 @@ import {
   ChatbotActionType,
   LeaveRequestStatus,
 } from "@prisma/client";
+import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser } from "../common/types";
@@ -40,6 +41,7 @@ describe("ChatbotToolsService", () => {
       },
       employee: {
         findFirst: jest.fn(),
+        findMany: jest.fn(),
       },
       attendanceRecord: {
         findMany: jest.fn(),
@@ -49,6 +51,13 @@ describe("ChatbotToolsService", () => {
       },
     };
     const audit = { log: jest.fn() };
+    const accessControl = {
+      isAdmin: jest.fn().mockReturnValue(false),
+      isManager: jest.fn().mockReturnValue(false),
+      teamEmployeeIds: jest.fn().mockResolvedValue([]),
+      managedTeamIds: jest.fn().mockResolvedValue([]),
+      isDepartmentHead: jest.fn().mockResolvedValue(false),
+    };
     const systemSettings = { getSettings: jest.fn() };
     const leaveRequests = { create: jest.fn(), cancel: jest.fn() };
 
@@ -56,20 +65,25 @@ describe("ChatbotToolsService", () => {
       service: new ChatbotToolsService(
         prisma as unknown as PrismaService,
         audit as unknown as AuditService,
+        accessControl as unknown as AccessControlService,
         systemSettings as unknown as SystemSettingsService,
         leaveRequests as unknown as LeaveRequestsService,
       ),
       prisma,
       audit,
+      accessControl,
       systemSettings,
       leaveRequests,
     };
   }
 
   it("creates only a pending action for create_leave_request_draft", async () => {
-    const { service, prisma, audit, leaveRequests } = createService();
+    const { service, prisma, audit, leaveRequests, systemSettings } = createService();
     const expiresAt = new Date("2026-07-01T10:30:00.000Z");
 
+    systemSettings.getSettings.mockResolvedValue({
+      workWeek: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+    });
     prisma.leaveType.findFirst.mockResolvedValue({
       id: 3,
       code: "ANNUAL_LEAVE",
@@ -125,6 +139,51 @@ describe("ChatbotToolsService", () => {
         entityId: 99,
       }),
     );
+  });
+
+  it("returns birthday list without birth year or age", async () => {
+    const { service, prisma, systemSettings } = createService();
+    const birthdayUser: AuthUser = {
+      ...user,
+      permissions: ["EMPLOYEE_READ_SELF"],
+    };
+
+    systemSettings.getSettings.mockResolvedValue({ timezoneOffsetMinutes: 420 });
+    prisma.employee.findMany.mockResolvedValue([
+      {
+        id: 10,
+        fullName: "Nguyen Van A",
+        birthDate: new Date("1996-07-20T00:00:00.000Z"),
+        department: { name: "Engineering" },
+      },
+    ]);
+
+    const result = await service.executeTool(
+      7,
+      {
+        id: "call_1",
+        toolName: "get_employee_birthdays",
+        arguments: { month: 7, year: 2026 },
+      },
+      birthdayUser,
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.pendingAction).toBeUndefined();
+    expect(prisma.chatbotPendingAction.create).not.toHaveBeenCalled();
+    expect(result.data).toEqual(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            employeeId: "10",
+            fullName: "Nguyen Van A",
+            birthday: "20/07",
+          }),
+        ],
+      }),
+    );
+    expect(JSON.stringify(result.data)).not.toContain("1996");
+    expect(JSON.stringify(result.data).toLowerCase()).not.toContain("age");
   });
 
   it("confirms then executes a pending leave action", async () => {

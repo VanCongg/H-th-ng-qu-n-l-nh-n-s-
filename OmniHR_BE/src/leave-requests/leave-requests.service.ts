@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
+import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { calculateLeaveDays, pagination, toDateOnly } from "../common/utils";
 import { currentEmployeeWhere } from "../common/prisma-where";
@@ -29,7 +30,8 @@ export class LeaveRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly accessControl: AccessControlService
+    private readonly accessControl: AccessControlService,
+    private readonly systemSettings: SystemSettingsService
   ) {}
 
   async create(
@@ -59,7 +61,8 @@ export class LeaveRequestsService {
       );
     }
 
-    const totalDays = calculateLeaveDays(startDate, endDate);
+    const settings = await this.systemSettings.getSettings();
+    const totalDays = calculateLeaveDays(startDate, endDate, settings.workWeek);
     if (totalDays <= 0) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,

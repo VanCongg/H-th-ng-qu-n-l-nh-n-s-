@@ -20,6 +20,55 @@ class RuleBasedPlannerService:
         if self._is_cancel_leave_request(normalized):
             return self._cancel_leave_request_plan(request, normalized, available)
 
+        if self._has_any(normalized, "sinh nhat", "birthday"):
+            return self._birthdays_plan(request, normalized, available)
+
+        if self._is_leave_today_query(normalized):
+            return self._tool_plan(
+                "get_who_is_on_leave_today",
+                {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
+                available,
+                "Toi se kiem tra nhan vien nghi phep hom nay trong pham vi ban duoc xem.",
+            )
+
+        if self._is_upcoming_leaves_query(normalized):
+            return self._upcoming_leaves_plan(request, normalized, available)
+
+        if self._is_team_attendance_query(normalized):
+            return self._tool_plan(
+                "get_team_attendance_summary",
+                {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
+                available,
+                "Toi se tong hop tinh hinh cham cong trong pham vi ban duoc xem.",
+            )
+
+        if self._has_any(normalized, "manager cua toi", "quan ly cua toi", "ai duyet don", "nguoi duyet don"):
+            return self._tool_plan(
+                "get_my_manager",
+                {},
+                available,
+                "Toi se kiem tra quan ly va phong ban cua ban.",
+            )
+
+        if self._is_headcount_query(normalized):
+            return self._tool_plan(
+                "get_department_headcount",
+                {"scope": self._scope(normalized)},
+                available,
+                "Toi se dem so nhan vien active trong pham vi ban duoc xem.",
+            )
+
+        if self._is_team_task_query(normalized):
+            return self._tool_plan(
+                "get_team_task_summary",
+                {
+                    "scope": self._scope(normalized),
+                    "includeOverdue": self._has_any(normalized, "qua han", "tre han", "deadline"),
+                },
+                available,
+                "Toi se tong hop task trong pham vi team/phong ban ban duoc xem.",
+            )
+
         if self._has_any(normalized, "con bao nhieu ngay phep", "so phep", "phep con"):
             return self._tool_plan(
                 "get_my_leave_balance",
@@ -220,9 +269,71 @@ class RuleBasedPlannerService:
 
         return self._tool_plan(
             "get_my_upcoming_tasks",
-            {"mode": mode, "days": 7, "limit": 10},
+            {
+                "mode": mode,
+                "days": 7,
+                "limit": 10,
+                "includeOverdue": self._has_any(normalized, "qua han", "tre han"),
+            },
             available,
             "Tôi sẽ kiểm tra các task sắp đến hạn của bạn.",
+        )
+
+    def _birthdays_plan(
+        self,
+        request: ChatPlanRequest,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        today = self._today(request)
+        arguments: dict[str, object] = {"scope": self._scope(normalized)}
+        week_range = self._week_range_for_text(today, normalized)
+        if week_range is not None:
+            arguments["fromDate"] = week_range[0].isoformat()
+            arguments["toDate"] = week_range[1].isoformat()
+        else:
+            month = self._extract_month(normalized)
+            if month is not None:
+                arguments["month"] = month
+                arguments["year"] = today.year
+            elif "thang sau" in normalized:
+                next_month = today.month + 1
+                year = today.year
+                if next_month > 12:
+                    next_month = 1
+                    year += 1
+                arguments["month"] = next_month
+                arguments["year"] = year
+            else:
+                arguments["month"] = today.month
+                arguments["year"] = today.year
+
+        return self._tool_plan(
+            "get_employee_birthdays",
+            arguments,
+            available,
+            "Tôi sẽ kiểm tra danh sách sinh nhật trong phạm vi bạn được xem.",
+        )
+
+    def _upcoming_leaves_plan(
+        self,
+        request: ChatPlanRequest,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        today = self._today(request)
+        week_range = self._week_range_for_text(today, normalized)
+        if week_range is None:
+            week_range = (today, today + timedelta(days=6))
+        return self._tool_plan(
+            "get_upcoming_leaves",
+            {
+                "fromDate": week_range[0].isoformat(),
+                "toDate": week_range[1].isoformat(),
+                "scope": self._scope(normalized),
+            },
+            available,
+            "Tôi sẽ kiểm tra lịch nghỉ sắp tới trong phạm vi bạn được xem.",
         )
 
     def _tool_plan(
@@ -266,7 +377,92 @@ class RuleBasedPlannerService:
             "cancel_my_pending_leave_request": "CANCEL_MY_PENDING_LEAVE_REQUEST",
             "get_my_tasks": "GET_MY_TASKS",
             "get_my_upcoming_tasks": "GET_MY_UPCOMING_TASKS",
+            "get_employee_birthdays": "GET_EMPLOYEE_BIRTHDAYS",
+            "get_who_is_on_leave_today": "GET_WHO_IS_ON_LEAVE_TODAY",
+            "get_upcoming_leaves": "GET_UPCOMING_LEAVES",
+            "get_team_attendance_summary": "GET_TEAM_ATTENDANCE_SUMMARY",
+            "get_team_task_summary": "GET_TEAM_TASK_SUMMARY",
+            "get_department_headcount": "GET_DEPARTMENT_HEADCOUNT",
+            "get_my_manager": "GET_MY_MANAGER",
         }.get(tool_name, "UNKNOWN")
+
+    def _is_leave_today_query(self, normalized: str) -> bool:
+        return self._has_any(
+            normalized,
+            "hom nay ai nghi",
+            "ai nghi hom nay",
+            "hom nay team toi co ai nghi",
+            "hom nay phong toi co ai nghi",
+        )
+
+    def _is_upcoming_leaves_query(self, normalized: str) -> bool:
+        return self._has_any(
+            normalized,
+            "tuan nay ai nghi",
+            "tuan sau ai nghi",
+            "sap toi ai nghi",
+            "lich nghi sap toi",
+        ) or (
+            self._has_any(normalized, "ai nghi")
+            and self._has_any(normalized, "tuan nay", "tuan sau", "sap toi")
+        )
+
+    def _is_team_attendance_query(self, normalized: str) -> bool:
+        return self._has_any(
+            normalized,
+            "chua check-in",
+            "chua check in",
+            "tinh hinh cham cong",
+            "cham cong team",
+        ) or (
+            self._has_any(normalized, "di muon")
+            and self._has_any(normalized, "team", "phong", "ai")
+        )
+
+    def _is_team_task_query(self, normalized: str) -> bool:
+        return self._has_any(normalized, "team", "phong") and self._has_any(
+            normalized,
+            "task",
+            "cong viec",
+            "qua han",
+            "deadline",
+            "dang lam",
+            "nhieu task",
+        )
+
+    def _is_headcount_query(self, normalized: str) -> bool:
+        return self._has_any(
+            normalized,
+            "bao nhieu nguoi",
+            "may nguoi",
+            "headcount",
+            "bao nhieu nhan vien",
+        )
+
+    def _scope(self, normalized: str) -> str:
+        if self._has_any(normalized, "cong ty", "toan cong ty"):
+            return "company"
+        if self._has_any(normalized, "team"):
+            return "my_team"
+        if self._has_any(normalized, "phong", "phong ban", "department"):
+            return "my_department"
+        return "allowed"
+
+    def _extract_month(self, normalized: str) -> int | None:
+        match = re.search(r"\bthang\s+(\d{1,2})\b", normalized)
+        if not match:
+            return None
+        month = int(match.group(1))
+        return month if 1 <= month <= 12 else None
+
+    def _week_range_for_text(self, today: date, normalized: str) -> tuple[date, date] | None:
+        if "tuan sau" in normalized:
+            start = today + timedelta(days=(7 - today.weekday()))
+            return start, start + timedelta(days=6)
+        if "tuan nay" in normalized:
+            start = today - timedelta(days=today.weekday())
+            return start, start + timedelta(days=6)
+        return None
 
     def _is_leave_request(self, normalized: str) -> bool:
         return self._has_any(normalized, "muon nghi", "xin nghi", "nghi phep", "nghi om") and not self._has_any(

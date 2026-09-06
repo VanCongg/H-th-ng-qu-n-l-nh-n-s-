@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import 'app_containers.dart';
@@ -50,7 +51,7 @@ class AttendanceCard extends StatelessWidget {
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: mutedTextColor,
                     fontWeight: FontWeight.w600,
                   ),
@@ -263,7 +264,7 @@ class AttendanceMomentStrip extends StatelessWidget {
           Expanded(
             child: _AttendanceMomentTile(
               icon: Icons.login_rounded,
-              label: 'Vào',
+              label: tx('Vào'),
               record: checkInRecord,
               color: brandColor,
             ),
@@ -276,7 +277,7 @@ class AttendanceMomentStrip extends StatelessWidget {
           Expanded(
             child: _AttendanceMomentTile(
               icon: Icons.logout_rounded,
-              label: 'Ra',
+              label: tx('Ra'),
               record: checkOutRecord,
               color: accentColor,
             ),
@@ -303,7 +304,7 @@ class _AttendanceMomentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final time = record == null
-        ? 'Chưa có'
+        ? tx('Chưa có')
         : formatDateTime(record!.recordedAt);
 
     return Padding(
@@ -357,9 +358,9 @@ class _AttendanceMomentTile extends StatelessWidget {
 String friendlyAttendanceShift(String value) {
   switch (value.toUpperCase()) {
     case 'MORNING':
-      return 'Ca sáng';
+      return tx('Ca sáng');
     case 'AFTERNOON':
-      return 'Ca chiều';
+      return tx('Ca chiều');
     default:
       return value;
   }
@@ -368,13 +369,13 @@ String friendlyAttendanceShift(String value) {
 String friendlyAttendanceStatus(String value) {
   switch (value.toUpperCase()) {
     case 'ON_TIME':
-      return 'Đúng giờ';
+      return tx('Đúng giờ');
     case 'LATE':
-      return 'Đi muộn';
+      return tx('Đi muộn');
     case 'EARLY_OUT':
-      return 'Về sớm';
+      return tx('Về sớm');
     case 'MANUAL_ADJUSTMENT':
-      return 'Điều chỉnh';
+      return tx('Điều chỉnh');
     default:
       return value;
   }

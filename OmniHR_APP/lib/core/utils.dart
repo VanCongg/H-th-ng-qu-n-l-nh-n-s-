@@ -1,27 +1,87 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const brandColor = Color(0xFF228BE6);
-const brandGreen = Color(0xFF12B886);
+import 'app_config.dart';
+import 'i18n.dart';
+
+/// Fixed brand-mark color, used only for illustrations (logo, mascot) that
+/// should not change between light and dark theme.
 const brandNavy = Color(0xFF243B6B);
-const brandPurple = Color(0xFF7048E8);
-const accentColor = Color(0xFFF59F00);
-const dangerColor = Color(0xFFDC2626);
-const appBackgroundColor = Color(0xFFF5F7FB);
-const inkColor = Color(0xFF182230);
-const mutedTextColor = Color(0xFF667085);
+
+class _Palette {
+  const _Palette({
+    required this.brand,
+    required this.brandGreen,
+    required this.accent,
+    required this.danger,
+    required this.background,
+    required this.surface,
+    required this.ink,
+    required this.muted,
+  });
+
+  final Color brand;
+  final Color brandGreen;
+  final Color accent;
+  final Color danger;
+  final Color background;
+  final Color surface;
+  final Color ink;
+  final Color muted;
+}
+
+const _lightPalette = _Palette(
+  brand: Color(0xFF228BE6),
+  brandGreen: Color(0xFF12B886),
+  accent: Color(0xFFF59F00),
+  danger: Color(0xFFDC2626),
+  background: Color(0xFFF5F7FB),
+  surface: Colors.white,
+  ink: Color(0xFF182230),
+  muted: Color(0xFF667085),
+);
+
+const _darkPalette = _Palette(
+  brand: Color(0xFF4DABF7),
+  brandGreen: Color(0xFF3DDC97),
+  accent: Color(0xFFFFC078),
+  danger: Color(0xFFEF4444),
+  background: Color(0xFF0F172A),
+  surface: Color(0xFF1E293B),
+  ink: Color(0xFFF1F5F9),
+  muted: Color(0xFF94A3B8),
+);
+
+/// Two color sets only: [applyAppBrightness] swaps every one of these
+/// between the light and dark palette. Widgets read them directly (not via
+/// `const`) so they repaint when the app's theme mode changes.
+Color brandColor = _lightPalette.brand;
+Color brandGreen = _lightPalette.brandGreen;
+Color accentColor = _lightPalette.accent;
+Color dangerColor = _lightPalette.danger;
+Color appBackgroundColor = _lightPalette.background;
+Color surfaceColor = _lightPalette.surface;
+Color inkColor = _lightPalette.ink;
+Color mutedTextColor = _lightPalette.muted;
+
+void applyAppBrightness(Brightness brightness) {
+  final palette = brightness == Brightness.dark ? _darkPalette : _lightPalette;
+  brandColor = palette.brand;
+  brandGreen = palette.brandGreen;
+  accentColor = palette.accent;
+  dangerColor = palette.danger;
+  appBackgroundColor = palette.background;
+  surfaceColor = palette.surface;
+  inkColor = palette.ink;
+  mutedTextColor = palette.muted;
+}
 
 final dateFormat = DateFormat('dd/MM/yyyy');
 final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm');
 final apiDateFormat = DateFormat('yyyy-MM-dd');
 
 String defaultApiBaseUrl() {
-  if (kIsWeb) return 'http://localhost:3000';
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:3000';
-  }
-  return 'http://localhost:3000';
+  return AppConfig.defaultApiBaseUrl();
 }
 
 String cleanBaseUrl(String value) {
@@ -89,16 +149,21 @@ Color statusColor(String status) {
     case 'APPROVED':
     case 'DONE':
     case 'ACTIVE':
+    case 'ON_TIME':
       return const Color(0xFF16A34A);
     case 'PENDING':
     case 'TODO':
     case 'IN_PROGRESS':
     case 'IN_REVIEW':
+    case 'LATE':
+    case 'EARLY_OUT':
       return accentColor;
     case 'REJECTED':
     case 'CANCELLED':
     case 'TERMINATED':
       return dangerColor;
+    case 'MANUAL_ADJUSTMENT':
+      return brandColor;
     default:
       return const Color(0xFF64748B);
   }
@@ -118,25 +183,55 @@ Color priorityColor(String priority) {
 }
 
 String friendlyStatus(String status) {
-  switch (status) {
+  switch (status.toUpperCase()) {
     case 'TODO':
-      return 'To do';
+      return tx('Chưa làm');
     case 'IN_PROGRESS':
-      return 'In progress';
+      return tx('Đang làm');
     case 'IN_REVIEW':
-      return 'In review';
+      return tx('Chờ review');
     case 'DONE':
-      return 'Done';
+      return tx('Hoàn thành');
     case 'CANCELLED':
-      return 'Cancelled';
+      return tx('Đã hủy');
     case 'PENDING':
-      return 'Pending';
+      return tx('Chờ duyệt');
     case 'APPROVED':
-      return 'Approved';
+      return tx('Đã duyệt');
     case 'REJECTED':
-      return 'Rejected';
+      return tx('Từ chối');
+    case 'ACTIVE':
+      return tx('Đang làm việc');
+    case 'TERMINATED':
+      return tx('Đã nghỉ việc');
     default:
       return status;
+  }
+}
+
+String friendlyPriority(String priority) {
+  switch (priority.toUpperCase()) {
+    case 'LOW':
+      return tx('Thấp');
+    case 'MEDIUM':
+      return tx('Trung bình');
+    case 'HIGH':
+      return tx('Cao');
+    case 'URGENT':
+      return tx('Khẩn cấp');
+    default:
+      return priority;
+  }
+}
+
+String friendlyRecordType(String value) {
+  switch (value.toUpperCase()) {
+    case 'CHECK_IN':
+      return tx('Chấm công vào');
+    case 'CHECK_OUT':
+      return tx('Chấm công ra');
+    default:
+      return value;
   }
 }
 

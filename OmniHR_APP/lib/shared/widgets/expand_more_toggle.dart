@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
 
 /// Shows [collapsed] always, and reveals [expandedExtra] behind a
@@ -46,8 +47,8 @@ class _ExpandMoreToggleState extends State<ExpandMoreToggle> {
               child: const Icon(Icons.expand_more_rounded, size: 20),
             ),
             label: Text(
-              _open ? widget.collapseLabel : widget.expandLabel,
-              style: const TextStyle(
+              tx(_open ? widget.collapseLabel : widget.expandLabel),
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
                 color: mutedTextColor,
               ),

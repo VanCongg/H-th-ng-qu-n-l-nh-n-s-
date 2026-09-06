@@ -31,7 +31,7 @@ def _float_env(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class Settings:
-    internal_token: str = os.getenv("AI_INTERNAL_TOKEN", "change-me")
+    internal_token: str = os.getenv("AI_INTERNAL_TOKEN", "")
     ai_planner_mode: str = os.getenv("AI_PLANNER_MODE", "rule_based")
     llm_provider: str = os.getenv("LLM_PROVIDER", "mock")
     llm_model: str = os.getenv("LLM_MODEL", "rule-based-vi-v1")

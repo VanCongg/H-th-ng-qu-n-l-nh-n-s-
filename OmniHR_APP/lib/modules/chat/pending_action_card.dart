@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
-import 'chat_models.dart';
+import '../../models/chat_models.dart';
 
 class PendingActionCard extends StatelessWidget {
   const PendingActionCard({
@@ -21,13 +22,16 @@ class PendingActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = action.summary;
     final isCancelLeave = action.type == 'CANCEL_LEAVE_REQUEST';
+    final title = isCancelLeave
+        ? tx('Xác nhận hủy đơn nghỉ phép')
+        : tx('Nháp đơn nghỉ phép');
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 360),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: surfaceColor,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: accentColor.withValues(alpha: 0.26)),
             boxShadow: [
@@ -45,11 +49,11 @@ class PendingActionCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.fact_check_rounded, color: accentColor),
+                    Icon(Icons.fact_check_rounded, color: accentColor),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        action.title,
+                        title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w900,
                         ),
@@ -59,35 +63,35 @@ class PendingActionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 _SummaryRow(
-                  label: isCancelLeave ? 'Đơn hủy' : 'Loại nghỉ',
+                  label: isCancelLeave ? tx('Đơn hủy') : tx('Loại nghỉ'),
                   value: textOf(
                     summary['leaveType'],
                     textOf(summary['leaveTypeCode'], '-'),
                   ),
                 ),
                 _SummaryRow(
-                  label: 'Từ ngày',
+                  label: tx('Từ ngày'),
                   value: formatDate(summary['startDate']),
                 ),
                 _SummaryRow(
-                  label: 'Đến ngày',
+                  label: tx('Đến ngày'),
                   value: formatDate(summary['endDate']),
                 ),
                 _SummaryRow(
-                  label: 'Số ngày',
+                  label: tx('Số ngày'),
                   value: textOf(summary['totalDays'], '-'),
                 ),
                 _SummaryRow(
-                  label: 'Lý do',
+                  label: tx('Lý do'),
                   value: textOf(summary['reason'], '-'),
                 ),
                 _SummaryRow(
-                  label: 'Trạng thái',
-                  value: textOf(summary['currentStatus'], 'Chờ xác nhận'),
+                  label: tx('Trạng thái'),
+                  value: textOf(summary['currentStatus'], tx('Chờ xác nhận')),
                 ),
                 if (action.expiresAt != null)
                   _SummaryRow(
-                    label: 'Hết hạn',
+                    label: tx('Hết hạn'),
                     value: formatDateTime(action.expiresAt),
                   ),
                 const SizedBox(height: 14),
@@ -97,7 +101,7 @@ class PendingActionCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: busy ? null : onCancel,
                         icon: const Icon(Icons.close_rounded),
-                        label: Text(isCancelLeave ? 'Không hủy' : 'Hủy'),
+                        label: Text(isCancelLeave ? tx('Không hủy') : tx('Hủy')),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -110,9 +114,11 @@ class PendingActionCard extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                 ),
-                            )
+                              )
                             : const Icon(Icons.check_rounded),
-                        label: Text(isCancelLeave ? 'Xác nhận hủy' : 'Xác nhận'),
+                        label: Text(
+                          isCancelLeave ? tx('Xác nhận hủy') : tx('Xác nhận'),
+                        ),
                       ),
                     ),
                   ],

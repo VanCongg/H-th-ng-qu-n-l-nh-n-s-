@@ -1,3 +1,4 @@
+import '../core/i18n.dart';
 import '../core/utils.dart';
 
 class LoginResponse {
@@ -161,7 +162,7 @@ class Employee {
     return Employee(
       id: intOf(json['id']),
       employeeCode: textOf(json['employeeCode']),
-      fullName: textOf(json['fullName'], 'Nhân viên'),
+      fullName: textOf(json['fullName'], tx('Nhân viên')),
       companyEmail: textOf(json['companyEmail']),
       personalEmail: json['personalEmail']?.toString(),
       phone: json['phone']?.toString(),
@@ -405,7 +406,7 @@ class TaskSummary {
   factory TaskSummary.fromJson(Map<String, dynamic> json) {
     return TaskSummary(
       id: intOf(json['id']),
-      title: textOf(json['title'], 'Công việc chưa đặt tên'),
+      title: textOf(json['title'], tx('Công việc chưa đặt tên')),
       status: textOf(json['status'], 'TODO'),
       startDate: json['startDate']?.toString(),
       dueDate: json['dueDate']?.toString(),
@@ -476,7 +477,7 @@ class TaskItem {
     final parentTaskMap = mapOf(json['parentTask']);
     return TaskItem(
       id: intOf(json['id']),
-      title: textOf(json['title'], 'Công việc chưa đặt tên'),
+      title: textOf(json['title'], tx('Công việc chưa đặt tên')),
       parentTaskId: json['parentTaskId'] == null
           ? null
           : intOf(json['parentTaskId']),

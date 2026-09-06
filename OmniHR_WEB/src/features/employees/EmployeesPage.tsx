@@ -17,7 +17,7 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, KeyRound, Lock, Plus, Search, Trash2, Unlock } from "lucide-react";
+import { Edit, KeyRound, Lock, Plus, Search, Trash2, Unlock, X } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import {
@@ -53,22 +53,40 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
   const [editing, setEditing] = useState<Employee | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+  const [positionFilter, setPositionFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [careerLevelFilter, setCareerLevelFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [defaultPassword, setDefaultPassword] = useState<string | null>(null);
 
   const employeesQuery = useQuery({
-    queryKey: ["employees", scope, search, careerLevelFilter, page],
+    queryKey: [
+      "employees",
+      scope,
+      search,
+      departmentFilter,
+      positionFilter,
+      statusFilter,
+      careerLevelFilter,
+      page
+    ],
     queryFn: () =>
       scope === "team"
         ? employeesApi.team({
-            search,
+            search: search || undefined,
+            departmentId: departmentFilter ? Number(departmentFilter) : undefined,
+            positionId: positionFilter ? Number(positionFilter) : undefined,
+            status: statusFilter || undefined,
             careerLevel: careerLevelFilter,
             page,
             limit: 20
           })
         : employeesApi.list({
-            search,
+            search: search || undefined,
+            departmentId: departmentFilter ? Number(departmentFilter) : undefined,
+            positionId: positionFilter ? Number(positionFilter) : undefined,
+            status: statusFilter || undefined,
             careerLevel: careerLevelFilter,
             page,
             limit: 20
@@ -217,6 +235,16 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     setPage(1);
   }
 
+  function clearFilters() {
+    setSearchDraft("");
+    setSearch("");
+    setDepartmentFilter(null);
+    setPositionFilter(null);
+    setStatusFilter(null);
+    setCareerLevelFilter(null);
+    setPage(1);
+  }
+
   const departmentIdsWithPositions = new Set(
     (positionsQuery.data ?? [])
       .filter((item) => item.isActive && item.departmentId)
@@ -228,6 +256,10 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
       value: String(item.id),
       label: formatDepartmentName(item, tx)
     }));
+  const filterDepartmentOptions = (departmentsQuery.data ?? []).map((item) => ({
+    value: String(item.id),
+    label: formatDepartmentName(item, tx)
+  }));
   const positionOptions = (positionsQuery.data ?? [])
     .filter(
       (item) =>
@@ -239,7 +271,27 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
       value: String(item.id),
       label: item.name
     }));
+  const filterPositionOptions = (positionsQuery.data ?? [])
+    .filter(
+      (item) =>
+        item.isActive &&
+        (!departmentFilter ||
+          (item.departmentId && String(item.departmentId) === departmentFilter))
+    )
+    .map((item) => ({
+      value: String(item.id),
+      label: item.department
+        ? `${item.name} - ${formatDepartmentName(item.department, tx)}`
+        : item.name
+    }));
   const careerOptions = careerLevelOptions(te);
+  const statusOptions = ["ACTIVE", "INACTIVE", "TERMINATED"].map((value) => ({
+    value,
+    label: te(value)
+  }));
+  const hasActiveFilters = Boolean(
+    search || departmentFilter || positionFilter || statusFilter || careerLevelFilter
+  );
   const skillOptions = (skillsQuery.data?.items ?? [])
     .filter(
       (item) =>
@@ -319,15 +371,53 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
             applySearch();
           }}
         >
-          <Group align="flex-end" gap="sm" wrap="wrap">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm">
             <TextInput
+              label={tx("Search")}
               placeholder={tx("Search by name, code, or email")}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.currentTarget.value)}
-              style={{ flex: "1 1 260px" }}
             />
             <Select
-              placeholder={tx("Career level")}
+              label={tx("Department")}
+              placeholder={tx("All departments")}
+              data={filterDepartmentOptions}
+              value={departmentFilter}
+              searchable
+              clearable
+              onChange={(value) => {
+                setDepartmentFilter(value);
+                setPositionFilter(null);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Position")}
+              placeholder={tx("All positions")}
+              data={filterPositionOptions}
+              value={positionFilter}
+              searchable
+              clearable
+              disabled={!filterPositionOptions.length}
+              onChange={(value) => {
+                setPositionFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Status")}
+              placeholder={tx("All statuses")}
+              data={statusOptions}
+              value={statusFilter}
+              clearable
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Career level")}
+              placeholder={tx("All levels")}
               data={careerOptions}
               value={careerLevelFilter}
               onChange={(value) => {
@@ -335,9 +425,18 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
                 setPage(1);
               }}
               clearable
-              style={{ flex: "0 1 220px" }}
             />
-            <Button type="submit" leftSection={<Search size={16} />} style={{ flex: "0 0 auto" }}>
+          </SimpleGrid>
+          <Group justify="flex-end" gap="sm" mt="sm">
+            <Button
+              variant="subtle"
+              leftSection={<X size={16} />}
+              disabled={!hasActiveFilters && !searchDraft}
+              onClick={clearFilters}
+            >
+              {tx("Clear filters")}
+            </Button>
+            <Button type="submit" leftSection={<Search size={16} />}>
               {tx("Search")}
             </Button>
           </Group>
@@ -345,6 +444,8 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
       </Paper>
 
       <DataTable<Employee>
+        tableMinWidth={980}
+        rowKey={(item) => item.id}
         data={employeesQuery.data?.items ?? []}
         loading={employeesQuery.isLoading}
         error={employeesQuery.error ? getApiErrorMessage(employeesQuery.error) : null}

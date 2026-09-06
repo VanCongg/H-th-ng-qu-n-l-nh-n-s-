@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
+import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
@@ -65,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) => ChangePasswordDialog(session: widget.session),
     );
     if (changed == true && mounted) {
-      showAppSnack(context, 'Đã đổi mật khẩu.');
+      showAppSnack(context, tx('Đã đổi mật khẩu.'));
     }
   }
 
@@ -97,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (available.isEmpty) {
       if (mounted) {
-        showAppSnack(context, 'Bạn đã thêm tất cả kỹ năng khả dụng.');
+        showAppSnack(context, tx('Bạn đã thêm tất cả kỹ năng khả dụng.'));
       }
       return;
     }
@@ -117,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setSheetState) {
             Future<void> submit() async {
               if (skillId == null) {
-                showAppSnack(context, 'Vui lòng chọn kỹ năng.', error: true);
+                showAppSnack(context, tx('Vui lòng chọn kỹ năng.'), error: true);
                 return;
               }
               setSheetState(() => submitting = true);
@@ -162,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Thêm kỹ năng',
+                    tx('Thêm kỹ năng'),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -170,9 +171,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 14),
                   DropdownButtonFormField<int>(
                     initialValue: skillId,
-                    decoration: const InputDecoration(
-                      labelText: 'Kỹ năng',
-                      prefixIcon: Icon(Icons.psychology_alt_outlined),
+                    decoration: InputDecoration(
+                      labelText: tx('Kỹ năng'),
+                      prefixIcon: const Icon(Icons.psychology_alt_outlined),
                     ),
                     items: available
                         .map(
@@ -189,26 +190,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: proficiency,
-                    decoration: const InputDecoration(
-                      labelText: 'Mức độ',
-                      prefixIcon: Icon(Icons.bar_chart_rounded),
+                    decoration: InputDecoration(
+                      labelText: tx('Mức độ'),
+                      prefixIcon: const Icon(Icons.bar_chart_rounded),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 'BEGINNER',
-                        child: Text('Mới bắt đầu'),
+                        child: Text(tx('Mới bắt đầu')),
                       ),
                       DropdownMenuItem(
                         value: 'INTERMEDIATE',
-                        child: Text('Trung bình'),
+                        child: Text(tx('Trung bình')),
                       ),
                       DropdownMenuItem(
                         value: 'ADVANCED',
-                        child: Text('Khá'),
+                        child: Text(tx('Khá')),
                       ),
                       DropdownMenuItem(
                         value: 'EXPERT',
-                        child: Text('Chuyên gia'),
+                        child: Text(tx('Chuyên gia')),
                       ),
                     ],
                     onChanged: submitting
@@ -223,9 +224,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Số năm kinh nghiệm (tùy chọn)',
-                      prefixIcon: Icon(Icons.timelapse_outlined),
+                    decoration: InputDecoration(
+                      labelText: tx('Số năm kinh nghiệm (tùy chọn)'),
+                      prefixIcon: const Icon(Icons.timelapse_outlined),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -233,8 +234,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     controller: noteController,
                     minLines: 2,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Ghi chú (tùy chọn)',
+                    decoration: InputDecoration(
+                      labelText: tx('Ghi chú (tùy chọn)'),
                       alignLabelWithHint: true,
                     ),
                   ),
@@ -247,7 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.check_rounded),
-                    label: Text(submitting ? 'Đang lưu...' : 'Lưu kỹ năng'),
+                    label: Text(tx(submitting ? 'Đang lưu...' : 'Lưu kỹ năng')),
                   ),
                 ],
               ),
@@ -260,7 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     yearsController.dispose();
     noteController.dispose();
     if (added == true) {
-      if (mounted) showAppSnack(context, 'Đã thêm kỹ năng.');
+      if (mounted) showAppSnack(context, tx('Đã thêm kỹ năng.'));
       await _refresh();
     }
   }
@@ -270,22 +271,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          icon: const AppIconBadge(
+          icon: AppIconBadge(
             icon: Icons.logout_rounded,
             color: dangerColor,
             size: 54,
           ),
-          title: const Text('Đăng xuất'),
-          content: const Text('Bạn muốn đăng xuất khỏi OmniHR?'),
+          title: Text(tx('Đăng xuất')),
+          content: Text(tx('Bạn muốn đăng xuất khỏi OmniHR?')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
+              child: Text(tx('Hủy')),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: dangerColor),
-              child: const Text('Đăng xuất'),
+              child: Text(tx('Đăng xuất')),
             ),
           ],
         );
@@ -321,58 +322,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
             children: [
               _ProfileHeader(employee: employee, user: user),
-              const SizedBox(height: 14),
+              const SizedBox(height: 20),
               AppPanel(
                 child: Column(
                   children: [
                     ProfileRow(
                       icon: Icons.mail_outline_rounded,
-                      label: 'Email công ty',
+                      label: tx('Email công ty'),
                       value: employee?.companyEmail ?? user?.email,
                     ),
                     ProfileRow(
                       icon: Icons.verified_user_outlined,
-                      label: 'Trạng thái',
+                      label: tx('Trạng thái'),
                       value: employee == null
                           ? null
                           : friendlyStatus(employee.status),
                     ),
                     ProfileRow(
                       icon: Icons.event_outlined,
-                      label: 'Ngày vào làm',
+                      label: tx('Ngày vào làm'),
                       value: formatDate(employee?.hireDate),
                     ),
                     ProfileRow(
                       icon: Icons.phone_outlined,
-                      label: 'Số điện thoại',
+                      label: tx('Số điện thoại'),
                       value: employee?.phone,
                     ),
                     Divider(
                       height: 24,
                       color: brandColor.withValues(alpha: 0.08),
                     ),
-                    const SectionTitle(title: 'Tài khoản'),
+                    SectionTitle(title: tx('Tài khoản')),
                     ProfileRow(
                       icon: Icons.person_outline_rounded,
-                      label: 'Tên đăng nhập',
+                      label: tx('Tên đăng nhập'),
                       value: user?.username,
                     ),
                     ProfileRow(
                       icon: Icons.dns_outlined,
-                      label: 'Máy chủ API',
+                      label: tx('Máy chủ API'),
                       value: widget.session.baseUrl,
                     ),
                     const SizedBox(height: 10),
                     FilledButton.icon(
                       onPressed: _openChangePassword,
                       icon: const Icon(Icons.password_rounded),
-                      label: const Text('Đổi mật khẩu'),
+                      label: Text(tx('Đổi mật khẩu')),
                     ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: _logout,
                       icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Đăng xuất'),
+                      label: Text(tx('Đăng xuất')),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: dangerColor,
                         side: BorderSide(
@@ -383,20 +384,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
+              _DisplaySettingsPanel(session: widget.session),
+              const SizedBox(height: 18),
               AppPanel(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SectionTitle(
-                      title: 'Kỹ năng',
-                      subtitle: 'Kỹ năng bạn tự khai báo',
+                    SectionTitle(
+                      title: tx('Kỹ năng'),
+                      subtitle: tx('Kỹ năng bạn tự khai báo'),
                     ),
                     if (skills.isEmpty)
-                      const EmptyState(
+                      EmptyState(
                         icon: Icons.psychology_alt_outlined,
-                        title: 'Chưa có kỹ năng',
-                        body: 'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.',
+                        title: tx('Chưa có kỹ năng'),
+                        body: tx(
+                          'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.',
+                        ),
                       )
                     else
                       ...skills.map(
@@ -408,7 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? null
                           : () => _openAddSkillSheet(employee, skills),
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Thêm kỹ năng'),
+                      label: Text(tx('Thêm kỹ năng')),
                     ),
                   ],
                 ),
@@ -421,6 +426,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _DisplaySettingsPanel extends StatelessWidget {
+  const _DisplaySettingsPanel({required this.session});
+
+  final AppSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(title: tx('Cài đặt hiển thị')),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: session.themeMode == ThemeMode.dark,
+            onChanged: (value) => session.setThemeMode(
+              value ? ThemeMode.dark : ThemeMode.light,
+            ),
+            title: Text(tx('Giao diện tối')),
+            secondary: Icon(
+              session.themeMode == ThemeMode.dark
+                  ? Icons.dark_mode_rounded
+                  : Icons.light_mode_rounded,
+              color: brandColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.translate_rounded, color: brandColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(tx('Ngôn ngữ'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              SegmentedButton<AppLanguage>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: AppLanguage.vi,
+                    label: Text(tx('Tiếng Việt')),
+                  ),
+                  ButtonSegment(
+                    value: AppLanguage.en,
+                    label: Text(tx('English')),
+                  ),
+                ],
+                selected: {session.language},
+                onSelectionChanged: (value) =>
+                    session.setLanguage(value.first),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.employee, required this.user});
 
@@ -429,7 +492,7 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = employee?.fullName ?? user?.username ?? 'Nhân viên OmniHR';
+    final name = employee?.fullName ?? user?.username ?? tx('Nhân viên OmniHR');
     final initial = name.trim().isEmpty ? 'O' : name.trim()[0].toUpperCase();
     final subtitle = [
       employee?.employeeCode,
@@ -441,24 +504,27 @@ class _ProfileHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [brandColor, brandGreen],
+          Hero(
+            tag: 'profile-avatar',
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [brandColor, brandGreen],
+                ),
               ),
-            ),
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
           ),
@@ -556,12 +622,12 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      icon: const AppIconBadge(
+      icon: AppIconBadge(
         icon: Icons.password_rounded,
         color: brandColor,
         size: 54,
       ),
-      title: const Text('Đổi mật khẩu'),
+      title: Text(tx('Đổi mật khẩu')),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -571,13 +637,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               TextFormField(
                 controller: _currentController,
                 obscureText: _obscure,
-                decoration: const InputDecoration(
-                  labelText: 'Mật khẩu hiện tại',
-                  prefixIcon: Icon(Icons.lock_outline_rounded),
+                decoration: InputDecoration(
+                  labelText: tx('Mật khẩu hiện tại'),
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập mật khẩu hiện tại';
+                    return tx('Vui lòng nhập mật khẩu hiện tại');
                   }
                   return null;
                 },
@@ -586,16 +652,16 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               TextFormField(
                 controller: _newController,
                 obscureText: _obscure,
-                decoration: const InputDecoration(
-                  labelText: 'Mật khẩu mới',
-                  prefixIcon: Icon(Icons.password_rounded),
+                decoration: InputDecoration(
+                  labelText: tx('Mật khẩu mới'),
+                  prefixIcon: const Icon(Icons.password_rounded),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập mật khẩu mới';
+                    return tx('Vui lòng nhập mật khẩu mới');
                   }
                   if (value.length < 6) {
-                    return 'Mật khẩu mới phải có ít nhất 6 ký tự';
+                    return tx('Mật khẩu mới phải có ít nhất 6 ký tự');
                   }
                   return null;
                 },
@@ -605,10 +671,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 controller: _confirmController,
                 obscureText: _obscure,
                 decoration: InputDecoration(
-                  labelText: 'Nhập lại mật khẩu mới',
+                  labelText: tx('Nhập lại mật khẩu mới'),
                   prefixIcon: const Icon(Icons.verified_outlined),
                   suffixIcon: IconButton(
-                    tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                    tooltip: tx(_obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'),
                     onPressed: () => setState(() => _obscure = !_obscure),
                     icon: Icon(
                       _obscure
@@ -619,10 +685,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Vui lòng nhập lại mật khẩu mới';
+                    return tx('Vui lòng nhập lại mật khẩu mới');
                   }
                   if (value != _newController.text) {
-                    return 'Mật khẩu nhập lại không khớp';
+                    return tx('Mật khẩu nhập lại không khớp');
                   }
                   return null;
                 },
@@ -634,11 +700,11 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const Text('Hủy'),
+          child: Text(tx('Hủy')),
         ),
         FilledButton(
           onPressed: _submitting ? null : _submit,
-          child: Text(_submitting ? 'Đang lưu...' : 'Lưu'),
+          child: Text(tx(_submitting ? 'Đang lưu...' : 'Lưu')),
         ),
       ],
     );

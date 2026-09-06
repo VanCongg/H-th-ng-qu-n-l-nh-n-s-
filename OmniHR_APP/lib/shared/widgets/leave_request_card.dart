@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import 'app_containers.dart';
@@ -54,7 +55,7 @@ class LeaveRequestCard extends StatelessWidget {
                 color: brandColor,
               ),
               Pill(
-                label: '${request.totalDays.toStringAsFixed(1)} ngày',
+                label: '${request.totalDays.toStringAsFixed(1)} ${tx('ngày')}',
                 color: accentColor,
               ),
             ],
@@ -64,7 +65,7 @@ class LeaveRequestCard extends StatelessWidget {
             request.reason,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: mutedTextColor,
               fontWeight: FontWeight.w600,
             ),
@@ -73,8 +74,11 @@ class LeaveRequestCard extends StatelessWidget {
               request.rejectionReason!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              'Lý do từ chối: ${request.rejectionReason}',
-              style: const TextStyle(color: dangerColor),
+              tx(
+                'Lý do từ chối: {reason}',
+                {'reason': request.rejectionReason!},
+              ),
+              style: TextStyle(color: dangerColor),
             ),
           ],
           if (onCancel != null) ...[
@@ -84,7 +88,7 @@ class LeaveRequestCard extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: onCancel,
                 icon: const Icon(Icons.cancel_outlined),
-                label: const Text('Hủy đơn'),
+                label: Text(tx('Hủy đơn')),
               ),
             ),
           ],

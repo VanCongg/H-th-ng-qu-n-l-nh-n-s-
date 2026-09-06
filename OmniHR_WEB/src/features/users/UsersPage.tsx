@@ -19,7 +19,7 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, KeyRound, Plus, Search, Trash2 } from "lucide-react";
+import { Edit, KeyRound, Plus, Search, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import {
@@ -50,12 +50,47 @@ export function UsersPage() {
   const [editing, setEditing] = useState<UserSummary | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
+  const [positionFilter, setPositionFilter] = useState<string | null>(null);
+  const [employeeStatusFilter, setEmployeeStatusFilter] = useState<string | null>(null);
+  const [careerLevelFilter, setCareerLevelFilter] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [accountStatusFilter, setAccountStatusFilter] = useState<string | null>(null);
+  const [passwordChangeFilter, setPasswordChangeFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const query = useQuery({
-    queryKey: ["users", search, page],
+    queryKey: [
+      "users",
+      search,
+      departmentFilter,
+      positionFilter,
+      employeeStatusFilter,
+      careerLevelFilter,
+      roleFilter,
+      accountStatusFilter,
+      passwordChangeFilter,
+      page
+    ],
     queryFn: () =>
       usersApi.list({
         search: search || undefined,
+        departmentId: departmentFilter ? Number(departmentFilter) : undefined,
+        positionId: positionFilter ? Number(positionFilter) : undefined,
+        employeeStatus: employeeStatusFilter || undefined,
+        careerLevel: careerLevelFilter || undefined,
+        roleId: roleFilter ? Number(roleFilter) : undefined,
+        isActive:
+          accountStatusFilter === "active"
+            ? true
+            : accountStatusFilter === "inactive"
+              ? false
+              : undefined,
+        mustChangePassword:
+          passwordChangeFilter === "required"
+            ? true
+            : passwordChangeFilter === "not-required"
+              ? false
+              : undefined,
         page,
         limit: 20
       })
@@ -301,6 +336,19 @@ export function UsersPage() {
     setPage(1);
   }
 
+  function clearFilters() {
+    setSearchDraft("");
+    setSearch("");
+    setDepartmentFilter(null);
+    setPositionFilter(null);
+    setEmployeeStatusFilter(null);
+    setCareerLevelFilter(null);
+    setRoleFilter(null);
+    setAccountStatusFilter(null);
+    setPasswordChangeFilter(null);
+    setPage(1);
+  }
+
   const roleOptions = (rolesQuery.data ?? []).map((role) => ({
     value: String(role.id),
     label: role.name
@@ -316,6 +364,10 @@ export function UsersPage() {
       value: String(item.id),
       label: formatDepartmentName(item, tx)
     }));
+  const filterDepartmentOptions = (departmentsQuery.data ?? []).map((item) => ({
+    value: String(item.id),
+    label: formatDepartmentName(item, tx)
+  }));
   const positionOptions = (positionsQuery.data ?? [])
     .filter(
       (item) =>
@@ -327,7 +379,42 @@ export function UsersPage() {
       value: String(item.id),
       label: item.name
     }));
+  const filterPositionOptions = (positionsQuery.data ?? [])
+    .filter(
+      (item) =>
+        item.isActive &&
+        (!departmentFilter ||
+          (item.departmentId && String(item.departmentId) === departmentFilter))
+    )
+    .map((item) => ({
+      value: String(item.id),
+      label: item.department
+        ? `${item.name} - ${formatDepartmentName(item.department, tx)}`
+        : item.name
+    }));
   const careerOptions = careerLevelOptions(te);
+  const employeeStatusOptions = ["ACTIVE", "INACTIVE", "TERMINATED"].map((value) => ({
+    value,
+    label: te(value)
+  }));
+  const accountStatusOptions = [
+    { value: "active", label: tx("Active account") },
+    { value: "inactive", label: tx("Locked account") }
+  ];
+  const passwordChangeOptions = [
+    { value: "required", label: tx("Must change password") },
+    { value: "not-required", label: tx("Password already changed") }
+  ];
+  const hasActiveFilters = Boolean(
+    search ||
+      departmentFilter ||
+      positionFilter ||
+      employeeStatusFilter ||
+      careerLevelFilter ||
+      roleFilter ||
+      accountStatusFilter ||
+      passwordChangeFilter
+  );
   const skillOptions = (skillsQuery.data?.items ?? [])
     .filter(
       (item) =>
@@ -461,17 +548,107 @@ export function UsersPage() {
             applySearch();
           }}
         >
-          <Group align="flex-end" gap="sm" wrap="wrap">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="sm">
             <TextInput
+              label={tx("Search")}
               placeholder={tx("Search by name, code, or email")}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.currentTarget.value)}
-              style={{ flex: "1 1 260px" }}
             />
+            <Select
+              label={tx("Department")}
+              placeholder={tx("All departments")}
+              data={filterDepartmentOptions}
+              value={departmentFilter}
+              searchable
+              clearable
+              onChange={(value) => {
+                setDepartmentFilter(value);
+                setPositionFilter(null);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Position")}
+              placeholder={tx("All positions")}
+              data={filterPositionOptions}
+              value={positionFilter}
+              searchable
+              clearable
+              disabled={!filterPositionOptions.length}
+              onChange={(value) => {
+                setPositionFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Status")}
+              placeholder={tx("All statuses")}
+              data={employeeStatusOptions}
+              value={employeeStatusFilter}
+              clearable
+              onChange={(value) => {
+                setEmployeeStatusFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Career level")}
+              placeholder={tx("All levels")}
+              data={careerOptions}
+              value={careerLevelFilter}
+              clearable
+              onChange={(value) => {
+                setCareerLevelFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Roles")}
+              placeholder={tx("All roles")}
+              data={roleOptions}
+              value={roleFilter}
+              clearable
+              onChange={(value) => {
+                setRoleFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Account status")}
+              placeholder={tx("All accounts")}
+              data={accountStatusOptions}
+              value={accountStatusFilter}
+              clearable
+              onChange={(value) => {
+                setAccountStatusFilter(value);
+                setPage(1);
+              }}
+            />
+            <Select
+              label={tx("Password state")}
+              placeholder={tx("All password states")}
+              data={passwordChangeOptions}
+              value={passwordChangeFilter}
+              clearable
+              onChange={(value) => {
+                setPasswordChangeFilter(value);
+                setPage(1);
+              }}
+            />
+          </SimpleGrid>
+          <Group justify="flex-end" gap="sm" mt="sm">
+            <Button
+              variant="subtle"
+              leftSection={<X size={16} />}
+              disabled={!hasActiveFilters && !searchDraft}
+              onClick={clearFilters}
+            >
+              {tx("Clear filters")}
+            </Button>
             <Button
               type="submit"
               leftSection={<Search size={16} />}
-              style={{ flex: "0 0 auto" }}
             >
               {tx("Search")}
             </Button>
@@ -479,6 +656,8 @@ export function UsersPage() {
         </form>
       </Paper>
       <DataTable<UserSummary>
+        tableMinWidth={1100}
+        rowKey={(item) => item.id}
         data={query.data?.items ?? []}
         loading={query.isLoading}
         error={query.error ? getApiErrorMessage(query.error) : null}
@@ -537,7 +716,22 @@ export function UsersPage() {
           {
             key: "active",
             label: "Active",
-            render: (item) => (item.isActive ? tx("Yes") : tx("No"))
+            render: (item) => (
+              <Badge color={item.isActive ? "green" : "gray"} variant="light">
+                {item.isActive ? tx("Active account") : tx("Locked account")}
+              </Badge>
+            )
+          },
+          {
+            key: "passwordState",
+            label: "Password state",
+            render: (item) => (
+              <Badge color={item.mustChangePassword ? "yellow" : "teal"} variant="light">
+                {item.mustChangePassword
+                  ? tx("Must change password")
+                  : tx("Password already changed")}
+              </Badge>
+            )
           },
           {
             key: "actions",

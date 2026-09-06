@@ -1,9 +1,14 @@
 import { IsEmail, IsOptional, IsString, MaxLength } from "class-validator";
+import {
+  IsSafeAvatar,
+  MAX_AVATAR_VALUE_LENGTH
+} from "../../common/validators/avatar";
 
 export class UpdateSelfEmployeeDto {
   @IsOptional()
   @IsString()
-  @MaxLength(1000000)
+  @MaxLength(MAX_AVATAR_VALUE_LENGTH)
+  @IsSafeAvatar()
   avatarUrl?: string | null;
 
   @IsOptional()

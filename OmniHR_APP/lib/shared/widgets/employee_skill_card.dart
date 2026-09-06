@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import 'app_containers.dart';
@@ -16,9 +17,9 @@ class EmployeeSkillCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          const AppIconBadge(
+          AppIconBadge(
             icon: Icons.psychology_alt_rounded,
-            color: brandPurple,
+            color: brandColor,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -37,16 +38,19 @@ class EmployeeSkillCard extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     if (skill.proficiency != null)
-                      Pill(label: skill.proficiency!, color: brandPurple),
+                      Pill(label: skill.proficiency!, color: brandColor),
                     if (skill.yearsExperience != null)
                       Pill(
                         label:
-                            '${skill.yearsExperience!.toStringAsFixed(1)} năm',
+                            '${skill.yearsExperience!.toStringAsFixed(1)} ${tx('năm')}',
                         color: brandColor,
                       ),
                     if (skill.lastUsedAt != null)
                       Pill(
-                        label: 'Gần nhất ${formatDate(skill.lastUsedAt)}',
+                        label: tx(
+                          'Gần nhất {date}',
+                          {'date': formatDate(skill.lastUsedAt)},
+                        ),
                         color: mutedTextColor,
                       ),
                   ],
