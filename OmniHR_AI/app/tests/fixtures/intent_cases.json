@@ -61,5 +61,11 @@
   {"message": "Thời tiết hôm nay thế nào?", "expectedIntent": "UNKNOWN", "expectedTool": null, "confirmationRequired": false},
   {"message": "Đặt vé máy bay cho tôi", "expectedIntent": "UNKNOWN", "expectedTool": null, "confirmationRequired": false},
   {"message": "Mở nhạc giúp tôi", "expectedIntent": "UNKNOWN", "expectedTool": null, "confirmationRequired": false},
-  {"message": "Tìm quán ăn gần đây", "expectedIntent": "UNKNOWN", "expectedTool": null, "confirmationRequired": false}
+  {"message": "Tìm quán ăn gần đây", "expectedIntent": "UNKNOWN", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Chính sách cộng dồn phép năm sang năm sau thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Làm việc từ xa cần đăng ký thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Công ty có bảo hiểm gì không?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Quy tắc ứng xử với đồng nghiệp thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Nhân viên có được thưởng lương tháng 13 không?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Bảo mật thông tin công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false}
 ]

@@ -1,5 +1,4 @@
 import re
-import unicodedata
 from datetime import date, timedelta
 from uuid import uuid4
 
@@ -9,12 +8,18 @@ from app.schemas.chat import (
     Confirmation,
     ToolCall,
 )
+from app.schemas.rag import RagSearchRequest
+from app.services.rag_service import RagService
+from app.services.text_normalize import normalize
 
 
 class RuleBasedPlannerService:
+    def __init__(self, rag_service: RagService | None = None):
+        self.rag_service = rag_service or RagService()
+
     def plan(self, request: ChatPlanRequest) -> ChatPlanResponse:
         text = request.message.strip()
-        normalized = self._normalize(text)
+        normalized = normalize(text)
         available = {tool.name for tool in request.availableTools}
 
         if self._is_cancel_leave_request(normalized):
@@ -146,6 +151,10 @@ class RuleBasedPlannerService:
                 confidence=0.78,
             )
 
+        policy_answer = self._policy_plan(text)
+        if policy_answer is not None:
+            return policy_answer
+
         return ChatPlanResponse(
             type="answer",
             intent="UNKNOWN",
@@ -154,6 +163,30 @@ class RuleBasedPlannerService:
                 "hoặc task. Bạn muốn kiểm tra thông tin nào?"
             ),
             confidence=0.62,
+        )
+
+    def _policy_plan(self, text: str) -> ChatPlanResponse | None:
+        result = self.rag_service.search(RagSearchRequest(query=text, topK=1))
+        if not result.items:
+            return None
+
+        top = result.items[0]
+        reply = f"{top.title}: {top.content}"
+        if len(reply) > 600:
+            reply = f"{reply[:600].rstrip()}..."
+
+        return ChatPlanResponse(
+            type="answer",
+            intent="GET_HR_POLICY_INFO",
+            reply=reply,
+            confidence=round(min(0.6 + top.score * 0.3, 0.9), 2),
+            citations=[
+                {
+                    "documentId": top.documentId,
+                    "chunkId": top.chunkId,
+                    "title": top.title,
+                }
+            ],
         )
 
     def _leave_request_plan(
@@ -472,6 +505,8 @@ class RuleBasedPlannerService:
             "la gi",
             "quy dinh",
             "loai nghi",
+            "co duoc",
+            "cong don",
         )
 
     def _is_cancel_leave_request(self, normalized: str) -> bool:
@@ -530,12 +565,3 @@ class RuleBasedPlannerService:
 
     def _has_any(self, normalized: str, *phrases: str) -> bool:
         return any(phrase in normalized for phrase in phrases)
-
-    def _normalize(self, value: str) -> str:
-        value = value.replace("đ", "d").replace("Đ", "D")
-        without_accents = "".join(
-            char
-            for char in unicodedata.normalize("NFD", value)
-            if unicodedata.category(char) != "Mn"
-        )
-        return re.sub(r"\s+", " ", without_accents.lower()).strip()

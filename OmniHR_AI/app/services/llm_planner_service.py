@@ -16,6 +16,8 @@ from app.schemas.planner import (
     planner_to_chat_response,
     validate_planner_response,
 )
+from app.schemas.rag import RagSearchRequest
+from app.services.rag_service import RagService
 from app.services.rule_based_planner_service import RuleBasedPlannerService
 
 logger = logging.getLogger(__name__)
@@ -28,9 +30,13 @@ class LlmPlannerService:
         fallback: RuleBasedPlannerService | None = None,
         fallback_enabled: bool | None = None,
         confidence_threshold: float | None = None,
+        rag_service: RagService | None = None,
     ):
         self.client = client
         self.fallback = fallback or RuleBasedPlannerService()
+        # Reuse the fallback's RagService instance by default so the same
+        # seed documents aren't parsed twice per ToolPlannerService.
+        self.rag_service = rag_service or self.fallback.rag_service
         self.fallback_enabled = (
             settings.llm_fallback_to_rule_based
             if fallback_enabled is None
@@ -105,6 +111,9 @@ class LlmPlannerService:
             ],
             "history": self._history_payload(request),
         }
+        policy_context = self._policy_context(request.message)
+        if policy_context:
+            payload["policyContext"] = policy_context
         return [
             {
                 "role": "system",
@@ -114,6 +123,13 @@ class LlmPlannerService:
                 "role": "user",
                 "content": json.dumps(payload, ensure_ascii=False),
             },
+        ]
+
+    def _policy_context(self, message: str) -> list[dict[str, str]]:
+        result = self.rag_service.search(RagSearchRequest(query=message, topK=3))
+        return [
+            {"title": item.title, "content": item.content}
+            for item in result.items
         ]
 
     def _history_payload(self, request: ChatPlanRequest) -> list[dict[str, str]]:
