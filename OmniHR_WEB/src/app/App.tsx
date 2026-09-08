@@ -24,6 +24,7 @@ import { TasksPage } from "../features/tasks/TasksPage";
 import { SkillsPage } from "../features/skills/SkillsPage";
 import { EmployeeSkillsPage } from "../features/employee-skills/EmployeeSkillsPage";
 import { AiTaskSuggestionsPage } from "../features/ai-task-suggestions/AiTaskSuggestionsPage";
+import { OrgChartPage } from "../features/org-chart/OrgChartPage";
 
 export function App() {
   return (
@@ -73,6 +74,7 @@ export function App() {
                   element={<Navigate to="/admin/dashboard" replace />}
                 />
                 <Route path="dashboard" element={<AdminDashboardPage />} />
+                <Route path="org-chart" element={<OrgChartPage />} />
                 <Route path="employees" element={<Navigate to="/admin/users" replace />} />
                 <Route path="departments" element={<DepartmentsPage />} />
                 <Route path="positions" element={<PositionsPage />} />

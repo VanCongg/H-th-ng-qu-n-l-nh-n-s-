@@ -17,6 +17,8 @@ import type {
   LoginResponse,
   ManagerDashboard,
   Notification,
+  OrgAnalytics,
+  OrgChartNode,
   Paginated,
   Permission,
   Position,
@@ -51,6 +53,8 @@ export const authApi = {
 export const dashboardApi = {
   admin: () => unwrap<AdminDashboard>(api.get("/admin/dashboard")),
   manager: () => unwrap<ManagerDashboard>(api.get("/app/dashboard")),
+  orgChart: () => unwrap<OrgChartNode[]>(api.get("/admin/dashboard/org-chart")),
+  orgAnalytics: () => unwrap<OrgAnalytics>(api.get("/admin/dashboard/org-analytics")),
   settings: () => unwrap<Record<string, unknown>>(api.get("/system-settings")),
   updateSettings: (settings: Record<string, unknown>) =>
     unwrap<Record<string, unknown>>(api.patch("/system-settings", { settings }))

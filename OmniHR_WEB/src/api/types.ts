@@ -144,6 +144,32 @@ export type LeaveRequest = {
   createdAt: string;
 };
 
+export type OrgChartTeam = {
+  id: number;
+  code: string;
+  name: string;
+  lead?: { id: number; fullName: string } | null;
+  _count: { members: number };
+};
+
+export type OrgChartNode = {
+  id: number;
+  code: string;
+  name: string;
+  parentId?: number | null;
+  manager?: { id: number; fullName: string } | null;
+  teams: OrgChartTeam[];
+  _count: { employees: number };
+  children: OrgChartNode[];
+};
+
+export type OrgAnalytics = {
+  totalActiveEmployees: number;
+  todayAttendance: number;
+  attendanceRate: number;
+  byDepartment: { departmentId: number; departmentName: string; headcount: number }[];
+};
+
 export type NotificationType =
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"

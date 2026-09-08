@@ -40,6 +40,7 @@ export const appNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/admin/dashboard", icon: BarChart3 },
+  { labelKey: "orgChart", to: "/admin/org-chart", icon: Network },
   { labelKey: "users", to: "/admin/users", icon: UserRound },
   { labelKey: "departments", to: "/admin/departments", icon: FileText },
   { labelKey: "positions", to: "/admin/positions", icon: BadgeCheck },
