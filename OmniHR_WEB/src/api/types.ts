@@ -144,6 +144,26 @@ export type LeaveRequest = {
   createdAt: string;
 };
 
+export type NotificationType =
+  | "LEAVE_APPROVED"
+  | "LEAVE_REJECTED"
+  | "TASK_ASSIGNED"
+  | "TASK_STATUS_CHANGED"
+  | "ATTENDANCE_ADJUSTED"
+  | "REVIEW_FINALIZED";
+
+export type Notification = {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  entityType?: string | null;
+  entityId?: number | null;
+  isRead: boolean;
+  createdAt: string;
+};
+
 export type AttendanceRecordType = "CHECK_IN" | "CHECK_OUT" | "ADJUSTMENT";
 export type AttendanceShift = "MORNING" | "AFTERNOON";
 export type AttendanceStatus =

@@ -16,6 +16,7 @@ import type {
   LeaveType,
   LoginResponse,
   ManagerDashboard,
+  Notification,
   Paginated,
   Permission,
   Position,
@@ -282,6 +283,15 @@ export const rolesApi = {
 
 export const permissionsApi = {
   list: () => unwrap<Permission[]>(api.get("/permissions"))
+};
+
+export const notificationsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<Notification>>(api.get("/notifications", { params })),
+  unreadCount: () => unwrap<number>(api.get("/notifications/unread-count")),
+  markRead: (id: number) =>
+    unwrap<Notification>(api.patch(`/notifications/${id}/read`)),
+  markAllRead: () => unwrap(api.patch("/notifications/read-all"))
 };
 
 export const auditLogsApi = {

@@ -534,7 +534,14 @@ const viLiterals: Record<string, string> = {
   "Enter a technology and press Enter": "Nhập công nghệ rồi nhấn Enter",
   "Example: NestJS, React, PostgreSQL": "Ví dụ: NestJS, React, PostgreSQL",
   "Technologies": "Công nghệ",
-  "Total estimated hours": "Tổng giờ dự kiến"
+  "Total estimated hours": "Tổng giờ dự kiến",
+  "Notifications": "Thông báo",
+  "Mark all read": "Đánh dấu đã đọc tất cả",
+  "No notifications yet": "Chưa có thông báo nào",
+  "Leave request approved": "Đơn nghỉ phép đã được duyệt",
+  "Leave request rejected": "Đơn nghỉ phép bị từ chối",
+  "New task assigned": "Bạn được gán công việc mới",
+  "Attendance record adjusted": "Bản ghi chấm công đã được điều chỉnh"
 };
 
 const viEnums: Record<string, string> = {
@@ -589,7 +596,13 @@ const viEnums: Record<string, string> = {
   PENDING: "Chờ duyệt",
   PROJECT: "Dự án",
   REJECTED: "Đã từ chối",
-  TERMINATED: "Đã chấm dứt"
+  TERMINATED: "Đã chấm dứt",
+  LEAVE_APPROVED: "Đơn nghỉ được duyệt",
+  LEAVE_REJECTED: "Đơn nghỉ bị từ chối",
+  TASK_ASSIGNED: "Được gán công việc",
+  TASK_STATUS_CHANGED: "Trạng thái công việc thay đổi",
+  ATTENDANCE_ADJUSTED: "Chấm công được điều chỉnh",
+  REVIEW_FINALIZED: "Đánh giá đã chốt"
 };
 
 export function getCurrentLanguage(): AppLanguage {

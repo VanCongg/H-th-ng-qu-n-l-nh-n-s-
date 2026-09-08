@@ -31,13 +31,15 @@ import {
   Sun,
   UserRound
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { authApi } from "../api/endpoints";
 import { getApiErrorMessage } from "../api/axios";
 import { BrandLogo } from "../components/BrandLogo";
+import { NotificationBell } from "../components/NotificationBell";
 import { useTranslation } from "../i18n";
 import { useAuthStore } from "../store/auth";
+import { useNotificationsStore } from "../store/notifications";
 import type { RoleName } from "../api/types";
 import { usePreferencesStore, type AppLanguage } from "../store/preferences";
 import type { NavItem } from "./nav";
@@ -56,7 +58,10 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
   const logoutLocal = useAuthStore((state) => state.logoutLocal);
+  const connectNotifications = useNotificationsStore((state) => state.connect);
+  const disconnectNotifications = useNotificationsStore((state) => state.disconnect);
   const language = usePreferencesStore((state) => state.language);
   const setLanguage = usePreferencesStore((state) => state.setLanguage);
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -76,6 +81,15 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
       navigate("/login", { replace: true });
     }
   }
+
+  useEffect(() => {
+    if (accessToken) {
+      connectNotifications(accessToken);
+    } else {
+      disconnectNotifications();
+    }
+    return () => disconnectNotifications();
+  }, [accessToken, connectNotifications, disconnectNotifications]);
 
   const initials =
     user?.username
@@ -133,6 +147,7 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
           </Group>
 
           <Group gap="xs" wrap="nowrap" className="header-actions">
+            <NotificationBell />
             <Menu width={320} position="bottom-end" radius="md" shadow="lg">
               <Menu.Target>
                 <UnstyledButton className="avatar-trigger">
