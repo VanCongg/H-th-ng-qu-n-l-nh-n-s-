@@ -21,10 +21,12 @@ import { EmployeesModule } from "./employees/employees.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { PerformanceReviewsModule } from "./performance-reviews/performance-reviews.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { ReviewCyclesModule } from "./review-cycles/review-cycles.module";
 import { RolesModule } from "./roles/roles.module";
 import { SkillsModule } from "./skills/skills.module";
 import { TaskAssignmentsModule } from "./task-assignments/task-assignments.module";
@@ -132,6 +134,8 @@ function rejectInsecureProductionConfig(
     AiTaskSuggestionsModule,
     ChatbotModule,
     NotificationsModule,
+    ReviewCyclesModule,
+    PerformanceReviewsModule,
   ],
   providers: [
     {

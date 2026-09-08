@@ -1,0 +1,59 @@
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from "@nestjs/common";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { CurrentUser } from "../common/decorators/current-user.decorator";
+import { Permissions } from "../common/decorators/permissions.decorator";
+import { ReqContext } from "../common/decorators/request-context.decorator";
+import { AuthUser, RequestContext } from "../common/types";
+import { CreateReviewCycleDto } from "./dto/create-review-cycle.dto";
+import { UpdateReviewCycleDto } from "./dto/update-review-cycle.dto";
+import { ReviewCyclesService } from "./review-cycles.service";
+
+@ApiTags("review-cycles")
+@ApiBearerAuth()
+@Controller("review-cycles")
+export class ReviewCyclesController {
+  constructor(private readonly reviewCyclesService: ReviewCyclesService) {}
+
+  @Permissions("REVIEW_MANAGE")
+  @Get()
+  findAll() {
+    return this.reviewCyclesService.findAll();
+  }
+
+  @Permissions("REVIEW_MANAGE")
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
+    return this.reviewCyclesService.findOne(id);
+  }
+
+  @Permissions("REVIEW_MANAGE")
+  @Post()
+  create(
+    @Body() dto: CreateReviewCycleDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.reviewCyclesService.create(dto, user, context);
+  }
+
+  @Permissions("REVIEW_MANAGE")
+  @Patch(":id")
+  update(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdateReviewCycleDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.reviewCyclesService.update(id, dto, user, context);
+  }
+
+  @Permissions("REVIEW_MANAGE")
+  @Post(":id/launch")
+  launch(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.reviewCyclesService.launch(id, user, context);
+  }
+}

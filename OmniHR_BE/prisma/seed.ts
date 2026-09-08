@@ -95,7 +95,13 @@ const permissions = [
   "EMPLOYEE_SKILL_DELETE",
   "AI_TASK_SUGGEST",
   "AI_TASK_SELECT",
-  "TASK_ASSIGNMENT_READ"
+  "TASK_ASSIGNMENT_READ",
+  "REVIEW_READ_SELF",
+  "REVIEW_SUBMIT_SELF",
+  "REVIEW_READ_TEAM",
+  "REVIEW_SUBMIT_MANAGER",
+  "REVIEW_READ_ALL",
+  "REVIEW_MANAGE"
 ] as const;
 
 const adminPermissions = permissions;
@@ -561,7 +567,9 @@ const employeePermissions = [
   "EMPLOYEE_SKILL_READ",
   "EMPLOYEE_SKILL_CREATE",
   "EMPLOYEE_SKILL_UPDATE",
-  "EMPLOYEE_SKILL_DELETE"
+  "EMPLOYEE_SKILL_DELETE",
+  "REVIEW_READ_SELF",
+  "REVIEW_SUBMIT_SELF"
 ] as const;
 
 const managerExtraPermissions = [
@@ -583,7 +591,9 @@ const managerExtraPermissions = [
   "SKILL_READ",
   "AI_TASK_SUGGEST",
   "AI_TASK_SELECT",
-  "TASK_ASSIGNMENT_READ"
+  "TASK_ASSIGNMENT_READ",
+  "REVIEW_READ_TEAM",
+  "REVIEW_SUBMIT_MANAGER"
 ] as const;
 
 const rolePermissions: Record<(typeof roles)[number], readonly string[]> = {

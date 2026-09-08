@@ -61,6 +61,28 @@ export class AccessControlService {
     }
   }
 
+  async ensureCanReviewEmployee(user: AuthUser, employeeId: number) {
+    if (this.isAdmin(user)) {
+      return;
+    }
+
+    if (user.employeeId === employeeId) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        "You cannot submit a manager review for yourself",
+        "MANAGER_SCOPE_DENIED"
+      );
+    }
+
+    if (!(await this.isSubordinate(user, employeeId))) {
+      throw new ApiError(
+        HttpStatus.FORBIDDEN,
+        "Manager scope denied",
+        "MANAGER_SCOPE_DENIED"
+      );
+    }
+  }
+
   async teamEmployeeIds(user: AuthUser): Promise<number[]> {
     if (!user.employeeId) {
       return [];
