@@ -25,6 +25,18 @@ export class DashboardController {
     return this.dashboardService.managerDashboard(user);
   }
 
+  @Roles("ADMIN")
+  @Get("admin/dashboard/org-chart")
+  orgChart() {
+    return this.dashboardService.orgChart();
+  }
+
+  @Roles("ADMIN")
+  @Get("admin/dashboard/org-analytics")
+  orgAnalytics() {
+    return this.dashboardService.orgAnalytics();
+  }
+
   @Permissions("SYSTEM_SETTING_READ")
   @Get("system-settings")
   getSettings() {
