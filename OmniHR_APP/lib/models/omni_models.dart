@@ -506,3 +506,32 @@ class TaskItem {
     );
   }
 }
+
+class AppNotification {
+  AppNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String type;
+  final String title;
+  final String message;
+  final bool isRead;
+  final String createdAt;
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) {
+    return AppNotification(
+      id: intOf(json['id']),
+      type: textOf(json['type']),
+      title: textOf(json['title']),
+      message: textOf(json['message']),
+      isRead: json['isRead'] == true,
+      createdAt: textOf(json['createdAt']),
+    );
+  }
+}

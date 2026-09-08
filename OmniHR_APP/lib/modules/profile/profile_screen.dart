@@ -6,6 +6,7 @@ import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
+import '../notifications/notifications_screen.dart';
 
 class ProfileBundle {
   ProfileBundle({required this.employee, required this.skills});
@@ -362,6 +363,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.dns_outlined,
                       label: tx('Máy chủ API'),
                       value: widget.session.baseUrl,
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SubScreen(
+                            title: tx('Thông báo'),
+                            child: NotificationsScreen(session: widget.session),
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.notifications_outlined),
+                      label: Text(tx('Thông báo')),
                     ),
                     const SizedBox(height: 10),
                     FilledButton.icon(
