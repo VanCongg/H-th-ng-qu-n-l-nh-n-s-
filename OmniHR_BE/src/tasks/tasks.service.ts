@@ -12,6 +12,7 @@ import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { pagination, toDateOnly } from "../common/utils";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AssignTaskDto } from "./dto/assign-task.dto";
 import { CreateTaskDto } from "./dto/create-task.dto";
@@ -85,7 +86,8 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly accessControl: AccessControlService
+    private readonly accessControl: AccessControlService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async findAll(query: TaskQueryDto, user: AuthUser) {
@@ -370,6 +372,17 @@ export class TasksService {
       newValue: { assigneeId: dto.assigneeId, assignmentType },
       context
     });
+
+    if (task.assignee?.userId) {
+      await this.notifications.create(
+        task.assignee.userId,
+        "TASK_ASSIGNED",
+        "New task assigned",
+        `You were assigned to "${task.title}".`,
+        "Task",
+        task.id
+      );
+    }
 
     return task;
   }

@@ -18,6 +18,7 @@ import {
 import { AuthUser, RequestContext } from "../common/types";
 import { pagination, toDateOnly } from "../common/utils";
 import { currentEmployeeWhere } from "../common/prisma-where";
+import { NotificationsService } from "../notifications/notifications.service";
 import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
 import {
@@ -61,7 +62,8 @@ export class AttendanceService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessControl: AccessControlService,
-    private readonly systemSettings: SystemSettingsService
+    private readonly systemSettings: SystemSettingsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async getLocationPolicy() {
@@ -240,6 +242,17 @@ export class AttendanceService {
       context
     });
 
+    if (record.employee.userId) {
+      await this.notifications.create(
+        record.employee.userId,
+        "ATTENDANCE_ADJUSTED",
+        "Attendance record adjusted",
+        `An attendance record for ${record.workDate.toDateString()} was created by an admin.`,
+        "AttendanceRecord",
+        record.id
+      );
+    }
+
     return record;
   }
 
@@ -283,6 +296,17 @@ export class AttendanceService {
       newValue: record,
       context
     });
+
+    if (record.employee.userId) {
+      await this.notifications.create(
+        record.employee.userId,
+        "ATTENDANCE_ADJUSTED",
+        "Attendance record adjusted",
+        `An attendance record for ${record.workDate.toDateString()} was updated by an admin.`,
+        "AttendanceRecord",
+        record.id
+      );
+    }
 
     return record;
   }

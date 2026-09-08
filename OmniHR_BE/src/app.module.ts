@@ -20,6 +20,7 @@ import { EmployeeSkillsModule } from "./employee-skills/employee-skills.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
 import { PrismaModule } from "./prisma/prisma.module";
@@ -130,6 +131,7 @@ function rejectInsecureProductionConfig(
     TaskWorkloadModule,
     AiTaskSuggestionsModule,
     ChatbotModule,
+    NotificationsModule,
   ],
   providers: [
     {

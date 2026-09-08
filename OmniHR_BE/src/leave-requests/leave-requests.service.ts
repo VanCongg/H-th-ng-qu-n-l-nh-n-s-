@@ -8,6 +8,7 @@ import { SystemSettingsService } from "../common/services/system-settings.servic
 import { AuthUser, RequestContext } from "../common/types";
 import { calculateLeaveDays, pagination, toDateOnly } from "../common/utils";
 import { currentEmployeeWhere } from "../common/prisma-where";
+import { NotificationsService } from "../notifications/notifications.service";
 import { CreateLeaveRequestDto } from "./dto/create-leave-request.dto";
 import { LeaveRequestQueryDto } from "./dto/leave-request-query.dto";
 import { RejectLeaveRequestDto } from "./dto/reject-leave-request.dto";
@@ -31,7 +32,8 @@ export class LeaveRequestsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessControl: AccessControlService,
-    private readonly systemSettings: SystemSettingsService
+    private readonly systemSettings: SystemSettingsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async create(
@@ -160,6 +162,17 @@ export class LeaveRequestsService {
       context
     });
 
+    if (updated.employee.userId) {
+      await this.notifications.create(
+        updated.employee.userId,
+        "LEAVE_APPROVED",
+        "Leave request approved",
+        `Your leave request from ${updated.startDate.toDateString()} to ${updated.endDate.toDateString()} was approved.`,
+        "LeaveRequest",
+        updated.id
+      );
+    }
+
     return updated;
   }
 
@@ -190,6 +203,17 @@ export class LeaveRequestsService {
       newValue: updated,
       context
     });
+
+    if (updated.employee.userId) {
+      await this.notifications.create(
+        updated.employee.userId,
+        "LEAVE_REJECTED",
+        "Leave request rejected",
+        dto.rejectionReason,
+        "LeaveRequest",
+        updated.id
+      );
+    }
 
     return updated;
   }

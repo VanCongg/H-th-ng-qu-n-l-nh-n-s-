@@ -155,6 +155,7 @@ model User {
   aiTaskSuggestions        AiTaskSuggestion[]     @relation("AiTaskSuggestionRequestedBy")
   chatbotConversations     ChatbotConversation[]
   chatbotPendingActions    ChatbotPendingAction[]
+  notifications            Notification[]
 
   @@map("users")
 }
@@ -452,6 +453,32 @@ model AuditLog {
 
   @@index([userId, action, createdAt])
   @@map("audit_logs")
+}
+
+enum NotificationType {
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  ATTENDANCE_ADJUSTED
+  REVIEW_FINALIZED
+}
+
+model Notification {
+  id         Int              @id @default(autoincrement())
+  userId     Int              @map("user_id")
+  type       NotificationType
+  title      String           @db.VarChar(200)
+  message    String           @db.VarChar(1000)
+  entityType String?          @map("entity_type") @db.VarChar(80)
+  entityId   Int?             @map("entity_id")
+  isRead     Boolean          @default(false) @map("is_read")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }
 
 model ChatbotConversation {

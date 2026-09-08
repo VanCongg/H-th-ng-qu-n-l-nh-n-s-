@@ -1,6 +1,7 @@
 import { TaskAssignmentType } from "@prisma/client";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TasksService } from "./tasks.service";
 
@@ -36,17 +37,22 @@ describe("TasksService", () => {
       ensureCanUpdateTask: jest.fn(),
       ensureCanAssignToEmployee: jest.fn()
     };
+    const notifications = {
+      create: jest.fn()
+    };
 
     return {
       service: new TasksService(
         prisma as unknown as PrismaService,
         audit as unknown as AuditService,
-        accessControl as unknown as AccessControlService
+        accessControl as unknown as AccessControlService,
+        notifications as unknown as NotificationsService
       ),
       prisma,
       tx,
       audit,
-      accessControl
+      accessControl,
+      notifications
     };
   }
 
