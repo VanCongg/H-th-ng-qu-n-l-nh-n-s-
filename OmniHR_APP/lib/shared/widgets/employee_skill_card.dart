@@ -17,10 +17,7 @@ class EmployeeSkillCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          AppIconBadge(
-            icon: Icons.psychology_alt_rounded,
-            color: brandColor,
-          ),
+          AppIconBadge(icon: Icons.psychology_alt_rounded, color: brandColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -47,10 +44,9 @@ class EmployeeSkillCard extends StatelessWidget {
                       ),
                     if (skill.lastUsedAt != null)
                       Pill(
-                        label: tx(
-                          'Gần nhất {date}',
-                          {'date': formatDate(skill.lastUsedAt)},
-                        ),
+                        label: tx('Gần nhất {date}', {
+                          'date': formatDate(skill.lastUsedAt),
+                        }),
                         color: mutedTextColor,
                       ),
                   ],

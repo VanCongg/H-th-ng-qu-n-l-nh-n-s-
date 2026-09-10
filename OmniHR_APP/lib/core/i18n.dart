@@ -96,13 +96,14 @@ const Map<String, String> _enDictionary = {
   'Chưa có lượt chấm công trong ngày này': 'No attendance on this day',
   '{count} lượt chấm công': '{count} check-ins',
   'Ngày này chưa ghi nhận chấm công.': 'No attendance recorded for this day.',
-  'Tài khoản chưa có quyền chấm công.': 'This account cannot record attendance.',
+  'Tài khoản chưa có quyền chấm công.':
+      'This account cannot record attendance.',
   'Bạn chưa chấm công vào nên không thể chấm công ra.':
       'You have not checked in, so you cannot check out.',
   'Ngoài khu vực công ty': 'Outside company area',
   'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho phép {radius}m. Vẫn tiếp tục?':
       'You are {distance}m from the office, beyond the allowed radius of '
-          '{radius}m. Continue anyway?',
+      '{radius}m. Continue anyway?',
   'Vẫn tiếp tục': 'Continue anyway',
   'Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.':
       'The app will use your current location for this record.',
@@ -188,7 +189,8 @@ const Map<String, String> _enDictionary = {
       'Add skills so task suggestions can be more accurate.',
   'Thêm kỹ năng': 'Add skill',
   'Vui lòng chọn kỹ năng.': 'Please choose a skill.',
-  'Bạn đã thêm tất cả kỹ năng khả dụng.': 'You\'ve added every available skill.',
+  'Bạn đã thêm tất cả kỹ năng khả dụng.':
+      'You\'ve added every available skill.',
   'Mức độ': 'Proficiency',
   'Mới bắt đầu': 'Beginner',
   'Khá': 'Advanced',
@@ -222,8 +224,7 @@ const Map<String, String> _enDictionary = {
   'English': 'English',
 
   // Login
-  'Không gian làm việc nhân sự hằng ngày.':
-      'Your everyday HR workspace.',
+  'Không gian làm việc nhân sự hằng ngày.': 'Your everyday HR workspace.',
   'Chấm công, nghỉ phép, công việc và hồ sơ cá nhân trên một ứng dụng.':
       'Attendance, leave, tasks and your profile in one app.',
   'Ứng dụng nhân viên': 'Employee app',
@@ -277,7 +278,8 @@ const Map<String, String> _enDictionary = {
       'You don\'t have permission to do this.',
   'Bạn đã chấm công vào và chưa chấm công ra.':
       'You checked in and have not checked out yet.',
-  'Bạn đã chấm công vào trong ca này.': 'You already checked in for this shift.',
+  'Bạn đã chấm công vào trong ca này.':
+      'You already checked in for this shift.',
   'Thời điểm hiện tại nằm ngoài khung giờ chấm công.':
       'This is outside the configured attendance hours.',
   'Cần có vị trí GPS để chấm công.': 'GPS location is required to check in.',
@@ -320,5 +322,5 @@ const Map<String, String> _enDictionary = {
       'Location permission is blocked. Open device settings to allow it.',
   'Không lấy được vị trí hiện tại. Vui lòng bật GPS, cấp quyền vị trí và thử lại.':
       'Could not get your location. Turn on GPS, grant permission and try '
-          'again.',
+      'again.',
 };

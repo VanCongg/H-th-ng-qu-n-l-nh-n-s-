@@ -54,14 +54,15 @@ class _PressableScaleState extends State<PressableScale>
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {
-          final scale =
-              1 - (_controller.value * (1 - widget.pressedScale));
+          final scale = 1 - (_controller.value * (1 - widget.pressedScale));
           return Transform.scale(scale: scale, child: child);
         },
         child: Material(
           color: Colors.transparent,
           borderRadius: widget.borderRadius,
-          clipBehavior: widget.borderRadius == null ? Clip.none : Clip.antiAlias,
+          clipBehavior: widget.borderRadius == null
+              ? Clip.none
+              : Clip.antiAlias,
           child: InkWell(
             borderRadius: widget.borderRadius,
             onTap: widget.onTap,

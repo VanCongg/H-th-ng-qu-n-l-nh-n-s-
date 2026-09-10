@@ -203,9 +203,7 @@ class _QuickActions extends StatelessWidget {
   final AppSession session;
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => screen));
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
   @override
@@ -325,60 +323,60 @@ class _LeavePreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          SectionTitle(title: tx('Nghỉ phép gần đây')),
-          if (requests.isEmpty)
-            Text(
-              tx('Chưa có đơn nghỉ phép.'),
-              style: TextStyle(
-                color: mutedTextColor,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            ...requests
-                .take(3)
-                .map(
-                  (request) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        AppIconBadge(
-                          icon: Icons.beach_access_rounded,
-                          color: statusColor(request.status),
-                          size: 38,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                request.leaveType.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                ),
+        SectionTitle(title: tx('Nghỉ phép gần đây')),
+        if (requests.isEmpty)
+          Text(
+            tx('Chưa có đơn nghỉ phép.'),
+            style: TextStyle(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          ...requests
+              .take(3)
+              .map(
+                (request) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      AppIconBadge(
+                        icon: Icons.beach_access_rounded,
+                        color: statusColor(request.status),
+                        size: 38,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              request.leaveType.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${formatDate(request.startDate)} - ${formatDate(request.endDate)}',
-                                style: TextStyle(
-                                  color: mutedTextColor,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${formatDate(request.startDate)} - ${formatDate(request.endDate)}',
+                              style: TextStyle(
+                                color: mutedTextColor,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        Pill(
-                          label: friendlyStatus(request.status),
-                          color: statusColor(request.status),
-                        ),
-                      ],
-                    ),
+                      ),
+                      Pill(
+                        label: friendlyStatus(request.status),
+                        color: statusColor(request.status),
+                      ),
+                    ],
                   ),
                 ),
+              ),
       ],
     );
   }
@@ -396,69 +394,68 @@ class _TaskPreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          SectionTitle(title: tx('Công việc sắp đến hạn')),
-          if (visibleTasks.isEmpty)
-            Text(
-              tx('Không có công việc đang mở.'),
-              style: TextStyle(
-                color: mutedTextColor,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            ...visibleTasks.map(
-              (task) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    AppIconBadge(
-                      icon: Icons.task_alt_rounded,
-                      color: task.isOverdue
-                          ? dangerColor
-                          : statusColor(task.status),
-                      size: 38,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            task.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w900),
+        SectionTitle(title: tx('Công việc sắp đến hạn')),
+        if (visibleTasks.isEmpty)
+          Text(
+            tx('Không có công việc đang mở.'),
+            style: TextStyle(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          ...visibleTasks.map(
+            (task) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  AppIconBadge(
+                    icon: Icons.task_alt_rounded,
+                    color: task.isOverdue
+                        ? dangerColor
+                        : statusColor(task.status),
+                    size: 38,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          task.dueDate == null
+                              ? friendlyStatus(task.status)
+                              : tx('Hạn {date}', {
+                                  'date': formatDate(task.dueDate),
+                                }),
+                          style: TextStyle(
+                            color: task.isOverdue
+                                ? dangerColor
+                                : mutedTextColor,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 3),
-                          Text(
-                            task.dueDate == null
-                                ? friendlyStatus(task.status)
-                                : tx(
-                                    'Hạn {date}',
-                                    {'date': formatDate(task.dueDate)},
-                                  ),
-                            style: TextStyle(
-                              color: task.isOverdue
-                                  ? dangerColor
-                                  : mutedTextColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Pill(
-                      label: task.isOverdue
-                          ? tx('Quá hạn')
-                          : friendlyPriority(task.priority),
-                      color: task.isOverdue
-                          ? dangerColor
-                          : priorityColor(task.priority),
-                    ),
-                  ],
-                ),
+                  ),
+                  Pill(
+                    label: task.isOverdue
+                        ? tx('Quá hạn')
+                        : friendlyPriority(task.priority),
+                    color: task.isOverdue
+                        ? dangerColor
+                        : priorityColor(task.priority),
+                  ),
+                ],
               ),
             ),
+          ),
       ],
     );
   }

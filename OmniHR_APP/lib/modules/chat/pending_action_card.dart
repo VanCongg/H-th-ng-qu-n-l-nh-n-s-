@@ -101,7 +101,9 @@ class PendingActionCard extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: busy ? null : onCancel,
                         icon: const Icon(Icons.close_rounded),
-                        label: Text(isCancelLeave ? tx('Không hủy') : tx('Hủy')),
+                        label: Text(
+                          isCancelLeave ? tx('Không hủy') : tx('Hủy'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

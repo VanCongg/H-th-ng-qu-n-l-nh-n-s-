@@ -42,19 +42,16 @@ class TaskCard extends StatelessWidget {
                       task.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     if (task.dueDate != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        tx(
-                          overdue ? 'Quá hạn {date}' : 'Hạn {date}',
-                          {'date': formatDate(task.dueDate)},
-                        ),
+                        tx(overdue ? 'Quá hạn {date}' : 'Hạn {date}', {
+                          'date': formatDate(task.dueDate),
+                        }),
                         style: TextStyle(
                           color: overdue ? dangerColor : mutedTextColor,
                           fontWeight: FontWeight.w700,

@@ -86,9 +86,14 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_themeMode == mode) return;
     _themeMode = mode;
-    applyAppBrightness(mode == ThemeMode.dark ? Brightness.dark : Brightness.light);
+    applyAppBrightness(
+      mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+    );
     _prefs ??= await SharedPreferences.getInstance();
-    await _prefs?.setString(_themeModeKey, mode == ThemeMode.dark ? 'dark' : 'light');
+    await _prefs?.setString(
+      _themeModeKey,
+      mode == ThemeMode.dark ? 'dark' : 'light',
+    );
     notifyListeners();
   }
 
@@ -131,10 +136,9 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       );
     } on Exception catch (error) {
       throw ApiException(
-        tx(
-          'Không thể kết nối backend tại {url}. Vui lòng kiểm tra máy chủ.',
-          {'url': candidateBaseUrl},
-        ),
+        tx('Không thể kết nối backend tại {url}. Vui lòng kiểm tra máy chủ.', {
+          'url': candidateBaseUrl,
+        }),
         errorCode: error.toString(),
       );
     }

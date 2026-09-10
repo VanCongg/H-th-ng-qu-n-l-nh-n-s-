@@ -120,7 +120,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setSheetState) {
             Future<void> submit() async {
               if (skillId == null) {
-                showAppSnack(context, tx('Vui lòng chọn kỹ năng.'), error: true);
+                showAppSnack(
+                  context,
+                  tx('Vui lòng chọn kỹ năng.'),
+                  error: true,
+                );
                 return;
               }
               setSheetState(() => submitting = true);
@@ -434,9 +438,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       )
                     else
-                      ...skills.map(
-                        (skill) => EmployeeSkillCard(skill: skill),
-                      ),
+                      ...skills.map((skill) => EmployeeSkillCard(skill: skill)),
                     const SizedBox(height: 4),
                     FilledButton.icon(
                       onPressed: employee == null
@@ -471,9 +473,8 @@ class _DisplaySettingsPanel extends StatelessWidget {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: session.themeMode == ThemeMode.dark,
-            onChanged: (value) => session.setThemeMode(
-              value ? ThemeMode.dark : ThemeMode.light,
-            ),
+            onChanged: (value) =>
+                session.setThemeMode(value ? ThemeMode.dark : ThemeMode.light),
             title: Text(tx('Giao diện tối')),
             secondary: Icon(
               session.themeMode == ThemeMode.dark
@@ -488,7 +489,10 @@ class _DisplaySettingsPanel extends StatelessWidget {
               Icon(Icons.translate_rounded, color: brandColor),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(tx('Ngôn ngữ'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                child: Text(
+                  tx('Ngôn ngữ'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
               ),
               SegmentedButton<AppLanguage>(
                 showSelectedIcon: false,
@@ -503,8 +507,7 @@ class _DisplaySettingsPanel extends StatelessWidget {
                   ),
                 ],
                 selected: {session.language},
-                onSelectionChanged: (value) =>
-                    session.setLanguage(value.first),
+                onSelectionChanged: (value) => session.setLanguage(value.first),
               ),
             ],
           ),
@@ -567,9 +570,9 @@ class _ProfileHeader extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 3),
                 Text(

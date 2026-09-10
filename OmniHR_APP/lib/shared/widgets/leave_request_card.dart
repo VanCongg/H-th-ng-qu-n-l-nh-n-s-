@@ -74,10 +74,9 @@ class LeaveRequestCard extends StatelessWidget {
               request.rejectionReason!.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
-              tx(
-                'Lý do từ chối: {reason}',
-                {'reason': request.rejectionReason!},
-              ),
+              tx('Lý do từ chối: {reason}', {
+                'reason': request.rejectionReason!,
+              }),
               style: TextStyle(color: dangerColor),
             ),
           ],

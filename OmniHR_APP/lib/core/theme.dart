@@ -47,19 +47,20 @@ abstract class AppTheme {
     required Color outline,
     required Color scaffoldBackground,
   }) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      brightness: brightness,
-    ).copyWith(
-      primary: primary,
-      secondary: secondary,
-      tertiary: tertiary,
-      error: error,
-      surface: surface,
-      onSurface: onSurface,
-      onSurfaceVariant: onSurfaceVariant,
-      outline: outline,
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: primary,
+          brightness: brightness,
+        ).copyWith(
+          primary: primary,
+          secondary: secondary,
+          tertiary: tertiary,
+          error: error,
+          surface: surface,
+          onSurface: onSurface,
+          onSurfaceVariant: onSurfaceVariant,
+          outline: outline,
+        );
 
     final base = ThemeData(useMaterial3: true, colorScheme: colorScheme);
 
@@ -115,9 +116,8 @@ abstract class AppTheme {
         style: ButtonStyle(
           visualDensity: VisualDensity.compact,
           foregroundColor: WidgetStateProperty.resolveWith(
-            (states) => states.contains(WidgetState.selected)
-                ? Colors.white
-                : primary,
+            (states) =>
+                states.contains(WidgetState.selected) ? Colors.white : primary,
           ),
           backgroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)

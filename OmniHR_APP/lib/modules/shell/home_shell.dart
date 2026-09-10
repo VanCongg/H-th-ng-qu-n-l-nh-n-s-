@@ -16,8 +16,10 @@ class HomeShell extends StatelessWidget {
   void _openProfile(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SubScreen(title: tx('Cá nhân'), child: ProfileScreen(session: session)),
+        builder: (_) => SubScreen(
+          title: tx('Cá nhân'),
+          child: ProfileScreen(session: session),
+        ),
       ),
     );
   }

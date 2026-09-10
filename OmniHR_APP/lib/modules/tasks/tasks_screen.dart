@@ -240,10 +240,9 @@ class _TasksScreenState extends State<TasksScreen> {
                     if (task.childTasks.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       SectionTitle(
-                        title: tx(
-                          'Công việc con ({count})',
-                          {'count': '${task.childTasks.length}'},
-                        ),
+                        title: tx('Công việc con ({count})', {
+                          'count': '${task.childTasks.length}',
+                        }),
                       ),
                       ...task.childTasks.map(
                         (child) => Padding(
@@ -333,15 +332,24 @@ class _TasksScreenState extends State<TasksScreen> {
                 runSpacing: 8,
                 children: [
                   Pill(label: '$openCount ${tx('đang mở')}', color: brandColor),
-                  Pill(label: '$overdueCount ${tx('quá hạn')}', color: dangerColor),
-                  Pill(label: '$doneCount ${tx('hoàn thành')}', color: brandGreen),
+                  Pill(
+                    label: '$overdueCount ${tx('quá hạn')}',
+                    color: dangerColor,
+                  ),
+                  Pill(
+                    label: '$doneCount ${tx('hoàn thành')}',
+                    color: brandGreen,
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
               SegmentedButton<_TaskFilter>(
                 showSelectedIcon: false,
                 segments: [
-                  ButtonSegment(value: _TaskFilter.all, label: Text(tx('Tất cả'))),
+                  ButtonSegment(
+                    value: _TaskFilter.all,
+                    label: Text(tx('Tất cả')),
+                  ),
                   ButtonSegment(
                     value: _TaskFilter.open,
                     label: Text(tx('Đang mở')),
@@ -350,7 +358,10 @@ class _TasksScreenState extends State<TasksScreen> {
                     value: _TaskFilter.overdue,
                     label: Text(tx('Quá hạn')),
                   ),
-                  ButtonSegment(value: _TaskFilter.done, label: Text(tx('Xong'))),
+                  ButtonSegment(
+                    value: _TaskFilter.done,
+                    label: Text(tx('Xong')),
+                  ),
                 ],
                 selected: {_filter},
                 onSelectionChanged: (value) {
@@ -373,7 +384,8 @@ class _TasksScreenState extends State<TasksScreen> {
                 )
               else
                 ...visibleTasks.map(
-                  (task) => TaskCard(task: task, onDetails: () => _openDetails(task)),
+                  (task) =>
+                      TaskCard(task: task, onDetails: () => _openDetails(task)),
                 ),
             ],
           ),
@@ -384,9 +396,18 @@ class _TasksScreenState extends State<TasksScreen> {
 }
 
 class _TaskStatusEditor extends StatelessWidget {
-  const _TaskStatusEditor({required this.currentStatus, required this.onChanged});
+  const _TaskStatusEditor({
+    required this.currentStatus,
+    required this.onChanged,
+  });
 
-  static const _statuses = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED'];
+  static const _statuses = [
+    'TODO',
+    'IN_PROGRESS',
+    'IN_REVIEW',
+    'DONE',
+    'CANCELLED',
+  ];
 
   final String currentStatus;
   final ValueChanged<String> onChanged;

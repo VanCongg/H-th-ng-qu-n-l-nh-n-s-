@@ -71,14 +71,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
           ),
           title: Text(tx('Hủy đơn nghỉ phép')),
           content: Text(
-            tx(
-              'Bạn muốn hủy đơn {type} từ {start} đến {end}?',
-              {
-                'type': request.leaveType.name,
-                'start': formatDate(request.startDate),
-                'end': formatDate(request.endDate),
-              },
-            ),
+            tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', {
+              'type': request.leaveType.name,
+              'start': formatDate(request.startDate),
+              'end': formatDate(request.endDate),
+            }),
           ),
           actions: [
             TextButton(
@@ -153,7 +150,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
             Future<void> submit() async {
               if (leaveTypeId == null) {
-                showAppSnack(context, tx('Vui lòng chọn loại nghỉ.'), error: true);
+                showAppSnack(
+                  context,
+                  tx('Vui lòng chọn loại nghỉ.'),
+                  error: true,
+                );
                 return;
               }
               if (endDate.isBefore(startDate)) {
@@ -165,7 +166,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 return;
               }
               if (reasonController.text.trim().isEmpty) {
-                showAppSnack(context, tx('Vui lòng nhập lý do nghỉ.'), error: true);
+                showAppSnack(
+                  context,
+                  tx('Vui lòng nhập lý do nghỉ.'),
+                  error: true,
+                );
                 return;
               }
               setSheetState(() => submitting = true);
@@ -310,7 +315,10 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  Pill(label: '$pending ${tx('chờ duyệt')}', color: accentColor),
+                  Pill(
+                    label: '$pending ${tx('chờ duyệt')}',
+                    color: accentColor,
+                  ),
                   Pill(label: '$approved ${tx('đã duyệt')}', color: brandGreen),
                   Pill(
                     label: '${bundle.requests.length} ${tx('tổng')}',
@@ -357,10 +365,9 @@ class _LeaveScreenState extends State<LeaveScreen> {
                           expandedExtra: Column(
                             children: rows.skip(3).toList(),
                           ),
-                          expandLabel: tx(
-                            'Xem thêm ({count})',
-                            {'count': '${rows.length - 3}'},
-                          ),
+                          expandLabel: tx('Xem thêm ({count})', {
+                            'count': '${rows.length - 3}',
+                          }),
                         );
                       },
                     ),
@@ -416,7 +423,10 @@ class _LeaveBalanceRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            child: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           Text(
             valueText,

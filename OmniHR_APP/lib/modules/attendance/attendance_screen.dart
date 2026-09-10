@@ -108,7 +108,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   /// either the user is within the configured radius, the policy couldn't
   /// be determined (server still validates authoritatively), or the user
   /// explicitly chose to continue anyway.
-  Future<bool> _confirmWithinRadius(Map<String, Object?> locationPayload) async {
+  Future<bool> _confirmWithinRadius(
+    Map<String, Object?> locationPayload,
+  ) async {
     final latitude = locationPayload['latitude'] as double?;
     final longitude = locationPayload['longitude'] as double?;
     if (latitude == null || longitude == null) return true;
@@ -179,7 +181,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ? 'ATTENDANCE_CHECK_IN'
         : 'ATTENDANCE_CHECK_OUT';
     if (!_hasPermission(permission)) {
-      showAppSnack(context, tx('Tài khoản chưa có quyền chấm công.'), error: true);
+      showAppSnack(
+        context,
+        tx('Tài khoản chưa có quyền chấm công.'),
+        error: true,
+      );
       return;
     }
 
@@ -270,13 +276,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final latestRecord = todayRecords.isEmpty ? null : todayRecords.first;
         final latestText = latestRecord == null
             ? tx('Hôm nay chưa có lượt chấm công.')
-            : tx(
-                '{type} lúc {time}',
-                {
-                  'type': friendlyRecordType(latestRecord.recordType),
-                  'time': formatDateTime(latestRecord.recordedAt),
-                },
-              );
+            : tx('{type} lúc {time}', {
+                'type': friendlyRecordType(latestRecord.recordType),
+                'time': formatDateTime(latestRecord.recordedAt),
+              });
         final nextAction = latestRecord?.recordType == 'CHECK_IN'
             ? 'check-out'
             : 'check-in';
@@ -329,7 +332,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     const SizedBox(height: 14),
                     Center(
                       child: AttendanceActionOrb(
-                        label: tx(nextIsCheckIn ? 'Chấm công vào' : 'Chấm công ra'),
+                        label: tx(
+                          nextIsCheckIn ? 'Chấm công vào' : 'Chấm công ra',
+                        ),
                         helperText: tx(
                           _submitting
                               ? 'Đang lấy GPS'
@@ -426,69 +431,69 @@ class MonthAttendanceCalendar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: tx('Tháng trước'),
-                onPressed: onPreviousMonth,
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
-              Expanded(
-                child: Text(
-                  monthTitle,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: tx('Tháng sau'),
-                onPressed: onNextMonth,
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _WeekdayLabel(tx('T2')),
-              _WeekdayLabel(tx('T3')),
-              _WeekdayLabel(tx('T4')),
-              _WeekdayLabel(tx('T5')),
-              _WeekdayLabel(tx('T6')),
-              _WeekdayLabel(tx('T7')),
-              _WeekdayLabel(tx('CN')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 6,
+        Row(
+          children: [
+            IconButton(
+              tooltip: tx('Tháng trước'),
+              onPressed: onPreviousMonth,
+              icon: const Icon(Icons.chevron_left_rounded),
             ),
-            itemCount: totalCells,
-            itemBuilder: (context, index) {
-              final dayNumber = index - leading + 1;
-              if (dayNumber < 1 || dayNumber > daysInMonth) {
-                return const SizedBox.shrink();
-              }
-              final day = DateTime(
-                visibleMonth.year,
-                visibleMonth.month,
-                dayNumber,
-              );
-              return _AttendanceDayCell(
-                day: day,
-                hasAttendance: _hasAttendance(day),
-                selected: selectedDay != null && sameDate(selectedDay!, day),
-                onTap: () => onDaySelected(day),
-              );
-            },
+            Expanded(
+              child: Text(
+                monthTitle,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+              ),
+            ),
+            IconButton(
+              tooltip: tx('Tháng sau'),
+              onPressed: onNextMonth,
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _WeekdayLabel(tx('T2')),
+            _WeekdayLabel(tx('T3')),
+            _WeekdayLabel(tx('T4')),
+            _WeekdayLabel(tx('T5')),
+            _WeekdayLabel(tx('T6')),
+            _WeekdayLabel(tx('T7')),
+            _WeekdayLabel(tx('CN')),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 6,
           ),
+          itemCount: totalCells,
+          itemBuilder: (context, index) {
+            final dayNumber = index - leading + 1;
+            if (dayNumber < 1 || dayNumber > daysInMonth) {
+              return const SizedBox.shrink();
+            }
+            final day = DateTime(
+              visibleMonth.year,
+              visibleMonth.month,
+              dayNumber,
+            );
+            return _AttendanceDayCell(
+              day: day,
+              hasAttendance: _hasAttendance(day),
+              selected: selectedDay != null && sameDate(selectedDay!, day),
+              onTap: () => onDaySelected(day),
+            );
+          },
+        ),
       ],
     );
   }
@@ -597,22 +602,22 @@ class DayAttendanceDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-          SectionTitle(
-            title: formatDate(day),
-            subtitle: records.isEmpty
-                ? tx('Chưa có lượt chấm công trong ngày này')
-                : tx('{count} lượt chấm công', {'count': '${records.length}'}),
-          ),
-          if (records.isEmpty)
-            Text(
-              tx('Ngày này chưa ghi nhận chấm công.'),
-              style: TextStyle(
-                color: mutedTextColor,
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            ...records.map((record) => _DayAttendanceRow(record: record)),
+        SectionTitle(
+          title: formatDate(day),
+          subtitle: records.isEmpty
+              ? tx('Chưa có lượt chấm công trong ngày này')
+              : tx('{count} lượt chấm công', {'count': '${records.length}'}),
+        ),
+        if (records.isEmpty)
+          Text(
+            tx('Ngày này chưa ghi nhận chấm công.'),
+            style: TextStyle(
+              color: mutedTextColor,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          ...records.map((record) => _DayAttendanceRow(record: record)),
       ],
     );
   }
