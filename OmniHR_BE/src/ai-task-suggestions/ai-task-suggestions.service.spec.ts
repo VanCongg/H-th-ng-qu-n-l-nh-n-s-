@@ -24,6 +24,9 @@ describe("AiTaskSuggestionsService", () => {
       leaveRequest: {
         findMany: jest.fn()
       },
+      performanceReview: {
+        findMany: jest.fn().mockResolvedValue([])
+      },
       aiTaskSuggestion: {
         create: jest.fn(),
         findUnique: jest.fn(),
@@ -179,7 +182,7 @@ describe("AiTaskSuggestionsService", () => {
       id: 50,
       taskId: 100,
       requestedByUserId: actor.id,
-      algorithmVersion: "rule-based-v3",
+      algorithmVersion: "rule-based-v4",
       inputSnapshot: {},
       status: AiTaskSuggestionStatus.GENERATED,
       createdAt: date("2026-06-19"),
@@ -246,7 +249,7 @@ describe("AiTaskSuggestionsService", () => {
     });
   });
 
-  it("generates v3 suggestions with pending leave warnings and workday availability score", async () => {
+  it("generates v4 suggestions with pending leave warnings and workday availability score", async () => {
     const { service, prisma, accessControl, workloadService } = createService();
     const task = baseTask();
     const employee = baseEmployee();
@@ -311,7 +314,7 @@ describe("AiTaskSuggestionsService", () => {
     expect(prisma.aiTaskSuggestion.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          algorithmVersion: "rule-based-v3",
+          algorithmVersion: "rule-based-v4",
           inputSnapshot: expect.objectContaining({
             taskFingerprint: expect.any(String),
             expiresAt: expect.any(String),
@@ -405,5 +408,123 @@ describe("AiTaskSuggestionsService", () => {
       expect.objectContaining({ action: "CANCEL_AI_TASK_SUGGESTION" })
     );
     expect(result.status).toBe(AiTaskSuggestionStatus.CANCELLED);
+  });
+
+  describe("performance signal", () => {
+    // skill 92 * 0.5 + workload 100 * 0.35 + availability 100 * 0.15 = 96.
+    const scoreWithoutPerformance = 96;
+
+    function arrangeGenerate(
+      service: ReturnType<typeof createService>,
+      reviews: Array<{ employeeId: number; finalRating: number; finalizedAt: Date }>
+    ) {
+      const { prisma, accessControl, workloadService } = service;
+      const employee = baseEmployee();
+
+      prisma.task.findFirst.mockResolvedValue(baseTask());
+      accessControl.candidateEmployeeIdsForTask.mockResolvedValue([30]);
+      prisma.employee.findMany.mockResolvedValue([employee]);
+      workloadService.summariesForEmployees.mockResolvedValue(
+        new Map([
+          [
+            30,
+            {
+              employeeId: 30,
+              activeTaskCount: 2,
+              totalEstimatedHours: 12,
+              overdueTaskCount: 0,
+              capacityHoursPerWeek: 40,
+              availableHours: 28,
+              workloadScore: 100
+            }
+          ]
+        ])
+      );
+      prisma.leaveRequest.findMany.mockResolvedValue([]);
+      prisma.performanceReview.findMany.mockResolvedValue(reviews);
+      prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
+        Promise.resolve(
+          suggestionResponse({
+            inputSnapshot: data.inputSnapshot,
+            items: data.items.create.map((item: Record<string, unknown>) => ({
+              id: 500,
+              suggestionId: 50,
+              createdAt: date("2026-06-19"),
+              selected: false,
+              ...item,
+              employee
+            }))
+          })
+        )
+      );
+    }
+
+    it("scores a candidate with no finalized review exactly as before the signal existed", async () => {
+      const service = createService();
+      arrangeGenerate(service, []);
+
+      const result = await service.service.generate(100, {}, actor);
+
+      expect(result.items[0].performanceScore).toBeNull();
+      expect(result.items[0].score).toBe(scoreWithoutPerformance);
+    });
+
+    it("raises the score of a strongly reviewed candidate", async () => {
+      const service = createService();
+      arrangeGenerate(service, [
+        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") }
+      ]);
+
+      const result = await service.service.generate(100, {}, actor);
+
+      // rating 5 maps to 100, folded in at weight 0.2: (96 + 100 * 0.2) / 1.2.
+      expect(result.items[0].performanceScore).toBe(100);
+      expect(result.items[0].score).toBeGreaterThan(scoreWithoutPerformance);
+      expect(result.items[0].score).toBe(96.67);
+    });
+
+    it("lowers the score of a weakly reviewed candidate", async () => {
+      const service = createService();
+      arrangeGenerate(service, [
+        { employeeId: 30, finalRating: 2, finalizedAt: date("2026-06-01") }
+      ]);
+
+      const result = await service.service.generate(100, {}, actor);
+
+      expect(result.items[0].performanceScore).toBe(25);
+      expect(result.items[0].score).toBeLessThan(scoreWithoutPerformance);
+    });
+
+    it("averages only the most recent cycles so old reviews stop counting", async () => {
+      const service = createService();
+      arrangeGenerate(service, [
+        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") },
+        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-03-01") },
+        { employeeId: 30, finalRating: 5, finalizedAt: date("2025-12-01") },
+        // Older than the 3-cycle window, so it must not drag the average down.
+        { employeeId: 30, finalRating: 1, finalizedAt: date("2025-09-01") }
+      ]);
+
+      const result = await service.service.generate(100, {}, actor);
+
+      expect(result.items[0].performanceScore).toBe(100);
+    });
+
+    it("skips the signal entirely when the caller opts out", async () => {
+      const service = createService();
+      arrangeGenerate(service, [
+        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") }
+      ]);
+
+      const result = await service.service.generate(
+        100,
+        { includePerformance: false },
+        actor
+      );
+
+      expect(service.prisma.performanceReview.findMany).not.toHaveBeenCalled();
+      expect(result.items[0].performanceScore).toBeNull();
+      expect(result.items[0].score).toBe(scoreWithoutPerformance);
+    });
   });
 });

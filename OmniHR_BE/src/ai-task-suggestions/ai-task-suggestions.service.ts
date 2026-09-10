@@ -4,6 +4,7 @@ import {
   AiTaskSuggestionStatus,
   EmployeeStatus,
   LeaveRequestStatus,
+  PerformanceReviewStatus,
   Prisma,
   SkillProficiency,
   TaskAssignmentType,
@@ -23,13 +24,23 @@ import { CancelAiTaskSuggestionDto } from "./dto/cancel-ai-task-suggestion.dto";
 import { GenerateAiTaskSuggestionDto } from "./dto/generate-ai-task-suggestion.dto";
 import { SelectAiTaskSuggestionDto } from "./dto/select-ai-task-suggestion.dto";
 
-const AI_TASK_ALGORITHM_VERSION = "rule-based-v3";
+const AI_TASK_ALGORITHM_VERSION = "rule-based-v4";
 const AI_SUGGESTION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const scoreWeights = {
   withAvailability: { skill: 0.5, workload: 0.35, availability: 0.15 },
   withoutAvailability: { skill: 0.6, workload: 0.4 }
 };
+
+// Past performance is an extra term on top of the weights above rather than a
+// redistribution of them, so a candidate with no finalized review scores
+// exactly as they did before this signal existed - new hires are not penalised
+// for having no history.
+const PERFORMANCE_WEIGHT = 0.2;
+
+// Only the most recent cycles count, so one weak quarter years ago does not
+// follow someone forever.
+const PERFORMANCE_REVIEW_WINDOW = 3;
 
 const skillImportanceWeights: Record<TaskSkillImportance, number> = {
   REQUIRED: 1.5,
@@ -65,6 +76,7 @@ type GenerateOptions = {
   includeAvailability: boolean;
   includeSelf: boolean;
   includePendingLeave: boolean;
+  includePerformance: boolean;
 };
 
 type TaskWithRequiredSkills = Prisma.TaskGetPayload<{
@@ -117,6 +129,14 @@ type AvailabilityAssessment = {
   warnings: string[];
 };
 
+type PerformanceAssessment = {
+  // null when the employee has no finalized review yet, which excludes the
+  // signal from their score instead of scoring them zero.
+  score: number | null;
+  averageRating: number | null;
+  reviewCount: number;
+};
+
 type ScoredCandidate = {
   employeeId: number;
   eligible: boolean;
@@ -124,7 +144,7 @@ type ScoredCandidate = {
   skillScore: number;
   workloadScore: number;
   availabilityScore: number;
-  performanceScore: null;
+  performanceScore: number | null;
   reason: string;
   warnings: string[];
   matchedSkills: string[];
@@ -177,7 +197,7 @@ export class AiTaskSuggestionsService {
       );
     }
 
-    const [employees, workloads] = await Promise.all([
+    const [employees, workloads, performances] = await Promise.all([
       this.prisma.employee.findMany({
         where: currentEmployeeWhere({
           id: { in: candidateIds },
@@ -189,7 +209,10 @@ export class AiTaskSuggestionsService {
           employeeSkills: { include: { skill: true } }
         }
       }),
-      this.workloadService.summariesForEmployees(candidateIds)
+      this.workloadService.summariesForEmployees(candidateIds),
+      options.includePerformance
+        ? this.performanceAssessments(candidateIds)
+        : Promise.resolve(new Map<number, PerformanceAssessment>())
     ]);
 
     if (!employees.length) {
@@ -214,12 +237,27 @@ export class AiTaskSuggestionsService {
           : this.availabilityNotUsed(options.includePendingLeave);
         const workloadScore = workload.workloadScore;
         const availabilityScore = options.includeAvailability ? availability.score : 100;
-        const score = options.includeAvailability
-          ? skill.score * scoreWeights.withAvailability.skill +
-            workloadScore * scoreWeights.withAvailability.workload +
-            availabilityScore * scoreWeights.withAvailability.availability
-          : skill.score * scoreWeights.withoutAvailability.skill +
-            workloadScore * scoreWeights.withoutAvailability.workload;
+        const performance = performances.get(employee.id) ?? {
+          score: null,
+          averageRating: null,
+          reviewCount: 0
+        };
+        const score = this.combineScores([
+          ...(options.includeAvailability
+            ? [
+                { value: skill.score, weight: scoreWeights.withAvailability.skill },
+                { value: workloadScore, weight: scoreWeights.withAvailability.workload },
+                {
+                  value: availabilityScore,
+                  weight: scoreWeights.withAvailability.availability
+                }
+              ]
+            : [
+                { value: skill.score, weight: scoreWeights.withoutAvailability.skill },
+                { value: workloadScore, weight: scoreWeights.withoutAvailability.workload }
+              ]),
+          { value: performance.score, weight: PERFORMANCE_WEIGHT }
+        ]);
         const warnings = this.uniqueWarnings([
           ...skill.warnings,
           ...availability.warnings,
@@ -233,8 +271,16 @@ export class AiTaskSuggestionsService {
           skillScore: this.round(skill.score),
           workloadScore: this.round(workloadScore),
           availabilityScore: this.round(availabilityScore),
-          performanceScore: null,
-          reason: this.reason(employee, skill, workload, availability, options),
+          performanceScore:
+            performance.score === null ? null : this.round(performance.score),
+          reason: this.reason(
+            employee,
+            skill,
+            workload,
+            availability,
+            performance,
+            options
+          ),
           warnings,
           matchedSkills: skill.matchedSkills,
           missingRequiredSkills: skill.missingRequiredSkills,
@@ -285,7 +331,7 @@ export class AiTaskSuggestionsService {
             skillScore: item.skillScore,
             workloadScore: item.workloadScore,
             availabilityScore: item.availabilityScore,
-            performanceScore: null,
+            performanceScore: item.performanceScore,
             reason: item.reason
           }))
         }
@@ -586,7 +632,8 @@ export class AiTaskSuggestionsService {
       limit: dto.limit ?? 5,
       includeAvailability: dto.includeAvailability ?? true,
       includeSelf: dto.includeSelf ?? false,
-      includePendingLeave: dto.includePendingLeave ?? true
+      includePendingLeave: dto.includePendingLeave ?? true,
+      includePerformance: dto.includePerformance ?? true
     };
   }
 
@@ -989,11 +1036,82 @@ export class AiTaskSuggestionsService {
     return candidateIds.filter((candidateId) => teamCandidateIds.has(candidateId));
   }
 
+  /**
+   * Averages each employee's most recent finalized review ratings and maps the
+   * 1-5 scale onto the 0-100 scale the other signals use, so "meets
+   * expectations" (3) lands at the midpoint.
+   */
+  private async performanceAssessments(employeeIds: number[]) {
+    const reviews = await this.prisma.performanceReview.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: PerformanceReviewStatus.FINALIZED,
+        finalRating: { not: null }
+      },
+      select: { employeeId: true, finalRating: true, finalizedAt: true },
+      orderBy: { finalizedAt: "desc" }
+    });
+
+    const ratingsByEmployee = new Map<number, number[]>();
+    for (const review of reviews) {
+      const ratings = ratingsByEmployee.get(review.employeeId) ?? [];
+      if (ratings.length < PERFORMANCE_REVIEW_WINDOW) {
+        ratings.push(review.finalRating as number);
+        ratingsByEmployee.set(review.employeeId, ratings);
+      }
+    }
+
+    const assessments = new Map<number, PerformanceAssessment>();
+    for (const employeeId of employeeIds) {
+      const ratings = ratingsByEmployee.get(employeeId) ?? [];
+      if (!ratings.length) {
+        assessments.set(employeeId, {
+          score: null,
+          averageRating: null,
+          reviewCount: 0
+        });
+        continue;
+      }
+
+      const averageRating =
+        ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+      assessments.set(employeeId, {
+        score: ((averageRating - 1) / 4) * 100,
+        averageRating,
+        reviewCount: ratings.length
+      });
+    }
+
+    return assessments;
+  }
+
+  /**
+   * Combines the weighted signals, dropping any the candidate has no data for
+   * and renormalising what remains so every candidate is scored out of 100.
+   */
+  private combineScores(components: Array<{ value: number | null; weight: number }>) {
+    const usable = components.filter(
+      (component): component is { value: number; weight: number } =>
+        component.value !== null
+    );
+    const totalWeight = usable.reduce((sum, component) => sum + component.weight, 0);
+    if (totalWeight <= 0) {
+      return 0;
+    }
+
+    const weighted = usable.reduce(
+      (sum, component) => sum + component.value * component.weight,
+      0
+    );
+    return weighted / totalWeight;
+  }
+
   private reason(
     employee: Pick<EmployeeWithSkills, "fullName">,
     skill: SkillAssessment,
     workload: WorkloadSummary,
     availability: AvailabilityAssessment,
+    performance: PerformanceAssessment,
     options: GenerateOptions
   ) {
     const skillText = this.skillReason(skill);
@@ -1001,7 +1119,18 @@ export class AiTaskSuggestionsService {
     const availabilityText = options.includeAvailability
       ? this.availabilityReason(availability)
       : "không dùng lịch nghỉ trong lần chấm điểm này";
-    return `${employee.fullName}: ${skillText}; ${workloadText}; ${availabilityText}.`;
+    const parts = [skillText, workloadText, availabilityText];
+    if (options.includePerformance) {
+      parts.push(this.performanceReason(performance));
+    }
+    return `${employee.fullName}: ${parts.join("; ")}.`;
+  }
+
+  private performanceReason(performance: PerformanceAssessment) {
+    if (performance.averageRating === null) {
+      return "chưa có đánh giá hiệu suất nào được chốt nên không tính điểm này";
+    }
+    return `điểm đánh giá trung bình ${performance.averageRating.toFixed(1)}/5 qua ${performance.reviewCount} kỳ gần nhất`;
   }
 
   private skillReason(skill: SkillAssessment) {
@@ -1098,9 +1227,12 @@ export class AiTaskSuggestionsService {
       taskFingerprint: this.taskFingerprint(task),
       task: this.taskFingerprintPayload(task),
       options,
-      weights: options.includeAvailability
-        ? scoreWeights.withAvailability
-        : scoreWeights.withoutAvailability,
+      weights: {
+        ...(options.includeAvailability
+          ? scoreWeights.withAvailability
+          : scoreWeights.withoutAvailability),
+        ...(options.includePerformance ? { performance: PERFORMANCE_WEIGHT } : {})
+      },
       candidateIds,
       requiredSkills: this.requiredSkillSnapshot(task),
       items: items.map((item) => ({
