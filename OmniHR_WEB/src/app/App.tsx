@@ -25,6 +25,8 @@ import { SkillsPage } from "../features/skills/SkillsPage";
 import { EmployeeSkillsPage } from "../features/employee-skills/EmployeeSkillsPage";
 import { AiTaskSuggestionsPage } from "../features/ai-task-suggestions/AiTaskSuggestionsPage";
 import { OrgChartPage } from "../features/org-chart/OrgChartPage";
+import { ReviewCyclesPage } from "../features/review-cycles/ReviewCyclesPage";
+import { PerformanceReviewsPage } from "../features/performance-reviews/PerformanceReviewsPage";
 
 export function App() {
   return (
@@ -64,6 +66,10 @@ export function App() {
                   path="ai-task-suggestions"
                   element={<AiTaskSuggestionsPage scope="team" />}
                 />
+                <Route
+                  path="team-reviews"
+                  element={<PerformanceReviewsPage scope="team" />}
+                />
                 <Route path="profile" element={<MyProfilePage />} />
               </Route>
             </Route>
@@ -75,6 +81,8 @@ export function App() {
                 />
                 <Route path="dashboard" element={<AdminDashboardPage />} />
                 <Route path="org-chart" element={<OrgChartPage />} />
+                <Route path="review-cycles" element={<ReviewCyclesPage />} />
+                <Route path="reviews" element={<PerformanceReviewsPage scope="all" />} />
                 <Route path="employees" element={<Navigate to="/admin/users" replace />} />
                 <Route path="departments" element={<DepartmentsPage />} />
                 <Route path="positions" element={<PositionsPage />} />

@@ -20,9 +20,11 @@ import type {
   OrgAnalytics,
   OrgChartNode,
   Paginated,
+  PerformanceReview,
   Permission,
   Position,
   Project,
+  ReviewCycle,
   Role,
   Skill,
   Task,
@@ -296,6 +298,41 @@ export const notificationsApi = {
   markRead: (id: number) =>
     unwrap<Notification>(api.patch(`/notifications/${id}/read`)),
   markAllRead: () => unwrap(api.patch("/notifications/read-all"))
+};
+
+export const reviewCyclesApi = {
+  list: () => unwrap<ReviewCycle[]>(api.get("/review-cycles")),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<ReviewCycle>(api.post("/review-cycles", payload)),
+  update: (id: number, payload: Record<string, unknown>) =>
+    unwrap<ReviewCycle>(api.patch(`/review-cycles/${id}`, payload)),
+  launch: (id: number) =>
+    unwrap<{ createdCount: number }>(api.post(`/review-cycles/${id}/launch`))
+};
+
+export const performanceReviewsApi = {
+  list: (params?: QueryParams) =>
+    unwrap<Paginated<PerformanceReview>>(api.get("/performance-reviews", { params })),
+  team: (params?: QueryParams) =>
+    unwrap<Paginated<PerformanceReview>>(
+      api.get("/performance-reviews/team", { params })
+    ),
+  self: (params?: QueryParams) =>
+    unwrap<Paginated<PerformanceReview>>(
+      api.get("/performance-reviews/self", { params })
+    ),
+  submitSelf: (id: number, payload: Record<string, unknown>) =>
+    unwrap<PerformanceReview>(
+      api.patch(`/performance-reviews/${id}/submit-self`, payload)
+    ),
+  submitManager: (id: number, payload: Record<string, unknown>) =>
+    unwrap<PerformanceReview>(
+      api.patch(`/performance-reviews/${id}/submit-manager`, payload)
+    ),
+  finalize: (id: number, payload?: Record<string, unknown>) =>
+    unwrap<PerformanceReview>(
+      api.patch(`/performance-reviews/${id}/finalize`, payload ?? {})
+    )
 };
 
 export const auditLogsApi = {

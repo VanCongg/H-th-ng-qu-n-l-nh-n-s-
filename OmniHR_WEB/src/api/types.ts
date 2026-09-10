@@ -170,6 +170,46 @@ export type OrgAnalytics = {
   byDepartment: { departmentId: number; departmentName: string; headcount: number }[];
 };
 
+export type ReviewCycleStatus = "OPEN" | "CLOSED";
+
+export type ReviewCycle = {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: ReviewCycleStatus;
+};
+
+export type PerformanceReviewStatus =
+  | "PENDING_SELF"
+  | "SELF_SUBMITTED"
+  | "MANAGER_REVIEWED"
+  | "FINALIZED";
+
+export type PerformanceReview = {
+  id: number;
+  cycleId: number;
+  employeeId: number;
+  reviewerUserId?: number | null;
+  selfRating?: number | null;
+  selfComment?: string | null;
+  managerRating?: number | null;
+  managerComment?: string | null;
+  finalRating?: number | null;
+  status: PerformanceReviewStatus;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  finalizedAt?: string | null;
+  employee: {
+    id: number;
+    fullName: string;
+    employeeCode: string;
+    department?: Pick<Department, "id" | "name"> | null;
+  };
+  cycle: ReviewCycle;
+  reviewer?: { id: number; username: string; email: string } | null;
+};
+
 export type NotificationType =
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"

@@ -10,6 +10,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Star,
   UserRound,
   Users
 } from "lucide-react";
@@ -35,12 +36,15 @@ export const appNavItems: NavItem[] = [
   },
   { labelKey: "projects", to: "/app/projects", icon: ClipboardList },
   { labelKey: "teamTasks", to: "/app/team-tasks", icon: CheckSquare },
+  { labelKey: "teamReviews", to: "/app/team-reviews", icon: Star },
   { labelKey: "myProfile", to: "/app/profile", icon: UserRound }
 ];
 
 export const adminNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/admin/dashboard", icon: BarChart3 },
   { labelKey: "orgChart", to: "/admin/org-chart", icon: Network },
+  { labelKey: "reviewCycles", to: "/admin/review-cycles", icon: Star },
+  { labelKey: "reviews", to: "/admin/reviews", icon: Star },
   { labelKey: "users", to: "/admin/users", icon: UserRound },
   { labelKey: "departments", to: "/admin/departments", icon: FileText },
   { labelKey: "positions", to: "/admin/positions", icon: BadgeCheck },
