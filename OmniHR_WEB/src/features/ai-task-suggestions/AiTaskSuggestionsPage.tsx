@@ -82,7 +82,8 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
     initialValues: {
       taskId: "",
       limit: 5,
-      includeAvailability: true
+      includeAvailability: true,
+      includePerformance: true
     },
     validate: {
       taskId: (value) => (value ? null : tx("Required"))
@@ -93,7 +94,8 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
     mutationFn: (values: typeof form.values) =>
       aiTaskSuggestionsApi.generate(Number(values.taskId), {
         limit: Number(values.limit || 5),
-        includeAvailability: Boolean(values.includeAvailability)
+        includeAvailability: Boolean(values.includeAvailability),
+        includePerformance: Boolean(values.includePerformance)
       }),
     onSuccess: (result) => {
       notifications.show({ color: "green", message: tx("AI suggestion generated") });
@@ -159,6 +161,11 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
                 label={tx("Include leave availability")}
                 mt="lg"
                 {...form.getInputProps("includeAvailability", { type: "checkbox" })}
+              />
+              <Switch
+                label={tx("Include past review ratings")}
+                mt="lg"
+                {...form.getInputProps("includePerformance", { type: "checkbox" })}
               />
               <Group align="flex-end">
                 <Button
@@ -269,7 +276,10 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
         opened={Boolean(selectedSuggestion)}
         onClose={() => setSelectedSuggestion(null)}
         title={tx("AI suggestion details")}
-        size="xl"
+        // The per-candidate reason is a full sentence, and the score breakdown
+        // now carries a fifth column, so the default xl modal wraps it to one
+        // word per line.
+        size="90%"
       >
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
@@ -317,6 +327,16 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
               { key: "skill", label: "Skill", render: (item) => item.skillScore },
               { key: "workload", label: "Workload", render: (item) => item.workloadScore },
               { key: "availability", label: "Availability", render: (item) => item.availabilityScore },
+              {
+                key: "performance",
+                label: "Performance",
+                render: (item) =>
+                  item.performanceScore ?? (
+                    <Text size="xs" c="dimmed">
+                      {tx("No reviews yet")}
+                    </Text>
+                  )
+              },
               { key: "reason", label: "Reason", render: (item) => item.reason ?? "-" },
               {
                 key: "actions",
