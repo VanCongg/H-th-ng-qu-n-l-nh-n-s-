@@ -45,6 +45,19 @@ class Settings:
     llm_confidence_threshold: float = _float_env("LLM_CONFIDENCE_THRESHOLD", 0.6)
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "mock")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "none")
+    # Falls back to the LLM credentials when unset, since most providers serve
+    # both from the same base URL and key.
+    embedding_base_url: str = os.getenv("EMBEDDING_BASE_URL", "")
+    embedding_api_key: str = os.getenv("EMBEDDING_API_KEY", "")
+    # keyword | embedding | hybrid. Hybrid degrades to keyword when no
+    # embedding provider is configured, so the service still answers offline.
+    rag_mode: str = os.getenv("RAG_MODE", "hybrid")
+    rag_embedding_weight: float = _float_env("RAG_EMBEDDING_WEIGHT", 0.6)
+    rag_min_embedding_score: float = _float_env("RAG_MIN_EMBEDDING_SCORE", 0.55)
+    # How far the best match must sit above the runner-up before an embedding
+    # score alone can admit a chunk. An off-topic question scores every chunk
+    # about the same, so a flat distribution means "no answer here".
+    rag_min_embedding_gap: float = _float_env("RAG_MIN_EMBEDDING_GAP", 0.10)
 
 
 settings = Settings()

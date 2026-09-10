@@ -6,5 +6,15 @@ class LlmClient(Protocol):
         raise NotImplementedError
 
 
+class EmbeddingClient(Protocol):
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Returns one vector per input text, in the same order."""
+        raise NotImplementedError
+
+
 class LlmClientError(RuntimeError):
+    pass
+
+
+class EmbeddingClientError(RuntimeError):
     pass
