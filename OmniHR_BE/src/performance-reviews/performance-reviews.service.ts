@@ -223,7 +223,10 @@ export class PerformanceReviewsService {
       this.prisma.performanceReview.findMany({
         where,
         include: reviewInclude,
-        orderBy: [{ createdAt: "desc" }],
+        // Most recently acted-on first: a launched cycle creates hundreds of
+        // untouched rows, so ordering by createdAt would bury the ones that
+        // actually need a decision.
+        orderBy: [{ updatedAt: "desc" }],
         skip,
         take
       }),

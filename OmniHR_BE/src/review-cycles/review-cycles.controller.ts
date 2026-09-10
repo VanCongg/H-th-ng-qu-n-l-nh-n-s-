@@ -14,13 +14,15 @@ import { ReviewCyclesService } from "./review-cycles.service";
 export class ReviewCyclesController {
   constructor(private readonly reviewCyclesService: ReviewCyclesService) {}
 
-  @Permissions("REVIEW_MANAGE")
+  // Readable by anyone who can see reviews at all - the cycle list is a
+  // lookup table the review screens filter by, not sensitive config.
+  @Permissions("REVIEW_MANAGE", "REVIEW_READ_ALL", "REVIEW_READ_TEAM", "REVIEW_READ_SELF")
   @Get()
   findAll() {
     return this.reviewCyclesService.findAll();
   }
 
-  @Permissions("REVIEW_MANAGE")
+  @Permissions("REVIEW_MANAGE", "REVIEW_READ_ALL", "REVIEW_READ_TEAM", "REVIEW_READ_SELF")
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number) {
     return this.reviewCyclesService.findOne(id);
