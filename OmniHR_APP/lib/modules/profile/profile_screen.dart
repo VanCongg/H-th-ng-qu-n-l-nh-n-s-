@@ -7,6 +7,7 @@ import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
 import '../notifications/notifications_screen.dart';
+import '../performance_review/performance_review_screen.dart';
 
 class ProfileBundle {
   ProfileBundle({required this.employee, required this.skills});
@@ -376,6 +377,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       icon: const Icon(Icons.notifications_outlined),
                       label: Text(tx('Thông báo')),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SubScreen(
+                            title: tx('Đánh giá hiệu suất'),
+                            child: PerformanceReviewScreen(
+                              session: widget.session,
+                            ),
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.star_outline_rounded),
+                      label: Text(tx('Đánh giá hiệu suất')),
                     ),
                     const SizedBox(height: 10),
                     FilledButton.icon(
