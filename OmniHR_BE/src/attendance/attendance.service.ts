@@ -11,7 +11,6 @@ import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import {
-  defaultSystemSettings,
   SystemSettings,
   SystemSettingsService
 } from "../common/services/system-settings.service";
@@ -21,6 +20,7 @@ import { currentEmployeeWhere } from "../common/prisma-where";
 import { NotificationsService } from "../notifications/notifications.service";
 import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
+import { resolveShiftWindows, ShiftWindow } from "./timesheet";
 import {
   AdminCreateAttendanceDto,
   AdminUpdateAttendanceDto
@@ -41,15 +41,12 @@ const attendanceInclude = {
   }
 } satisfies Prisma.AttendanceRecordInclude;
 
-type ShiftDefinition = {
-  shift: AttendanceShift;
-  start: number;
-  end: number;
-};
+/** First key of the two-int advisory lock, scoping it to attendance punches. */
+const ATTENDANCE_LOCK_NAMESPACE = 4201;
 
 type AttendanceMetadata = {
   shift: AttendanceShift | null;
-  attendanceStatus: AttendanceStatus;
+  attendanceStatus: AttendanceStatus | null;
   latitude: number | null;
   longitude: number | null;
   address: string | null;
@@ -86,29 +83,34 @@ export class AttendanceService {
     const recordedAt = new Date();
     const workDate = this.workDateFor(recordedAt, settings.timezoneOffsetMinutes);
     const metadata = this.buildCheckInMetadata(recordedAt, dto, settings);
-    await this.ensureValidAttendanceAction(
-      employeeId,
-      AttendanceRecordType.CHECK_IN,
-      workDate,
-      metadata.shift
-    );
 
-    const record = await this.prisma.attendanceRecord.create({
-      data: {
+    const record = await this.prisma.$transaction(async (tx) => {
+      await this.lockEmployeeAttendance(tx, employeeId);
+      await this.ensureValidAttendanceAction(
+        tx,
         employeeId,
+        AttendanceRecordType.CHECK_IN,
         workDate,
-        recordType: AttendanceRecordType.CHECK_IN,
-        recordedAt,
-        shift: metadata.shift,
-        attendanceStatus: metadata.attendanceStatus,
-        latitude: metadata.latitude,
-        longitude: metadata.longitude,
-        address: metadata.address,
-        distanceMeters: metadata.distanceMeters,
-        source: "MOBILE",
-        createdByUserId: user.id
-      },
-      include: attendanceInclude
+        metadata.shift
+      );
+
+      return tx.attendanceRecord.create({
+        data: {
+          employeeId,
+          workDate,
+          recordType: AttendanceRecordType.CHECK_IN,
+          recordedAt,
+          shift: metadata.shift,
+          attendanceStatus: metadata.attendanceStatus,
+          latitude: metadata.latitude,
+          longitude: metadata.longitude,
+          address: metadata.address,
+          distanceMeters: metadata.distanceMeters,
+          source: "MOBILE",
+          createdByUserId: user.id
+        },
+        include: attendanceInclude
+      });
     });
 
     await this.audit.log({
@@ -132,34 +134,38 @@ export class AttendanceService {
     const settings = await this.systemSettings.getSettings();
     const recordedAt = new Date();
     const workDate = this.workDateFor(recordedAt, settings.timezoneOffsetMinutes);
-    const latestCheckIn = await this.ensureValidAttendanceAction(
-      employeeId,
-      AttendanceRecordType.CHECK_OUT,
-      workDate
-    );
-    const metadata = this.buildCheckOutMetadata(
-      recordedAt,
-      dto,
-      settings,
-      latestCheckIn
-    );
-
-    const record = await this.prisma.attendanceRecord.create({
-      data: {
+    const record = await this.prisma.$transaction(async (tx) => {
+      await this.lockEmployeeAttendance(tx, employeeId);
+      const latestCheckIn = await this.ensureValidAttendanceAction(
+        tx,
         employeeId,
-        workDate,
-        recordType: AttendanceRecordType.CHECK_OUT,
+        AttendanceRecordType.CHECK_OUT,
+        workDate
+      );
+      const metadata = this.buildCheckOutMetadata(
         recordedAt,
-        shift: metadata.shift,
-        attendanceStatus: metadata.attendanceStatus,
-        latitude: metadata.latitude,
-        longitude: metadata.longitude,
-        address: metadata.address,
-        distanceMeters: metadata.distanceMeters,
-        source: "MOBILE",
-        createdByUserId: user.id
-      },
-      include: attendanceInclude
+        dto,
+        settings,
+        latestCheckIn
+      );
+
+      return tx.attendanceRecord.create({
+        data: {
+          employeeId,
+          workDate,
+          recordType: AttendanceRecordType.CHECK_OUT,
+          recordedAt,
+          shift: metadata.shift,
+          attendanceStatus: metadata.attendanceStatus,
+          latitude: metadata.latitude,
+          longitude: metadata.longitude,
+          address: metadata.address,
+          distanceMeters: metadata.distanceMeters,
+          source: "MOBILE",
+          createdByUserId: user.id
+        },
+        include: attendanceInclude
+      });
     });
 
     await this.audit.log({
@@ -362,13 +368,26 @@ export class AttendanceService {
     };
   }
 
+  /**
+   * Serializes check-in/out per employee for the rest of the transaction, so
+   * two near-simultaneous punches (double tap, network retry) cannot both
+   * pass the duplicate check before either record is written.
+   */
+  private async lockEmployeeAttendance(
+    tx: Prisma.TransactionClient,
+    employeeId: number
+  ) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ATTENDANCE_LOCK_NAMESPACE}::int, ${employeeId}::int)`;
+  }
+
   private async ensureValidAttendanceAction(
+    tx: Prisma.TransactionClient,
     employeeId: number,
     recordType: AttendanceRecordType,
     workDate: Date,
     shift?: AttendanceShift | null
   ) {
-    const latest = await this.prisma.attendanceRecord.findFirst({
+    const latest = await tx.attendanceRecord.findFirst({
       where: {
         employeeId,
         workDate,
@@ -382,7 +401,7 @@ export class AttendanceService {
         throw this.invalidAction("You already checked in and have not checked out.");
       }
       if (shift) {
-        const existingShiftCheckIn = await this.prisma.attendanceRecord.findFirst({
+        const existingShiftCheckIn = await tx.attendanceRecord.findFirst({
           where: {
             employeeId,
             workDate,
@@ -399,6 +418,9 @@ export class AttendanceService {
       return;
     }
 
+    if (latest?.recordType === AttendanceRecordType.CHECK_OUT) {
+      throw this.invalidAction("You already checked out.");
+    }
     if (!latest || latest.recordType !== AttendanceRecordType.CHECK_IN) {
       throw this.invalidAction(
         "You have not checked in today, so you cannot check out. Please contact Admin for attendance adjustment."
@@ -414,10 +436,15 @@ export class AttendanceService {
   ): AttendanceMetadata {
     const shift = this.resolveCheckInShift(recordedAt, settings);
     const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
+    // Check-in is allowed at any time; the recorded time is what payroll reads.
+    // Outside every shift window there is no shift to be on time or late for.
     return {
-      shift: shift.shift,
-      attendanceStatus:
-        localMinutes > shift.start ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME,
+      shift: shift?.shift ?? null,
+      attendanceStatus: shift
+        ? localMinutes > shift.start
+          ? AttendanceStatus.LATE
+          : AttendanceStatus.ON_TIME
+        : null,
       ...this.resolveLocation(dto, settings)
     };
   }
@@ -464,16 +491,12 @@ export class AttendanceService {
   private resolveCheckInShift(recordedAt: Date, settings: SystemSettings) {
     const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
     const earlyWindow = settings.attendanceEarlyCheckInMinutes;
-    const shift = this.shiftDefinitions(settings).find(
-      (item) =>
-        localMinutes >= item.start - earlyWindow && localMinutes <= item.end
+    return (
+      this.shiftDefinitions(settings).find(
+        (item) =>
+          localMinutes >= item.start - earlyWindow && localMinutes <= item.end
+      ) ?? null
     );
-
-    if (!shift) {
-      throw this.invalidAction("Attendance is outside configured shift hours.");
-    }
-
-    return shift;
   }
 
   private resolveShiftForTime(recordedAt: Date, settings: SystemSettings) {
@@ -483,35 +506,8 @@ export class AttendanceService {
     );
   }
 
-  private shiftDefinitions(settings: SystemSettings): ShiftDefinition[] {
-    return [
-      {
-        shift: AttendanceShift.MORNING,
-        start: this.parseTime(settings.morningShiftStart),
-        end: this.parseTime(settings.morningShiftEnd)
-      },
-      {
-        shift: AttendanceShift.AFTERNOON,
-        start: this.parseTime(settings.afternoonShiftStart),
-        end: this.parseTime(settings.afternoonShiftEnd)
-      }
-    ].map((definition) => {
-      if (definition.end > definition.start) {
-        return definition;
-      }
-
-      return definition.shift === AttendanceShift.MORNING
-        ? {
-            shift: AttendanceShift.MORNING,
-            start: this.parseTime(defaultSystemSettings.morningShiftStart),
-            end: this.parseTime(defaultSystemSettings.morningShiftEnd)
-          }
-        : {
-            shift: AttendanceShift.AFTERNOON,
-            start: this.parseTime(defaultSystemSettings.afternoonShiftStart),
-            end: this.parseTime(defaultSystemSettings.afternoonShiftEnd)
-          };
-    });
+  private shiftDefinitions(settings: SystemSettings): ShiftWindow[] {
+    return resolveShiftWindows(settings);
   }
 
   private resolveLocation(
@@ -525,10 +521,6 @@ export class AttendanceService {
 
     if (settings.requireAttendanceLocation && (!hasLatitude || !hasLongitude)) {
       throw this.invalidAction("Attendance location is required.");
-    }
-
-    if (settings.requireAttendanceLocation && !hasCompanyLocation) {
-      throw this.invalidAction("Company attendance location is not configured.");
     }
 
     const address = dto.address?.trim() || null;
@@ -552,6 +544,8 @@ export class AttendanceService {
         )
       : null;
 
+    // Without a configured company location there is no radius to enforce, so
+    // the coordinates are recorded as-is rather than rejecting the check-in.
     if (
       settings.requireAttendanceLocation &&
       distanceMeters !== null &&
@@ -578,11 +572,6 @@ export class AttendanceService {
   private localMinutes(recordedAt: Date, timezoneOffsetMinutes: number) {
     const local = new Date(recordedAt.getTime() + timezoneOffsetMinutes * 60_000);
     return local.getUTCHours() * 60 + local.getUTCMinutes();
-  }
-
-  private parseTime(value: string) {
-    const [hours, minutes] = value.split(":").map(Number);
-    return hours * 60 + minutes;
   }
 
   private distanceMeters(

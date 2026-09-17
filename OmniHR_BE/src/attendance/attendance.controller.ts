@@ -19,13 +19,18 @@ import {
 } from "./dto/admin-attendance.dto";
 import { AttendanceActionDto } from "./dto/attendance-action.dto";
 import { AttendanceQueryDto } from "./dto/attendance-query.dto";
+import { TimesheetQueryDto } from "./dto/timesheet-query.dto";
 import { AttendanceService } from "./attendance.service";
+import { TimesheetService } from "./timesheet.service";
 
 @ApiTags("attendance")
 @ApiBearerAuth()
 @Controller("attendance")
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly timesheetService: TimesheetService
+  ) {}
 
   @Permissions("ATTENDANCE_CHECK_IN")
   @Get("location-policy")
@@ -57,6 +62,12 @@ export class AttendanceController {
   @Get()
   findAll(@Query() query: AttendanceQueryDto) {
     return this.attendanceService.findAll(query);
+  }
+
+  @Permissions("ATTENDANCE_READ_ALL", "PAYROLL_READ")
+  @Get("timesheets")
+  findTimesheets(@Query() query: TimesheetQueryDto) {
+    return this.timesheetService.list(query);
   }
 
   @Permissions("ATTENDANCE_READ_SELF")

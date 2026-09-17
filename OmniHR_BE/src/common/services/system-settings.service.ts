@@ -17,6 +17,15 @@ export type SystemSettings = {
   requireAttendanceLocation: boolean;
   timezoneOffsetMinutes: number;
   attendanceEarlyCheckInMinutes: number;
+  /** Late arrival / early leave up to this many minutes is not deducted. */
+  attendanceGraceMinutes: number;
+  overtimeRatePercent: number;
+  /** Employee share of mandatory insurance (BHXH 8% + BHYT 1.5% + BHTN 1%). */
+  insuranceRatePercent: number;
+  /** One extra annual leave day per this many full years of service (0 = off). */
+  seniorityLeaveEveryYears: number;
+  /** Unused annual leave days that roll into the next year (0 = off). */
+  annualLeaveCarryOverMaxDays: number;
   morningShiftStart: string;
   morningShiftEnd: string;
   afternoonShiftStart: string;
@@ -35,6 +44,11 @@ export const defaultSystemSettings: SystemSettings = {
   requireAttendanceLocation: true,
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
+  attendanceGraceMinutes: 0,
+  overtimeRatePercent: 150,
+  insuranceRatePercent: 10.5,
+  seniorityLeaveEveryYears: 5,
+  annualLeaveCarryOverMaxDays: 5,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
@@ -109,6 +123,36 @@ function normalizeSystemSettings(value: unknown): SystemSettings {
       240,
       defaultSystemSettings.attendanceEarlyCheckInMinutes
     ),
+    attendanceGraceMinutes: normalizeIntegerInRange(
+      raw.attendanceGraceMinutes,
+      0,
+      120,
+      defaultSystemSettings.attendanceGraceMinutes
+    ),
+    overtimeRatePercent: normalizeIntegerInRange(
+      raw.overtimeRatePercent,
+      100,
+      400,
+      defaultSystemSettings.overtimeRatePercent
+    ),
+    insuranceRatePercent: normalizeNumberInRange(
+      raw.insuranceRatePercent,
+      0,
+      50,
+      defaultSystemSettings.insuranceRatePercent
+    ),
+    seniorityLeaveEveryYears: normalizeIntegerInRange(
+      raw.seniorityLeaveEveryYears,
+      0,
+      10,
+      defaultSystemSettings.seniorityLeaveEveryYears
+    ),
+    annualLeaveCarryOverMaxDays: normalizeIntegerInRange(
+      raw.annualLeaveCarryOverMaxDays,
+      0,
+      30,
+      defaultSystemSettings.annualLeaveCarryOverMaxDays
+    ),
     morningShiftStart: normalizeTime(
       raw.morningShiftStart,
       defaultSystemSettings.morningShiftStart
@@ -174,6 +218,19 @@ function normalizeIntegerInRange(
     return fallback;
   }
   return Math.round(numberValue);
+}
+
+function normalizeNumberInRange(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number
+) {
+  const numberValue = normalizeNumber(value);
+  if (numberValue === null || numberValue < min || numberValue > max) {
+    return fallback;
+  }
+  return numberValue;
 }
 
 function normalizeNumber(value: unknown) {

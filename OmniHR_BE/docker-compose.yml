@@ -26,6 +26,13 @@ services:
       CHATBOT_HISTORY_LIMIT: ${CHATBOT_HISTORY_LIMIT:-12}
       CHATBOT_MAX_MESSAGE_LENGTH: ${CHATBOT_MAX_MESSAGE_LENGTH:-1000}
       CHATBOT_PENDING_ACTION_TTL_MINUTES: ${CHATBOT_PENDING_ACTION_TTL_MINUTES:-30}
+      # Defaults to the local Mailpit catcher so dev payslip emails never leave the machine.
+      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
+      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-OmniHR <no-reply@omnihr.local>}
     ports:
       - "3000:3000"
     depends_on:
@@ -65,6 +72,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - omnihr-network
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: omnihr-mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
     networks:
       - omnihr-network
 

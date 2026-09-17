@@ -1,3 +1,4 @@
+import { LeaveBalancesService } from "../leave-balances/leave-balances.service";
 import {
   ChatbotActionStatus,
   ChatbotActionType,
@@ -68,6 +69,7 @@ describe("ChatbotToolsService", () => {
         accessControl as unknown as AccessControlService,
         systemSettings as unknown as SystemSettingsService,
         leaveRequests as unknown as LeaveRequestsService,
+        {} as LeaveBalancesService,
       ),
       prisma,
       audit,

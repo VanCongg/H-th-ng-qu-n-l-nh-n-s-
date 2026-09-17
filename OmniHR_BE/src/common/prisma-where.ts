@@ -33,3 +33,22 @@ export function currentEmployeeWhere(
     ...filters
   );
 }
+
+/** Current employees matching a name/code search and an optional department. */
+export function employeeSearchWhere(
+  search?: string,
+  departmentId?: number
+): Prisma.EmployeeWhereInput {
+  const term = search?.trim();
+  return currentEmployeeWhere(
+    departmentId ? { departmentId } : undefined,
+    term
+      ? {
+          OR: [
+            { fullName: { contains: term, mode: Prisma.QueryMode.insensitive } },
+            { employeeCode: { contains: term, mode: Prisma.QueryMode.insensitive } }
+          ]
+        }
+      : undefined
+  );
+}

@@ -45,6 +45,11 @@ enum AttendanceStatus {
   MANUAL_ADJUSTMENT
 }
 
+enum PayrollPeriodStatus {
+  DRAFT
+  FINALIZED
+}
+
 enum LeaveRequestStatus {
   PENDING
   APPROVED
@@ -142,21 +147,21 @@ model User {
   updatedAt           DateTime  @updatedAt @map("updated_at")
   deletedAt           DateTime? @map("deleted_at")
 
-  employee                 Employee?
-  userRoles                UserRole[]
-  auditLogs                AuditLog[]
-  approvedLeaveRequests    LeaveRequest[]         @relation("LeaveApprover")
-  createdAttendanceRecords AttendanceRecord[]     @relation("AttendanceCreatedBy")
-  updatedAttendanceRecords AttendanceRecord[]     @relation("AttendanceUpdatedBy")
-  createdProjects          Project[]              @relation("ProjectCreatedBy")
-  createdTasks             Task[]                 @relation("TaskCreatedBy")
-  assignedTasks            Task[]                 @relation("TaskAssignedBy")
-  taskAssignments          TaskAssignment[]       @relation("TaskAssignmentAssignedBy")
-  aiTaskSuggestions        AiTaskSuggestion[]     @relation("AiTaskSuggestionRequestedBy")
-  chatbotConversations     ChatbotConversation[]
-  chatbotPendingActions    ChatbotPendingAction[]
-  notifications            Notification[]
-  reviewedPerformanceReviews PerformanceReview[] @relation("PerformanceReviewReviewer")
+  employee                   Employee?
+  userRoles                  UserRole[]
+  auditLogs                  AuditLog[]
+  approvedLeaveRequests      LeaveRequest[]         @relation("LeaveApprover")
+  createdAttendanceRecords   AttendanceRecord[]     @relation("AttendanceCreatedBy")
+  updatedAttendanceRecords   AttendanceRecord[]     @relation("AttendanceUpdatedBy")
+  createdProjects            Project[]              @relation("ProjectCreatedBy")
+  createdTasks               Task[]                 @relation("TaskCreatedBy")
+  assignedTasks              Task[]                 @relation("TaskAssignedBy")
+  taskAssignments            TaskAssignment[]       @relation("TaskAssignmentAssignedBy")
+  aiTaskSuggestions          AiTaskSuggestion[]     @relation("AiTaskSuggestionRequestedBy")
+  chatbotConversations       ChatbotConversation[]
+  chatbotPendingActions      ChatbotPendingAction[]
+  notifications              Notification[]
+  reviewedPerformanceReviews PerformanceReview[]    @relation("PerformanceReviewReviewer")
 
   @@map("users")
 }
@@ -302,6 +307,8 @@ model Employee {
   taskAssignments      TaskAssignment[]       @relation("TaskAssignmentAssignee")
   aiSuggestionItems    AiTaskSuggestionItem[]
   performanceReviews   PerformanceReview[]
+  compensation         EmployeeCompensation?
+  payslips             Payslip[]
 
   @@map("employees")
 }
@@ -406,6 +413,7 @@ model LeaveType {
   code            String   @unique @db.VarChar(80)
   name            String   @db.VarChar(160)
   annualAllowance Int?     @map("annual_allowance")
+  isPaid          Boolean  @default(true) @map("is_paid")
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -765,4 +773,72 @@ model AiTaskSuggestionItem {
 
   @@unique([suggestionId, employeeId])
   @@map("ai_task_suggestion_items")
+}
+
+model EmployeeCompensation {
+  id              Int      @id @default(autoincrement())
+  employeeId      Int      @unique @map("employee_id")
+  baseSalary      Int      @map("base_salary")
+  allowance       Int      @default(0)
+  // Salary used for mandatory insurance; falls back to baseSalary when null.
+  insuranceSalary Int?     @map("insurance_salary")
+  updatedByUserId Int?     @map("updated_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("employee_compensations")
+}
+
+model PayrollPeriod {
+  id                Int                 @id @default(autoincrement())
+  year              Int
+  month             Int
+  status            PayrollPeriodStatus @default(DRAFT)
+  calculatedAt      DateTime?           @map("calculated_at")
+  finalizedAt       DateTime?           @map("finalized_at")
+  finalizedByUserId Int?                @map("finalized_by_user_id")
+  createdByUserId   Int?                @map("created_by_user_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  payslips Payslip[]
+
+  @@unique([year, month])
+  @@map("payroll_periods")
+}
+
+/// A payslip snapshots every input it was computed from, so a finalized period
+/// keeps its numbers even if salaries or attendance change later.
+model Payslip {
+  id                  Int       @id @default(autoincrement())
+  periodId            Int       @map("period_id")
+  employeeId          Int       @map("employee_id")
+  baseSalary          Int       @map("base_salary")
+  allowance           Int
+  insuranceSalary     Int       @map("insurance_salary")
+  standardWorkDays    Float     @map("standard_work_days")
+  attendanceDays      Float     @map("attendance_days")
+  paidLeaveDays       Float     @map("paid_leave_days")
+  payableDays         Float     @map("payable_days")
+  lateMinutes         Int       @map("late_minutes")
+  earlyLeaveMinutes   Int       @map("early_leave_minutes")
+  overtimeMinutes     Int       @map("overtime_minutes")
+  missingCheckOuts    Int       @map("missing_check_outs")
+  grossSalary         Int       @map("gross_salary")
+  overtimePay         Int       @map("overtime_pay")
+  attendanceDeduction Int       @map("attendance_deduction")
+  insuranceDeduction  Int       @map("insurance_deduction")
+  netSalary           Int       @map("net_salary")
+  emailedAt           DateTime? @map("emailed_at")
+  emailError          String?   @map("email_error") @db.VarChar(500)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  period   PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([periodId, employeeId])
+  @@map("payslips")
 }

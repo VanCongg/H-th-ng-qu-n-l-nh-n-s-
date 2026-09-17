@@ -37,6 +37,7 @@ export class LeaveTypesService {
         code: dto.code,
         name: dto.name,
         annualAllowance: dto.annualAllowance,
+        isPaid: dto.isPaid ?? true,
         isActive: dto.isActive ?? true
       }
     });

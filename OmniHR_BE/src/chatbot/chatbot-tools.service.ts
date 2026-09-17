@@ -9,6 +9,8 @@ import {
   Prisma,
   TaskStatus,
 } from "@prisma/client";
+import { ANNUAL_LEAVE_CODE } from "../leave-balances/leave-accrual";
+import { LeaveBalancesService } from "../leave-balances/leave-balances.service";
 import { ApiError } from "../common/api-error";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { AccessControlService } from "../common/services/access-control.service";
@@ -42,6 +44,7 @@ export class ChatbotToolsService {
     private readonly accessControl: AccessControlService,
     private readonly systemSettings: SystemSettingsService,
     private readonly leaveRequests: LeaveRequestsService,
+    private readonly leaveBalances: LeaveBalancesService,
   ) {}
 
   availableTools(user: AuthUser): ChatbotToolDefinition[] {
@@ -541,7 +544,7 @@ export class ChatbotToolsService {
     const year = this.integerArg(args.year, new Date().getFullYear());
     const start = new Date(Date.UTC(year, 0, 1));
     const end = new Date(Date.UTC(year, 11, 31));
-    const [leaveTypes, grouped] = await Promise.all([
+    const [leaveTypes, grouped, annual] = await Promise.all([
       this.prisma.leaveType.findMany({
         where: { isActive: true },
         orderBy: { code: "asc" },
@@ -558,6 +561,7 @@ export class ChatbotToolsService {
         },
         _sum: { totalDays: true },
       }),
+      this.leaveBalances.forSelf(user, year),
     ]);
 
     return {
@@ -576,6 +580,21 @@ export class ChatbotToolsService {
               item.status === LeaveRequestStatus.PENDING,
           )?._sum.totalDays ?? 0;
         const allowance = leaveType.annualAllowance ?? null;
+        // Annual leave accrues monthly with seniority and carry-over, like the admin and app views.
+        if (leaveType.code === ANNUAL_LEAVE_CODE) {
+          return {
+            leaveTypeId: leaveType.id,
+            code: leaveType.code,
+            name: leaveType.name,
+            annualAllowance: allowance,
+            accruedDays: annual.accruedDays,
+            seniorityDays: annual.seniorityDays,
+            carriedOverDays: annual.carriedOverDays,
+            approvedDays: annual.usedDays,
+            pendingDays: annual.pendingDays,
+            remainingDays: annual.availableDays,
+          };
+        }
         return {
           leaveTypeId: leaveType.id,
           code: leaveType.code,

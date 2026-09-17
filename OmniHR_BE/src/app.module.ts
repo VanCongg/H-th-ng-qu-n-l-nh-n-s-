@@ -18,9 +18,12 @@ import { DepartmentsModule } from "./departments/departments.module";
 import { EmployeeManagersModule } from "./employee-managers/employee-managers.module";
 import { EmployeeSkillsModule } from "./employee-skills/employee-skills.module";
 import { EmployeesModule } from "./employees/employees.module";
+import { LeaveBalancesModule } from "./leave-balances/leave-balances.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
+import { MailModule } from "./mail/mail.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { PayrollModule } from "./payroll/payroll.module";
 import { PerformanceReviewsModule } from "./performance-reviews/performance-reviews.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
@@ -98,6 +101,12 @@ function rejectInsecureProductionConfig(
         CHATBOT_HISTORY_LIMIT: Joi.number().default(12),
         CHATBOT_MAX_MESSAGE_LENGTH: Joi.number().default(1000),
         CHATBOT_PENDING_ACTION_TTL_MINUTES: Joi.number().default(30),
+        SMTP_HOST: Joi.string().allow("").default(""),
+        SMTP_PORT: Joi.number().default(587),
+        SMTP_SECURE: Joi.boolean().default(false),
+        SMTP_USER: Joi.string().allow("").default(""),
+        SMTP_PASS: Joi.string().allow("").default(""),
+        SMTP_FROM: Joi.string().default("OmniHR <no-reply@omnihr.local>"),
       })
         .custom(rejectInsecureProductionConfig, "production security guard")
         .messages({
@@ -123,11 +132,14 @@ function rejectInsecureProductionConfig(
     AttendanceModule,
     LeaveTypesModule,
     LeaveRequestsModule,
+    LeaveBalancesModule,
     AuditLogsModule,
     ProjectsModule,
     SkillsModule,
     EmployeeSkillsModule,
     TeamsModule,
+    MailModule,
+    PayrollModule,
     TasksModule,
     TaskAssignmentsModule,
     TaskWorkloadModule,
