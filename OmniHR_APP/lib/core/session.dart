@@ -11,11 +11,16 @@ import 'i18n.dart';
 import 'utils.dart';
 
 class AppSession extends ChangeNotifier implements ApiClientSession {
-  AppSession({bool bootstrapping = true}) : _bootstrapping = bootstrapping {
+  AppSession({bool bootstrapping = true, bool onboardingCompleted = false})
+    : _bootstrapping = bootstrapping,
+      _onboardingCompleted = onboardingCompleted {
     api = ApiService(this);
   }
 
-  static const _baseUrlKey = 'apiBaseUrl';
+  /// Older builds let users type the API URL at login and saved it here.
+  /// Its presence also means the app was used before onboarding existed.
+  static const _legacyBaseUrlKey = 'apiBaseUrl';
+  static const _onboardingKey = 'onboardingCompleted';
   static const _accessTokenKey = 'accessToken';
   static const _refreshTokenKey = 'refreshToken';
   static const _userKey = 'authUser';
@@ -27,7 +32,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
 
   SharedPreferences? _prefs;
   bool _bootstrapping;
-  String _baseUrl = defaultApiBaseUrl();
+  bool _onboardingCompleted;
+  final String _baseUrl = cleanBaseUrl(defaultApiBaseUrl());
   String? _accessToken;
   String? refreshToken;
   AuthUser? user;
@@ -42,15 +48,19 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   String? get accessToken => _accessToken;
 
   bool get bootstrapping => _bootstrapping;
+  bool get onboardingCompleted => _onboardingCompleted;
   bool get isLoggedIn => _accessToken != null && user != null;
   ThemeMode get themeMode => _themeMode;
   AppLanguage get language => _language;
 
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
-    _baseUrl = cleanBaseUrl(
-      _prefs?.getString(_baseUrlKey) ?? defaultApiBaseUrl(),
-    );
+    if (_prefs?.containsKey(_legacyBaseUrlKey) ?? false) {
+      await _prefs?.remove(_legacyBaseUrlKey);
+      await _prefs?.setBool(_onboardingKey, true);
+    }
+    _onboardingCompleted = _prefs?.getBool(_onboardingKey) ?? false;
+
     _accessToken = await _secureStorage.read(key: _accessTokenKey);
     refreshToken = await _secureStorage.read(key: _refreshTokenKey);
 
@@ -83,6 +93,14 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     notifyListeners();
   }
 
+  Future<void> completeOnboarding() async {
+    if (_onboardingCompleted) return;
+    _onboardingCompleted = true;
+    notifyListeners();
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.setBool(_onboardingKey, true);
+  }
+
   Future<void> setThemeMode(ThemeMode mode) async {
     if (_themeMode == mode) return;
     _themeMode = mode;
@@ -112,14 +130,12 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   Future<void> login({
     required String usernameOrEmail,
     required String password,
-    required String apiBaseUrl,
   }) async {
-    final candidateBaseUrl = cleanBaseUrl(apiBaseUrl);
     late final http.Response response;
     try {
       response = await http
           .post(
-            Uri.parse('$candidateBaseUrl/auth/login'),
+            Uri.parse('$_baseUrl/auth/login'),
             headers: const {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
@@ -132,19 +148,18 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
           .timeout(const Duration(seconds: 20));
     } on FormatException {
       throw ApiException(
-        tx('API URL không hợp lệ: {url}', {'url': candidateBaseUrl}),
+        tx('Cấu hình máy chủ không hợp lệ. Vui lòng liên hệ quản trị viên.'),
       );
     } on Exception catch (error) {
       throw ApiException(
-        tx('Không thể kết nối backend tại {url}. Vui lòng kiểm tra máy chủ.', {
-          'url': candidateBaseUrl,
-        }),
+        tx(
+          'Không thể kết nối máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.',
+        ),
         errorCode: error.toString(),
       );
     }
 
     final login = LoginResponse.fromJson(mapOf(unwrapResponse(response)));
-    _baseUrl = candidateBaseUrl;
     _accessToken = login.accessToken;
     refreshToken = login.refreshToken;
     user = login.user;
@@ -188,7 +203,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     try {
       final response = await http
           .post(
-            Uri.parse('${cleanBaseUrl(_baseUrl)}/auth/refresh'),
+            Uri.parse('$_baseUrl/auth/refresh'),
             headers: const {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
@@ -242,8 +257,6 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   }
 
   Future<void> _saveSession() async {
-    _prefs ??= await SharedPreferences.getInstance();
-    await _prefs?.setString(_baseUrlKey, _baseUrl);
     if (_accessToken != null) {
       await _secureStorage.write(key: _accessTokenKey, value: _accessToken!);
     }

@@ -18,21 +18,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _accountController = TextEditingController();
   final _passwordController = TextEditingController();
-  late final TextEditingController _baseUrlController;
   bool _obscurePassword = true;
   bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _baseUrlController = TextEditingController(text: widget.session.baseUrl);
-  }
 
   @override
   void dispose() {
     _accountController.dispose();
     _passwordController.dispose();
-    _baseUrlController.dispose();
     super.dispose();
   }
 
@@ -43,7 +35,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await widget.session.login(
         usernameOrEmail: _accountController.text.trim(),
         password: _passwordController.text,
-        apiBaseUrl: _baseUrlController.text.trim(),
       );
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString(), error: true);
@@ -71,7 +62,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       formKey: _formKey,
                       accountController: _accountController,
                       passwordController: _passwordController,
-                      baseUrlController: _baseUrlController,
                       obscurePassword: _obscurePassword,
                       submitting: _submitting,
                       onTogglePassword: () =>
@@ -189,7 +179,6 @@ class _LoginForm extends StatelessWidget {
     required this.formKey,
     required this.accountController,
     required this.passwordController,
-    required this.baseUrlController,
     required this.obscurePassword,
     required this.submitting,
     required this.onTogglePassword,
@@ -199,7 +188,6 @@ class _LoginForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController accountController;
   final TextEditingController passwordController;
-  final TextEditingController baseUrlController;
   final bool obscurePassword;
   final bool submitting;
   final VoidCallback onTogglePassword;
@@ -267,28 +255,6 @@ class _LoginForm extends StatelessWidget {
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return tx('Vui lòng nhập mật khẩu');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: baseUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'API base URL',
-                        prefixIcon: Icon(Icons.dns_outlined),
-                      ),
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => onSubmit(),
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.isEmpty) {
-                          return tx('Vui lòng nhập API base URL');
-                        }
-                        final uri = Uri.tryParse(text);
-                        if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-                          return tx('API base URL không hợp lệ');
                         }
                         return null;
                       },

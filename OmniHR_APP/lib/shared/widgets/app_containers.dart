@@ -20,9 +20,8 @@ class AppIconBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
+        shape: BoxShape.circle,
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.10)),
       ),
       child: Icon(icon, color: color, size: size * 0.48),
     );

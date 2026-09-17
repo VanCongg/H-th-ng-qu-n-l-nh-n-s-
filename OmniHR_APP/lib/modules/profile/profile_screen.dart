@@ -364,11 +364,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       label: tx('Tên đăng nhập'),
                       value: user?.username,
                     ),
-                    ProfileRow(
-                      icon: Icons.dns_outlined,
-                      label: tx('Máy chủ API'),
-                      value: widget.session.baseUrl,
-                    ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
                       onPressed: () => Navigator.of(context).push(

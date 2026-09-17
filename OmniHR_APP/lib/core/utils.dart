@@ -79,6 +79,7 @@ void applyAppBrightness(Brightness brightness) {
 final dateFormat = DateFormat('dd/MM/yyyy');
 final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm');
 final apiDateFormat = DateFormat('yyyy-MM-dd');
+final timeFormat = DateFormat('HH:mm');
 
 String defaultApiBaseUrl() {
   return AppConfig.defaultApiBaseUrl();
@@ -138,10 +139,45 @@ String formatDateTime(dynamic value) {
   return date == null ? '-' : dateTimeFormat.format(date);
 }
 
+String formatTime(dynamic value) {
+  final date = dateOf(value);
+  return date == null ? '--:--' : timeFormat.format(date);
+}
+
 String apiDate(DateTime value) => apiDateFormat.format(value);
 
 bool sameDate(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+/// Mirrors the backend's default `workWeek` (MONDAY..FRIDAY) used by
+/// `calculateLeaveDays`. Employees cannot read system settings, so the form
+/// assumes the default work week for its client-side hints; the server stays
+/// authoritative.
+bool isWorkingDay(DateTime value) {
+  return value.weekday >= DateTime.monday && value.weekday <= DateTime.friday;
+}
+
+/// First working day on or after [value].
+DateTime nextWorkingDay(DateTime value) {
+  var day = DateTime(value.year, value.month, value.day);
+  while (!isWorkingDay(day)) {
+    day = day.add(const Duration(days: 1));
+  }
+  return day;
+}
+
+/// Number of working days in the inclusive range, matching the backend's
+/// `calculateLeaveDays`.
+int workingDaysBetween(DateTime start, DateTime end) {
+  var current = DateTime(start.year, start.month, start.day);
+  final last = DateTime(end.year, end.month, end.day);
+  var total = 0;
+  while (!current.isAfter(last)) {
+    if (isWorkingDay(current)) total += 1;
+    current = current.add(const Duration(days: 1));
+  }
+  return total;
 }
 
 Color statusColor(String status) {
@@ -166,6 +202,41 @@ Color statusColor(String status) {
       return brandColor;
     default:
       return const Color(0xFF64748B);
+  }
+}
+
+/// Icon counterpart of [statusColor] and [friendlyStatus], so a status can be
+/// shown as a coloured icon while the words stay in tooltips and semantics.
+IconData statusIcon(String status) {
+  switch (status.toUpperCase()) {
+    case 'APPROVED':
+    case 'DONE':
+    case 'ON_TIME':
+      return Icons.check_circle_rounded;
+    case 'PENDING':
+      return Icons.hourglass_top_rounded;
+    case 'TODO':
+      return Icons.radio_button_unchecked_rounded;
+    case 'IN_PROGRESS':
+      return Icons.autorenew_rounded;
+    case 'IN_REVIEW':
+      return Icons.rate_review_rounded;
+    case 'LATE':
+      return Icons.schedule_rounded;
+    case 'EARLY_OUT':
+      return Icons.directions_walk_rounded;
+    case 'REJECTED':
+      return Icons.cancel_rounded;
+    case 'CANCELLED':
+      return Icons.block_rounded;
+    case 'MANUAL_ADJUSTMENT':
+      return Icons.edit_calendar_rounded;
+    case 'ACTIVE':
+      return Icons.verified_user_rounded;
+    case 'TERMINATED':
+      return Icons.person_off_rounded;
+    default:
+      return Icons.help_outline_rounded;
   }
 }
 

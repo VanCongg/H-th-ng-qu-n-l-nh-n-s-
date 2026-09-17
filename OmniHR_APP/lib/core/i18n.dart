@@ -177,7 +177,6 @@ const Map<String, String> _enDictionary = {
   'Số điện thoại': 'Phone number',
   'Tài khoản': 'Account',
   'Tên đăng nhập': 'Username',
-  'Máy chủ API': 'API server',
   'Đổi mật khẩu': 'Change password',
   'Đăng xuất': 'Log out',
   'Bạn muốn đăng xuất khỏi OmniHR?': 'Log out of OmniHR?',
@@ -235,8 +234,6 @@ const Map<String, String> _enDictionary = {
   'Vui lòng nhập tên đăng nhập hoặc email': 'Please enter a username or email',
   'Mật khẩu': 'Password',
   'Vui lòng nhập mật khẩu': 'Please enter a password',
-  'API base URL không hợp lệ': 'Invalid API base URL',
-  'Vui lòng nhập API base URL': 'Please enter the API base URL',
   'Đang đăng nhập...': 'Logging in...',
 
   // Chat
@@ -268,23 +265,28 @@ const Map<String, String> _enDictionary = {
   // Generic / errors
   'Bạn cần đăng nhập để thực hiện thao tác này.':
       'You need to log in to do this.',
-  'Kết nối máy chủ quá lâu. Vui lòng kiểm tra backend và API URL.':
-      'The server took too long to respond. Check the backend and API URL.',
-  'Không thể kết nối máy chủ. Vui lòng kiểm tra backend và thử lại.':
-      'Could not reach the server. Check the backend and try again.',
+  'Kết nối máy chủ quá lâu. Vui lòng kiểm tra kết nối mạng và thử lại.':
+      'The server took too long to respond. Check your connection and try '
+      'again.',
+  'Không thể kết nối máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại.':
+      'Could not reach the server. Check your connection and try again.',
+  'Cấu hình máy chủ không hợp lệ. Vui lòng liên hệ quản trị viên.':
+      'The server configuration is invalid. Please contact your administrator.',
   'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.':
       'Your session has expired. Please log in again.',
   'Bạn không có quyền thực hiện thao tác này.':
       'You don\'t have permission to do this.',
-  'Bạn đã chấm công vào và chưa chấm công ra.':
-      'You checked in and have not checked out yet.',
-  'Bạn đã chấm công vào trong ca này.':
-      'You already checked in for this shift.',
-  'Thời điểm hiện tại nằm ngoài khung giờ chấm công.':
-      'This is outside the configured attendance hours.',
+  'Chấm công trùng: bạn đã chấm công vào và chưa chấm công ra.':
+      'Duplicate punch: you checked in and have not checked out yet.',
+  'Chấm công trùng: bạn đã chấm công vào trong ca này.':
+      'Duplicate punch: you already checked in for this shift.',
+  'Chấm công trùng: bạn đã chấm công ra rồi.':
+      'Duplicate punch: you already checked out.',
+  'Chấm công trùng: bạn đã chấm công vào lúc {time} và chưa chấm công ra.':
+      'Duplicate punch: you checked in at {time} and have not checked out.',
+  'Chấm công trùng: bạn đã chấm công ra lúc {time}.':
+      'Duplicate punch: you already checked out at {time}.',
   'Cần có vị trí GPS để chấm công.': 'GPS location is required to check in.',
-  'Chưa cấu hình vị trí chấm công của công ty.':
-      'Company attendance location is not configured.',
   'Bạn đang ở ngoài phạm vi chấm công.':
       'You are outside the attendance radius.',
   'Không tìm thấy loại nghỉ phép.': 'Leave type not found.',
@@ -292,6 +294,8 @@ const Map<String, String> _enDictionary = {
       'Start date must be before or equal to end date.',
   'Khoảng nghỉ không có ngày làm việc hợp lệ.':
       'The leave range has no valid working days.',
+  'Khoảng ngày đã chọn không có ngày làm việc nào. Vui lòng chọn ngày trong tuần.':
+      'The selected range has no working days. Please pick weekdays.',
   'Không tìm thấy đơn nghỉ phép.': 'Leave request not found.',
   'Chỉ có thể hủy đơn nghỉ đang chờ duyệt.':
       'Only a pending request can be cancelled.',
@@ -311,9 +315,6 @@ const Map<String, String> _enDictionary = {
   'Không tìm thấy công việc.': 'Task not found.',
   'Trạng thái công việc cấp nhóm được tính từ các công việc con.':
       'A team task\'s status is derived from its subtasks.',
-  'API URL không hợp lệ: {url}': 'Invalid API URL: {url}',
-  'Không thể kết nối backend tại {url}. Vui lòng kiểm tra máy chủ.':
-      'Could not connect to the backend at {url}. Check the server.',
   'Không lấy được vị trí hiện tại. Vui lòng bật GPS và thử lại.':
       'Could not get your location. Turn on GPS and try again.',
   'Ứng dụng chưa được cấp quyền vị trí. Vui lòng cấp quyền và thử lại.':
@@ -323,4 +324,224 @@ const Map<String, String> _enDictionary = {
   'Không lấy được vị trí hiện tại. Vui lòng bật GPS, cấp quyền vị trí và thử lại.':
       'Could not get your location. Turn on GPS, grant permission and try '
       'again.',
+  'Kỳ lương của tháng này đã tồn tại.':
+      'A payroll period already exists for this month.',
+  'Công việc cấp nhóm không thể giao cho một nhân viên.':
+      'A team-level task cannot be assigned to an employee.',
+  'Công việc cấp nhóm cần có dự án và nhóm.':
+      'A team-level task requires a project and a team.',
+  'Gợi ý phân công bằng AI chỉ áp dụng cho công việc con.':
+      'AI assignment suggestions are only available for subtasks.',
+  'Gợi ý AI này đã được chọn.': 'AI suggestion already selected.',
+  'Bạn không có quyền thao tác với gợi ý AI này.': 'AI suggestion denied.',
+  'Gợi ý AI đã bị hủy.': 'AI suggestion has been cancelled.',
+  'Gợi ý AI đã hết hạn vì công việc đã thay đổi.':
+      'AI suggestion has expired because the task changed.',
+  'Gợi ý AI đã hết hạn vì công việc đã đóng.':
+      'AI suggestion has expired because the task is closed.',
+  'Gợi ý AI đã hết hạn.': 'AI suggestion has expired.',
+  'Không tìm thấy mục gợi ý AI.': 'AI task suggestion item not found.',
+  'Không tìm thấy gợi ý AI.': 'AI task suggestion not found.',
+  'Thao tác đã hết hạn.': 'Action has expired.',
+  'Thao tác không còn ở trạng thái chờ xác nhận.': 'Action is not pending.',
+  'Chỉ có thể chỉ định trưởng phòng khi phòng ban đã có nhân viên.':
+      'Assign a department manager after employees belong to this department.',
+  'Không tìm thấy bản ghi chấm công.': 'Attendance record not found.',
+  'Hãy tính lương trước khi chốt bảng lương.':
+      'Calculate the payroll before finalizing it.',
+  'Không thể tạo gợi ý AI cho công việc đã đóng.':
+      'Cannot generate AI suggestion for closed task.',
+  'Email công ty đã tồn tại.': 'Company email already exists.',
+  'Không tìm thấy cuộc hội thoại.': 'Conversation not found.',
+  'Khoảng thời gian quá dài.': 'Date range is too wide.',
+  'Phòng ban không thể là phòng ban cha của chính nó.':
+      'Department cannot be its own parent.',
+  'Cây phòng ban bị lặp vòng.': 'Department hierarchy contains a cycle.',
+  'Cần chọn phòng ban khi chọn chức danh.':
+      'Department is required when selecting a position.',
+  'Trưởng phòng phải thuộc phòng ban này.':
+      'Department manager must belong to this department.',
+  'Không tìm thấy phòng ban.': 'Department not found.',
+  'Phòng ban cha không thể là phòng ban con của nó.':
+      'Department parent cannot be one of its descendants.',
+  'Phòng ban nằm ngoài phạm vi quản lý của bạn.': 'Department scope denied.',
+  'Chưa cấu hình gửi email.': 'Email delivery is not configured.',
+  'Nhân viên đã có quản lý trực tiếp.':
+      'Employee already has an active direct manager.',
+  'Nhân viên không thể tự quản lý chính mình.':
+      'Employee cannot manage themselves.',
+  'Mã nhân viên đã tồn tại.': 'Employee code already exists.',
+  'Nhân viên cần có chức danh trước khi gán kỹ năng.':
+      'Employee position is required before assigning skills.',
+  'Cần có hồ sơ nhân viên.': 'Employee profile is required.',
+  'Hồ sơ nhân viên cần có mã nhân viên, họ tên, ngày sinh, phòng ban và chức danh.':
+      'Employee profile requires employee code, full name, birth date, department, and position.',
+  'Không tìm thấy kỹ năng của nhân viên.': 'Employee skill not found.',
+  'Bạn không có quyền cập nhật kỹ năng của nhân viên này.':
+      'Employee skill update denied.',
+  'Không tìm thấy tài khoản của nhân viên.': 'Employee user not found.',
+  'Vai trò HR_MANAGER chưa được hỗ trợ ở giai đoạn 1.':
+      'HR_MANAGER role is not supported in phase 1.',
+  'Ngày sử dụng gần nhất không được ở tương lai.':
+      'Last used date cannot be in the future.',
+  'Cần có mã đơn nghỉ phép.': 'Leave request id is required.',
+  'Chức danh quản lý cần vai trò Quản lý.':
+      'Manager position requires MANAGER role.',
+  'Quan hệ quản lý đã tồn tại.': 'Manager relationship already exists.',
+  'Quan hệ quản lý đã ngừng hiệu lực.':
+      'Manager relationship is already inactive.',
+  'Không tìm thấy quan hệ quản lý.': 'Manager relationship not found.',
+  'Quan hệ quản lý này sẽ tạo vòng lặp.':
+      'Manager relationship would create a cycle.',
+  'Nhân viên nằm ngoài phạm vi quản lý của bạn.': 'Manager scope denied.',
+  'Tháng phải từ 1 đến 12.': 'Month must be between 1 and 12.',
+  'Không có ứng viên phù hợp để AI gợi ý.':
+      'No candidates available for AI suggestion.',
+  'Không tìm thấy thông báo.': 'Notification not found.',
+  'Chỉ trưởng phòng mới có thể tạo dự án.':
+      'Only a department head can create a project.',
+  'Chỉ có thể gửi phiếu lương khi bảng lương đã chốt.':
+      'Only a finalized payroll can be emailed.',
+  'Chỉ trưởng phòng mới có thể giao công việc cấp nhóm.':
+      'Only the department head can assign a team-level task.',
+  'Chỉ trưởng phòng mới có thể quản lý dự án này.':
+      'Only the department head can manage this project.',
+  'Chỉ trưởng phòng hoặc trưởng nhóm mới có thể tạo công việc con.':
+      'Only the department head or team lead can create a subtask.',
+  'Chỉ hỗ trợ tối đa hai cấp công việc.': 'Only two task levels are supported.',
+  'Công việc cha đã đóng hoặc không hợp lệ.':
+      'Parent task is closed or has an invalid scope.',
+  'Không tìm thấy công việc cha.': 'Parent task not found.',
+  'Không tìm thấy kỳ lương.': 'Payroll period not found.',
+  'Không tìm thấy thao tác đang chờ xác nhận.': 'Pending action not found.',
+  'Không tìm thấy đánh giá hiệu suất.': 'Performance review not found.',
+  'Không tìm thấy quyền.': 'Permission not found.',
+  'Chức danh không thuộc phòng ban đã chọn.':
+      'Position does not belong to selected department.',
+  'Không tìm thấy chức danh.': 'Position not found.',
+  'Dự án vẫn còn công việc đang thực hiện.': 'Project has active tasks.',
+  'Dự án đã đóng.': 'Project is closed.',
+  'Không tìm thấy dự án.': 'Project not found.',
+  'Dự án nằm ngoài phạm vi quản lý của bạn.': 'Project scope denied.',
+  'Kỹ năng yêu cầu chỉ được khai báo ở công việc con.':
+      'Required skills are only defined on subtasks.',
+  'Không tìm thấy kỳ đánh giá.': 'Review cycle not found.',
+  'Không tìm thấy vai trò.': 'Role not found.',
+  'Không tìm thấy quyền của vai trò.': 'Role permission not found.',
+  'Không thể hủy gợi ý AI đã được chọn.':
+      'Selected AI suggestion cannot be cancelled.',
+  'Kỹ năng không phù hợp với chức danh của nhân viên.':
+      'Skill is not applicable to employee position.',
+  'Không tìm thấy kỹ năng.': 'Skill not found.',
+  'Ngày bắt đầu phải trước hoặc bằng hạn hoàn thành.':
+      'Start date must be before or equal to due date.',
+  'Hạn của công việc con không được sau công việc cha.':
+      'Subtask due date cannot be after its parent task.',
+  'Công việc con phải thuộc cùng dự án với công việc cha.':
+      'Subtask project must match its parent.',
+  'Ngày bắt đầu của công việc con không được trước công việc cha.':
+      'Subtask start date cannot be before its parent task.',
+  'Công việc con phải thuộc cùng nhóm với công việc cha.':
+      'Subtask team must match its parent.',
+  'Không thể xóa vai trò hệ thống.': 'System role cannot be deleted.',
+  'Người được giao nằm ngoài phạm vi quản lý của bạn.':
+      'Task assignee is outside manager scope.',
+  'Người được giao phải thuộc nhóm đã chọn.':
+      'Task assignee must belong to selected team.',
+  'Kỹ năng yêu cầu của công việc không được trùng lặp.':
+      'Task required skills must be unique.',
+  'Công việc nằm ngoài phạm vi của bạn.': 'Task scope denied.',
+  'Bạn không có quyền cập nhật trạng thái công việc này.':
+      'Task status update denied.',
+  'Nhóm thực hiện phải thuộc phòng ban của dự án.':
+      'Task team must belong to the project department.',
+  'Bạn không có quyền cập nhật công việc này.': 'Task update denied.',
+  'Nhóm vẫn còn công việc đang thực hiện.': 'Team has active tasks.',
+  'Trưởng nhóm và thành viên phải thuộc phòng ban đã chọn.':
+      'Team lead and members must belong to the selected department.',
+  'Không tìm thấy thành viên nhóm.': 'Team member not found.',
+  'Không tìm thấy nhóm.': 'Team not found.',
+  'Số giờ thực tế của công việc cấp nhóm được tính từ các công việc con.':
+      'Team-level actual hours are calculated from subtasks.',
+  'Công việc cấp nhóm vẫn còn công việc con đang thực hiện.':
+      'Team-level task has active subtasks.',
+  'Công nghệ được khai báo ở công việc cấp nhóm.':
+      'Technologies are defined on the team-level task.',
+  'Kỳ lương đã chốt nên không thể thay đổi.':
+      'This payroll period is finalized and can no longer change.',
+  'Thao tác chatbot không được hỗ trợ.': 'Unsupported chatbot action.',
+  'Không tìm thấy vai trò của tài khoản.': 'User role not found.',
+  'Bạn chỉ có thể gửi bản tự đánh giá của chính mình.':
+      'You can only submit your own self-assessment.',
+  'Bạn không thể tự duyệt hoặc từ chối đơn nghỉ của mình.':
+      'You cannot approve or reject your own leave request.',
+  'Bạn không thể tự chấm điểm quản lý cho chính mình.':
+      'You cannot submit a manager review for yourself.',
+  'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.':
+      'ToDate must be after or equal to fromDate.',
+  'Đánh giá hiệu suất chưa ở đúng trạng thái để thực hiện thao tác này.':
+      'This performance review is not in the right status for this action.',
+  'Thông tin gửi lên không hợp lệ. Vui lòng thử lại.':
+      'The submitted information is invalid. Please try again.',
+  'Con người là trọng tâm. Rõ ràng mỗi ngày.':
+      'People first. Clarity every day.',
+  'Chưa có kỳ đánh giá': 'No review cycles yet',
+  'Chưa có thông báo': 'No notifications yet',
+  'Chốt': 'Final',
+  'Chờ bạn tự đánh giá': 'Waiting for your self-assessment',
+  'Khi công ty mở kỳ đánh giá, bạn sẽ thấy tại đây.':
+      'When the company opens a review cycle, it will appear here.',
+  'Mức độ hoàn thành': 'Completion level',
+  'Nhận xét của bạn': 'Your comment',
+  'Nhận xét của quản lý': 'Manager\'s comment',
+  'Quản lý đã đánh giá': 'Reviewed by manager',
+  'Quản lý': 'Manager',
+  'Thông báo mới sẽ xuất hiện tại đây.': 'New notifications will appear here.',
+  'Thông báo': 'Notifications',
+  'Tự đánh giá ngay': 'Self-assess now',
+  'Tự đánh giá': 'Self-assessment',
+  'chưa đọc': 'unread',
+  'chờ tự đánh giá': 'awaiting self-assessment',
+  'Đánh dấu đã đọc tất cả': 'Mark all as read',
+  'Đánh giá hiệu suất': 'Performance reviews',
+  'Đã chốt': 'Finalized',
+  'Đã gửi tự đánh giá.': 'Self-assessment submitted.',
+  'Đã gửi, chờ quản lý': 'Submitted, awaiting manager',
+  'Phép năm cộng dồn theo tháng làm việc đủ; loại khác tính theo đơn đã duyệt':
+      'Annual leave accrues per full month worked; other types count approved requests',
+  'Vào ca': 'Check in',
+  'Ra ca': 'Check out',
+  'Đã ghi nhận': 'Recorded',
+  'Khoảng cách': 'Distance',
+
+  // Onboarding
+  'Chạm để tiếp tục': 'Tap to continue',
+  'Bỏ qua': 'Skip',
+  'Tiếp theo': 'Next',
+  'Bắt đầu': 'Get started',
+  'Chấm công bằng GPS': 'Check in with GPS',
+  'Mở tab Chấm công và bấm Vào ca / Ra ca khi đang ở văn phòng. Ứng dụng tự kiểm tra bạn có trong phạm vi cho phép.':
+      'Open the Attendance tab and tap Check in / Check out while at the '
+      'office. The app verifies you are within the allowed range.',
+  'Xin nghỉ phép nhanh': 'Request leave in seconds',
+  'Tạo đơn trong tab Nghỉ phép, theo dõi số ngày phép còn lại và trạng thái duyệt của quản lý.':
+      'Create requests in the Leave tab and track your remaining days and '
+      'your manager\'s approval.',
+  'Theo dõi công việc': 'Stay on top of tasks',
+  'Tab Công việc hiển thị việc được giao, hạn hoàn thành và cho phép bạn cập nhật tiến độ.':
+      'The Tasks tab shows your assignments and due dates, and lets you '
+      'update progress.',
+  'Trợ lý HRGenie trả lời câu hỏi về chấm công, nghỉ phép, công việc và có thể soạn đơn giúp bạn. Mọi thao tác đều cần bạn xác nhận.':
+      'HRGenie answers questions about attendance, leave and tasks, and can '
+      'draft requests for you. Every action needs your confirmation.',
+  'Cấp quyền cho ứng dụng': 'Allow app permissions',
+  'OmniHR cần quyền sau để tính năng hoạt động chính xác. Bạn có thể thay đổi bất cứ lúc nào trong cài đặt thiết bị.':
+      'OmniHR needs the permission below for its features to work correctly. '
+      'You can change it anytime in your device settings.',
+  'Vị trí (GPS)': 'Location (GPS)',
+  'Xác nhận bạn đang ở văn phòng khi chấm công. Vị trí chỉ được lấy lúc bạn bấm Vào ca / Ra ca.':
+      'Confirms you are at the office when checking in. Location is only read '
+      'when you tap Check in / Check out.',
+  'Cho phép và tiếp tục': 'Allow and continue',
+  'Để sau': 'Not now',
 };

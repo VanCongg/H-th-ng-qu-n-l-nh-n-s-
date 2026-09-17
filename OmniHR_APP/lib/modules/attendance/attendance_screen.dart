@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/attendance_location.dart';
@@ -22,6 +24,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   late DateTime _visibleMonth;
   DateTime? _selectedDay;
   bool _submitting = false;
+  bool _justRecorded = false;
 
   @override
   void initState() {
@@ -47,8 +50,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    final future = _load();
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = future;
+    });
+    await future;
   }
 
   bool _hasPermission(String permission) {
@@ -175,7 +182,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return proceed == true;
   }
 
+  /// Shows a tick on the action orb for a moment after a successful punch.
+  void _flashRecorded() {
+    setState(() => _justRecorded = true);
+    Future<void>.delayed(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _justRecorded = false);
+    });
+  }
+
   Future<void> _record(String action, List<AttendanceRecord> records) async {
+    if (_submitting) return;
     final isCheckIn = action == 'check-in';
     final permission = isCheckIn
         ? 'ATTENDANCE_CHECK_IN'
@@ -191,6 +207,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
     final todayRecords = _todayRecords(records);
     final latestRecord = todayRecords.isEmpty ? null : todayRecords.first;
+    if (isCheckIn && latestRecord?.recordType == 'CHECK_IN') {
+      showAppSnack(
+        context,
+        tx(
+          'Chấm công trùng: bạn đã chấm công vào lúc {time} và chưa chấm công '
+          'ra.',
+          {'time': formatTime(latestRecord!.recordedAt)},
+        ),
+        error: true,
+      );
+      return;
+    }
+    if (!isCheckIn && latestRecord?.recordType == 'CHECK_OUT') {
+      showAppSnack(
+        context,
+        tx('Chấm công trùng: bạn đã chấm công ra lúc {time}.', {
+          'time': formatTime(latestRecord!.recordedAt),
+        }),
+        error: true,
+      );
+      return;
+    }
     if (!isCheckIn && latestRecord?.recordType != 'CHECK_IN') {
       showAppSnack(
         context,
@@ -240,12 +278,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         '/attendance/$action',
         body: locationPayload,
       );
-      if (mounted) {
-        showAppSnack(
-          context,
-          tx(isCheckIn ? 'Đã chấm công vào.' : 'Đã chấm công ra.'),
-        );
-      }
+      if (mounted) _flashRecorded();
       await _refresh();
     } catch (error) {
       if (!mounted) return;
@@ -254,6 +287,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         error is ApiException ? error.message : error.toString(),
         error: true,
       );
+      // The server rejected a stale action (e.g. a duplicate punch): reload
+      // so the screen shows the real next action.
+      if (error is ApiException &&
+          error.errorCode == 'ATTENDANCE_INVALID_ACTION') {
+        unawaited(_refresh());
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -264,7 +303,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return FutureBuilder<List<AttendanceRecord>>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const LoadingView();
         }
         if (snapshot.hasError) {
@@ -308,40 +348,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Pill(
-                          label: '${todayRecords.length} ${tx('lượt hôm nay')}',
+                        IconPill(
+                          icon: Icons.fingerprint_rounded,
+                          value: '${todayRecords.length}',
                           color: brandColor,
+                          tooltip: tx('lượt hôm nay'),
                         ),
                         if (latestRecord?.shift != null)
-                          Pill(
-                            label: friendlyAttendanceShift(
-                              latestRecord!.shift!,
-                            ),
+                          IconPill(
+                            icon: attendanceShiftIcon(latestRecord!.shift!),
                             color: accentColor,
+                            tooltip: friendlyAttendanceShift(
+                              latestRecord.shift!,
+                            ),
                           ),
                         if (latestRecord?.attendanceStatus != null)
-                          Pill(
-                            label: friendlyAttendanceStatus(
-                              latestRecord!.attendanceStatus!,
-                            ),
+                          StatusIcon(
+                            icon: statusIcon(latestRecord!.attendanceStatus!),
                             color: statusColor(latestRecord.attendanceStatus!),
+                            label: friendlyAttendanceStatus(
+                              latestRecord.attendanceStatus!,
+                            ),
+                            size: 28,
                           ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     Center(
                       child: AttendanceActionOrb(
-                        label: tx(
-                          nextIsCheckIn ? 'Chấm công vào' : 'Chấm công ra',
-                        ),
-                        helperText: tx(
-                          _submitting
-                              ? 'Đang lấy GPS'
-                              : nextIsCheckIn
-                              ? 'Bắt đầu ca'
-                              : 'Kết thúc ca',
-                        ),
+                        label: tx(nextIsCheckIn ? 'Vào ca' : 'Ra ca'),
+                        celebrate: _justRecorded,
                         icon: nextIsCheckIn
                             ? Icons.login_rounded
                             : Icons.logout_rounded,
@@ -632,50 +670,44 @@ class _DayAttendanceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCheckIn = record.recordType == 'CHECK_IN';
     final color = isCheckIn ? brandColor : accentColor;
-    final shift = record.shift == null
-        ? null
-        : friendlyAttendanceShift(record.shift!);
-    final status = record.attendanceStatus == null
-        ? null
-        : friendlyAttendanceStatus(record.attendanceStatus!);
+    final shift = record.shift;
+    final status = record.attendanceStatus;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          AppIconBadge(
-            icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-            color: color,
-            size: 40,
+          Tooltip(
+            message: friendlyRecordType(record.recordType),
+            child: AppIconBadge(
+              icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
+              color: color,
+              size: 40,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  friendlyRecordType(record.recordType),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  [
-                    formatDateTime(record.recordedAt),
-                    ?shift,
-                    ?status,
-                  ].join(' - '),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: mutedTextColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            child: Text(
+              formatTime(record.recordedAt),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
             ),
           ),
+          if (shift != null) ...[
+            IconPill(
+              icon: attendanceShiftIcon(shift),
+              color: accentColor,
+              tooltip: friendlyAttendanceShift(shift),
+            ),
+            const SizedBox(width: 6),
+          ],
+          if (status != null)
+            StatusIcon(
+              icon: statusIcon(status),
+              color: statusColor(status),
+              label: friendlyAttendanceStatus(status),
+            ),
         ],
       ),
     );

@@ -64,6 +64,21 @@ Future<Map<String, Object?>> currentAttendanceLocationPayload() async {
   }
 }
 
+/// Asks for location access up front (first-run onboarding). Never throws:
+/// check-in re-requests and explains the problem if access is still missing.
+Future<bool> requestLocationPermission() async {
+  try {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<Position?> _currentOrLastKnownPosition() async {
   try {
     return await Geolocator.getCurrentPosition(

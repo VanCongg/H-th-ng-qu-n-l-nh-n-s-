@@ -62,10 +62,7 @@ class TaskCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Pill(
-                label: friendlyStatus(task.status),
-                color: statusColor(task.status),
-              ),
+              StatusIcon.status(task.status),
             ],
           ),
         ),

@@ -369,10 +369,7 @@ class _LeavePreview extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Pill(
-                        label: friendlyStatus(request.status),
-                        color: statusColor(request.status),
-                      ),
+                      StatusIcon.status(request.status),
                     ],
                   ),
                 ),
@@ -444,13 +441,16 @@ class _TaskPreview extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Pill(
-                    label: task.isOverdue
-                        ? tx('Quá hạn')
-                        : friendlyPriority(task.priority),
+                  StatusIcon(
+                    icon: task.isOverdue
+                        ? Icons.alarm_rounded
+                        : Icons.flag_rounded,
                     color: task.isOverdue
                         ? dangerColor
                         : priorityColor(task.priority),
+                    label: task.isOverdue
+                        ? tx('Quá hạn')
+                        : friendlyPriority(task.priority),
                   ),
                 ],
               ),

@@ -1,9 +1,11 @@
+import 'core/i18n.dart';
 import 'package:flutter/material.dart';
 
 import 'core/session.dart';
 import 'core/theme.dart';
 import 'core/utils.dart';
 import 'modules/auth/login_screen.dart';
+import 'modules/onboarding/onboarding_screen.dart';
 import 'modules/shell/home_shell.dart';
 import 'shared/widgets/widgets.dart';
 
@@ -27,6 +29,8 @@ class OmniHrApp extends StatelessWidget {
               ? const BootScreen()
               : session.isLoggedIn
               ? HomeShell(session: session)
+              : !session.onboardingCompleted
+              ? OnboardingScreen(session: session)
               : LoginScreen(session: session),
         );
       },
@@ -58,7 +62,7 @@ class BootScreen extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'People first. Clarity every day.',
+                tx('Con người là trọng tâm. Rõ ràng mỗi ngày.'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: mutedTextColor,

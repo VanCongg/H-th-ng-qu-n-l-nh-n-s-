@@ -6,11 +6,37 @@ import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
 
+/// Annual leave balance from the backend, which accrues it per full month worked.
+class AnnualLeaveBalance {
+  AnnualLeaveBalance({
+    required this.accruedDays,
+    required this.carriedOverDays,
+    required this.remainingDays,
+  });
+
+  final double accruedDays;
+  final double carriedOverDays;
+  final double remainingDays;
+
+  factory AnnualLeaveBalance.fromJson(Map<String, dynamic> json) {
+    return AnnualLeaveBalance(
+      accruedDays: doubleOf(json['accruedDays']) ?? 0,
+      carriedOverDays: doubleOf(json['carriedOverDays']) ?? 0,
+      remainingDays: doubleOf(json['remainingDays']) ?? 0,
+    );
+  }
+}
+
 class LeaveBundle {
-  LeaveBundle({required this.types, required this.requests});
+  LeaveBundle({
+    required this.types,
+    required this.requests,
+    this.annualBalance,
+  });
 
   final List<LeaveType> types;
   final List<LeaveRequest> requests;
+  final AnnualLeaveBalance? annualBalance;
 
   double remainingFor(LeaveType type) {
     final used = requests
@@ -51,7 +77,18 @@ class _LeaveScreenState extends State<LeaveScreen> {
       LeaveRequest.fromJson,
       query: {'limit': 50},
     );
-    return LeaveBundle(types: types, requests: requests);
+    AnnualLeaveBalance? annualBalance;
+    try {
+      final data = await widget.session.api.get('/leave-balances/self');
+      annualBalance = AnnualLeaveBalance.fromJson(mapOf(data));
+    } catch (_) {
+      annualBalance = null;
+    }
+    return LeaveBundle(
+      types: types,
+      requests: requests,
+      annualBalance: annualBalance,
+    );
   }
 
   Future<void> _refresh() async {
@@ -110,8 +147,8 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
     final reasonController = TextEditingController();
     int? leaveTypeId = bundle.types.first.id;
-    var startDate = DateTime.now();
-    var endDate = DateTime.now();
+    var startDate = nextWorkingDay(DateTime.now());
+    var endDate = nextWorkingDay(DateTime.now());
     var submitting = false;
 
     final created = await showModalBottomSheet<bool>(
@@ -161,6 +198,14 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 showAppSnack(
                   context,
                   tx('Ngày kết thúc không được trước ngày bắt đầu.'),
+                  error: true,
+                );
+                return;
+              }
+              if (workingDaysBetween(startDate, endDate) == 0) {
+                showAppSnack(
+                  context,
+                  tx('Khoảng nghỉ không có ngày làm việc hợp lệ.'),
                   error: true,
                 );
                 return;
@@ -251,6 +296,38 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       ),
                     ],
                   ),
+                  if (workingDaysBetween(startDate, endDate) == 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: dangerColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.event_busy_outlined,
+                            size: 18,
+                            color: dangerColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              tx(
+                                'Khoảng ngày đã chọn không có ngày làm việc '
+                                'nào. Vui lòng chọn ngày trong tuần.',
+                              ),
+                              style: TextStyle(color: dangerColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: reasonController,
@@ -263,7 +340,11 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: submitting ? null : submit,
+                    onPressed:
+                        submitting ||
+                            workingDaysBetween(startDate, endDate) == 0
+                        ? null
+                        : submit,
                     icon: submitting
                         ? const SizedBox.square(
                             dimension: 18,
@@ -339,11 +420,24 @@ class _LeaveScreenState extends State<LeaveScreen> {
                   children: [
                     SectionTitle(
                       title: tx('Số ngày phép còn lại'),
-                      subtitle: tx('Tính theo các đơn đã được duyệt'),
+                      subtitle: tx(
+                        'Phép năm cộng dồn theo tháng làm việc đủ; loại khác tính theo đơn đã duyệt',
+                      ),
                     ),
                     Builder(
                       builder: (context) {
                         final rows = bundle.types.map((type) {
+                          final annual = type.code == 'ANNUAL_LEAVE'
+                              ? bundle.annualBalance
+                              : null;
+                          if (annual != null) {
+                            return _LeaveBalanceRow(
+                              name: type.name,
+                              valueText:
+                                  '${annual.remainingDays.toStringAsFixed(1)}/${(annual.accruedDays + annual.carriedOverDays).toStringAsFixed(1)}',
+                              warn: annual.remainingDays <= 0,
+                            );
+                          }
                           final isUnlimited = type.annualAllowance == null;
                           final remaining = isUnlimited
                               ? null

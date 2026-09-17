@@ -22,17 +22,30 @@ cd D:\OmniHR\OmniHR_BE
 npm run start:dev
 ```
 
-## API URL khi đăng nhập
+## Cấu hình API URL
 
-- Chrome/web: `http://localhost:3000`
+API URL được gắn lúc build qua `--dart-define=API_BASE_URL=...`, người dùng không nhập và không nhìn thấy trong app.
+Nếu không truyền, app dùng mặc định cho môi trường dev:
+
+- Chrome/web/desktop: `http://localhost:3000`
 - Android emulator: `http://10.0.2.2:3000`
-- Máy Android thật cùng Wi-Fi: `http://<IP-LAN-cua-may-tinh>:3000`
 
-Ví dụ máy tính có IP `192.168.1.10`:
+Máy Android thật cùng Wi-Fi (ví dụ máy tính có IP `192.168.1.10`):
 
-```txt
-http://192.168.1.10:3000
+```powershell
+flutter run -d <device_id> --dart-define=API_BASE_URL=http://192.168.1.10:3000
 ```
+
+Build production:
+
+```powershell
+flutter build apk --release --dart-define=API_BASE_URL=https://api.your-company.com
+```
+
+## Lần đầu mở app
+
+`modules/onboarding` hiển thị splash giới thiệu → hướng dẫn sử dụng → xin quyền vị trí (dùng cho chấm công GPS).
+Trạng thái đã xem được lưu ở SharedPreferences (`onboardingCompleted`); xóa dữ liệu app để xem lại.
 
 ## Chạy trên Chrome
 

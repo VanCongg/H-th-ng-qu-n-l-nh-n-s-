@@ -115,3 +115,102 @@ class SectionTitle extends StatelessWidget {
     );
   }
 }
+
+/// A status shown as a coloured circular icon. [label] goes to the tooltip and
+/// screen readers instead of being printed.
+class StatusIcon extends StatelessWidget {
+  const StatusIcon({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.label,
+    this.size = 30,
+  });
+
+  /// Uses the shared status icon, colour and wording for [status].
+  factory StatusIcon.status(String status, {double size = 30}) {
+    return StatusIcon(
+      icon: statusIcon(status),
+      color: statusColor(status),
+      label: friendlyStatus(status),
+      size: size,
+    );
+  }
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        label: label,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.14),
+          ),
+          child: Icon(icon, color: color, size: size * 0.6),
+        ),
+      ),
+    );
+  }
+}
+
+/// A compact icon chip with an optional short value, for facts that need no
+/// words, such as a count.
+class IconPill extends StatelessWidget {
+  const IconPill({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.tooltip,
+    this.value,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final String? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value;
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: text == null ? 7 : 10,
+          vertical: 5,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            if (text != null) ...[
+              const SizedBox(width: 5),
+              Text(
+                text,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

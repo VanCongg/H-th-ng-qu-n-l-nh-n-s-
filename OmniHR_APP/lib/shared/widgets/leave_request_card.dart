@@ -41,7 +41,7 @@ class LeaveRequestCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Pill(label: friendlyStatus(request.status), color: color),
+              StatusIcon.status(request.status),
             ],
           ),
           const SizedBox(height: 12),
@@ -84,10 +84,14 @@ class LeaveRequestCard extends StatelessWidget {
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton.icon(
+              child: IconButton.filledTonal(
+                tooltip: tx('Hủy đơn'),
                 onPressed: onCancel,
-                icon: const Icon(Icons.cancel_outlined),
-                label: Text(tx('Hủy đơn')),
+                style: IconButton.styleFrom(
+                  foregroundColor: dangerColor,
+                  backgroundColor: dangerColor.withValues(alpha: 0.10),
+                ),
+                icon: const Icon(Icons.close_rounded),
               ),
             ),
           ],
