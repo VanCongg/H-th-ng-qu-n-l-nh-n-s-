@@ -31,7 +31,6 @@ import {
   careerLevelOptions,
   formatDate,
   formatDepartmentName,
-  formatEmployeeJobTitle,
   statusColor
 } from "../../api/format";
 import type { Department, Employee, EmployeeCreateResult, Position, Skill } from "../../api/types";
@@ -40,6 +39,8 @@ import { DataTable } from "../../components/DataTable";
 import { EmployeeAvatar } from "../../components/EmployeeAvatar";
 import { EmployeeAvatarUpload } from "../../components/EmployeeAvatarUpload";
 import { PageHeader } from "../../components/PageHeader";
+import { PositionLabel } from "../../components/PositionLabel";
+import { useAuthStore } from "../../store/auth";
 import { useTranslation } from "../../i18n";
 
 type EmployeesPageProps = {
@@ -93,7 +94,13 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
           })
   });
   const departmentsQuery = useQuery({ queryKey: ["departments"], queryFn: () => departmentsApi.list() });
-  const positionsQuery = useQuery({ queryKey: ["positions"], queryFn: () => positionsApi.list() });
+  // Managers do not hold POSITION_READ; asking anyway only produced 403s.
+  const canReadPositions = useAuthStore((state) => state.hasPermission("POSITION_READ"));
+  const positionsQuery = useQuery({
+    queryKey: ["positions"],
+    queryFn: () => positionsApi.list(),
+    enabled: canReadPositions
+  });
   const skillsQuery = useQuery({
     queryKey: ["skills", "employee-form"],
     queryFn: () => skillsApi.list({ limit: 100 })
@@ -391,19 +398,21 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
                 setPage(1);
               }}
             />
-            <Select
-              label={tx("Position")}
-              placeholder={tx("All positions")}
-              data={filterPositionOptions}
-              value={positionFilter}
-              searchable
-              clearable
-              disabled={!filterPositionOptions.length}
-              onChange={(value) => {
-                setPositionFilter(value);
-                setPage(1);
-              }}
-            />
+            {canReadPositions ? (
+              <Select
+                label={tx("Position")}
+                placeholder={tx("All positions")}
+                data={filterPositionOptions}
+                value={positionFilter}
+                searchable
+                clearable
+                disabled={!filterPositionOptions.length}
+                onChange={(value) => {
+                  setPositionFilter(value);
+                  setPage(1);
+                }}
+              />
+            ) : null}
             <Select
               label={tx("Status")}
               placeholder={tx("All statuses")}
@@ -457,7 +466,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.employeeCode}</Text> },
           { key: "name", label: "Name", render: (item) => <Group gap="sm" wrap="nowrap"><EmployeeAvatar employee={item} /><Stack gap={0}><Text fw={700}>{item.fullName}</Text><Text size="xs" c="dimmed">{item.companyEmail}</Text></Stack></Group> },
           { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
-          { key: "position", label: "Position", render: (item) => formatEmployeeJobTitle(item, te) },
+          { key: "position", label: "Position", render: (item) => <PositionLabel employee={item} /> },
           { key: "birthDate", label: "Birth date", render: (item) => formatDate(item.birthDate) },
           { key: "status", label: "Status", render: (item) => <Badge color={statusColor(item.status)}>{te(item.status)}</Badge> },
           {
@@ -479,7 +488,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
                     </ActionIcon>
                   </Tooltip>
                   <Tooltip label={tx("Disable employee")}>
-                    <ActionIcon variant="subtle" color="red" onClick={() => openConfirmModal({ title: tx("Disable employee"), message: `${tx("Disable")} ${item.fullName}?`, confirmLabel: tx("Disable"), onConfirm: () => removeMutation.mutate(item.id) })}>
+                    <ActionIcon variant="subtle" color="red" onClick={() => openConfirmModal({ title: tx("Disable employee"), message: `${tx("Disable")} ${item.fullName}?`, description: tx("This locks the account, signs them out on every device, and removes them from employee lists and reporting lines."), confirmLabel: tx("Disable"), onConfirm: () => removeMutation.mutate(item.id) })}>
                       <Trash2 size={16} />
                     </ActionIcon>
                   </Tooltip>

@@ -33,7 +33,6 @@ import {
 import {
   careerLevelOptions,
   formatDepartmentName,
-  formatEmployeeJobTitle
 } from "../../api/format";
 import type { Department, Position, Role, Skill, UserSummary } from "../../api/types";
 import { openConfirmModal } from "../../components/ConfirmModal";
@@ -41,6 +40,7 @@ import { DataTable } from "../../components/DataTable";
 import { EmployeeAvatar } from "../../components/EmployeeAvatar";
 import { EmployeeAvatarUpload } from "../../components/EmployeeAvatarUpload";
 import { PageHeader } from "../../components/PageHeader";
+import { PositionLabel } from "../../components/PositionLabel";
 import { useTranslation } from "../../i18n";
 
 export function UsersPage() {
@@ -656,7 +656,7 @@ export function UsersPage() {
         </form>
       </Paper>
       <DataTable<UserSummary>
-        tableMinWidth={1100}
+        tableMinWidth={1040}
         rowKey={(item) => item.id}
         data={query.data?.items ?? []}
         loading={query.isLoading}
@@ -667,30 +667,26 @@ export function UsersPage() {
         onPageChange={setPage}
         columns={[
           {
-            key: "username",
-            label: "Username",
-            render: (item) => <Text fw={700}>{item.username}</Text>
-          },
-          { key: "email", label: "Email", render: (item) => item.email },
-          {
+            // Account and person in one cell: username, email and employee code
+            // used to take three narrow columns.
             key: "employee",
             label: "Employee",
-            render: (item) =>
-              item.employee ? (
-                <Group gap="sm" wrap="nowrap">
-                  <EmployeeAvatar employee={item.employee} />
-                  <Stack gap={0}>
-                    <Text fw={700} size="sm">
-                      {item.employee.fullName}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {item.employee.employeeCode}
-                    </Text>
-                  </Stack>
-                </Group>
-              ) : (
-                "-"
-              )
+            render: (item) => (
+              <Group gap="sm" wrap="nowrap">
+                {item.employee ? <EmployeeAvatar employee={item.employee} /> : null}
+                <Stack gap={0} miw={0}>
+                  <Text fw={700} size="sm">
+                    {item.employee?.fullName ?? item.username}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {[item.username, item.employee?.employeeCode].filter(Boolean).join(" · ")}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    {item.email}
+                  </Text>
+                </Stack>
+              </Group>
+            )
           },
           {
             key: "department",
@@ -700,7 +696,7 @@ export function UsersPage() {
           {
             key: "position",
             label: "Position",
-            render: (item) => formatEmployeeJobTitle(item.employee, te)
+            render: (item) => <PositionLabel employee={item.employee} />
           },
           {
             key: "roles",
@@ -708,36 +704,34 @@ export function UsersPage() {
             render: (item) => (
               <Group gap={4}>
                 {item.userRoles?.map((role) => (
-                  <Badge key={role.role.id}>{role.role.name}</Badge>
+                  <Badge key={role.role.id} variant="light">
+                    {role.role.name}
+                  </Badge>
                 ))}
               </Group>
             )
           },
           {
-            key: "active",
-            label: "Active",
+            key: "accountState",
+            label: "Status",
             render: (item) => (
-              <Badge color={item.isActive ? "green" : "gray"} variant="light">
-                {item.isActive ? tx("Active account") : tx("Locked account")}
-              </Badge>
-            )
-          },
-          {
-            key: "passwordState",
-            label: "Password state",
-            render: (item) => (
-              <Badge color={item.mustChangePassword ? "yellow" : "teal"} variant="light">
-                {item.mustChangePassword
-                  ? tx("Must change password")
-                  : tx("Password already changed")}
-              </Badge>
+              <Stack gap={4} align="flex-start">
+                <Badge color={item.isActive ? "green" : "gray"} variant="light">
+                  {item.isActive ? tx("Active account") : tx("Locked account")}
+                </Badge>
+                <Badge color={item.mustChangePassword ? "yellow" : "teal"} variant="light">
+                  {item.mustChangePassword
+                    ? tx("Must change password")
+                    : tx("Password already changed")}
+                </Badge>
+              </Stack>
             )
           },
           {
             key: "actions",
             label: "",
             render: (item) => (
-              <Group justify="flex-end" gap={4}>
+              <Group justify="flex-end" gap={4} wrap="nowrap">
                 <Tooltip label={tx("Edit")}>
                   <ActionIcon variant="subtle" onClick={() => openEdit(item)}>
                     <Edit size={16} />
@@ -759,7 +753,8 @@ export function UsersPage() {
                     onClick={() =>
                       openConfirmModal({
                         title: tx("Disable employee"),
-                        message: `${tx("Disable")} ${item.username}?`,
+                        message: `${tx("Disable")} ${item.employee?.fullName ?? item.username} (${item.username})?`,
+                        description: tx("This locks the account, signs them out on every device, and removes them from employee lists and reporting lines."),
                         confirmLabel: tx("Disable"),
                         onConfirm: () => deleteMutation.mutate(item.id)
                       })

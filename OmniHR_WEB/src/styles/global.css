@@ -132,6 +132,12 @@ select {
     linear-gradient(135deg, #1971c2, #0ca678 65%, #f59f00) !important;
 }
 
+.avatar-badge .mantine-Avatar-placeholder {
+  background: transparent;
+  color: #ffffff;
+  font-weight: 800;
+}
+
 .profile-summary,
 .settings-control {
   min-width: 0;
@@ -212,8 +218,19 @@ select {
   white-space: normal;
 }
 
+/* break-word only wraps what cannot fit; "anywhere" shrank every column to a
+   few characters and split emails and codes mid-word. */
 .table-shell td {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+.table-shell .mantine-Badge-root {
+  max-width: none;
+  flex-shrink: 0;
+}
+
+.table-shell .mantine-Badge-label {
+  overflow: visible;
 }
 
 .stat-card {
@@ -787,4 +804,16 @@ select {
   background: var(--mantine-color-blue-6);
   border: 3px solid #fff;
   box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}
+
+/* Phones: two filter columns (search keeps the full row) so the filters do not
+   push every table a whole screen down. */
+@media (max-width: 575px) {
+  .filter-bar .mantine-SimpleGrid-root {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .filter-bar .mantine-SimpleGrid-root > :first-child {
+    grid-column: 1 / -1;
+  }
 }

@@ -634,6 +634,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
           />
           <Select
             label={tx("Status")}
+            placeholder={tx("All statuses")}
             data={taskStatuses.map((value) => ({ value, label: te(value) }))}
             value={status}
             onChange={(value) => {
@@ -644,6 +645,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
           />
           <Select
             label={tx("Priority")}
+            placeholder={tx("All priorities")}
             data={taskPriorities.map((value) => ({ value, label: te(value) }))}
             value={priority}
             onChange={(value) => {
@@ -654,6 +656,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
           />
           <Select
             label={tx("Project")}
+            placeholder={tx("All projects")}
             data={projectOptions}
             value={projectId}
             onChange={(value) => {
@@ -665,6 +668,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
           />
           <Select
             label={tx("Team")}
+            placeholder={tx("All teams")}
             data={filterTeamOptions}
             value={teamId}
             onChange={(value) => {
@@ -676,6 +680,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
           />
           <Select
             label={tx("Assignee")}
+            placeholder={tx("All assignees")}
             data={employeeOptions}
             value={assigneeId}
             onChange={(value) => {

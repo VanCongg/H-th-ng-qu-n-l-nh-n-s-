@@ -4,12 +4,12 @@ import { Activity, ClipboardList, Users } from "lucide-react";
 import { dashboardApi } from "../../api/endpoints";
 import {
   formatDate,
-  formatDepartmentName,
-  formatEmployeeJobTitle
+  formatDepartmentName
 } from "../../api/format";
 import { getApiErrorMessage } from "../../api/axios";
 import { DataTable } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
+import { PositionLabel } from "../../components/PositionLabel";
 import { StatCard } from "../../components/StatCard";
 import { useTranslation } from "../../i18n";
 import type { Employee, LeaveRequest } from "../../api/types";
@@ -71,7 +71,7 @@ export function AppDashboardPage() {
                 { key: "code", label: "Code", render: (item) => item.employeeCode },
                 { key: "name", label: "Name", render: (item) => <Text fw={700}>{item.fullName}</Text> },
                 { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
-                { key: "position", label: "Position", render: (item) => formatEmployeeJobTitle(item, te) }
+                { key: "position", label: "Position", render: (item) => <PositionLabel employee={item} /> }
               ]}
             />
           </Stack>

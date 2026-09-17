@@ -76,7 +76,7 @@ export function DataTable<T>({
 
   return (
     <Box className={["table-shell", className].filter(Boolean).join(" ")}>
-      <ScrollArea>
+      <ScrollArea type="auto">
         <Table striped highlightOnHover verticalSpacing="sm" miw={tableMinWidth}>
           <Table.Thead>
             <Table.Tr>

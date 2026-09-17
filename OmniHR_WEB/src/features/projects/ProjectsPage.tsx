@@ -171,6 +171,7 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
           />
           <Select
             label={tx("Status")}
+            placeholder={tx("All statuses")}
             data={projectStatuses.map((value) => ({ value, label: te(value) }))}
             clearable
             value={status}

@@ -25,7 +25,25 @@ const queryClient = new QueryClient({
 
 const theme: MantineThemeOverride = createTheme({
   primaryColor: "blue",
-  primaryShade: { light: 6, dark: 3 },
+  // Dark shade 8: filled buttons keep readable white labels (shade 3 did not),
+  // and subtle/light variants derive a clearly coloured tint from it.
+  primaryShade: { light: 6, dark: 8 },
+  // Mantine's neutral dark greys clashed with the navy shell, so dark surfaces
+  // (cards, tables, inputs, menus) use the same navy scale.
+  colors: {
+    dark: [
+      "#e4e9f2",
+      "#c3cddd",
+      "#98a6bd",
+      "#6b7a93",
+      "#3a4a66",
+      "#2a3854",
+      "#1d2a42",
+      "#172033",
+      "#111a2b",
+      "#0b1120"
+    ]
+  },
   defaultRadius: "md",
   fontFamily:
     "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
@@ -68,6 +86,12 @@ const theme: MantineThemeOverride = createTheme({
     Paper: {
       defaultProps: {
         radius: "md"
+      }
+    },
+    Badge: {
+      // Uppercase Vietnamese labels ("TÀI KHOẢN HOẠT ĐỘNG") were long and got cut off.
+      styles: {
+        root: { textTransform: "none", fontWeight: 650 }
       }
     }
   }

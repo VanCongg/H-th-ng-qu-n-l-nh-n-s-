@@ -87,6 +87,15 @@ function AuditPayloadPreview({ log }: { log: AuditLog }) {
   const value = log.newValue ?? log.oldValue;
   const preview = compactAuditPayload(value);
 
+  // An empty bordered box per row looked like a broken input.
+  if (preview === "-") {
+    return (
+      <Text size="xs" c="dimmed">
+        -
+      </Text>
+    );
+  }
+
   return (
     <Box className="audit-payload-preview">
       <Text size="xs" lineClamp={3} c={preview === "-" ? "dimmed" : undefined}>
@@ -120,6 +129,7 @@ export function AuditLogsPage() {
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <Select
             label={tx("Action")}
+            placeholder={tx("All actions")}
             data={actionOptions.map((value) => ({ value, label: tx(value) }))}
             clearable
             value={action}
@@ -130,6 +140,7 @@ export function AuditLogsPage() {
           />
           <TextInput
             label={tx("Entity type")}
+            placeholder={tx("Example: User, Task, LeaveRequest")}
             value={entityType}
             onChange={(event) => {
               setEntityType(event.currentTarget.value);

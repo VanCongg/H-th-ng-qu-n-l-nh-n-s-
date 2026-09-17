@@ -152,6 +152,7 @@ export function SkillsPage() {
           />
           <Select
             label={tx("Category")}
+            placeholder={tx("All categories")}
             data={categoryOptions}
             value={category}
             onChange={(value) => {

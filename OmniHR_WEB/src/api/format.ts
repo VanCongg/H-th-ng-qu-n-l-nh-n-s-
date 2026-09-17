@@ -39,18 +39,9 @@ export function careerLevelOptions(
   }));
 }
 
-export function formatEmployeeJobTitle(
-  employee?: Pick<Employee, "careerLevel" | "position"> | null,
-  translateEnum?: (value?: string | null) => string
-) {
-  if (!employee) {
-    return "-";
-  }
-  const title = [
-    formatCareerLevel(employee.careerLevel, translateEnum),
-    employee.position?.name
-  ].filter(Boolean);
-  return title.length ? title.join(" ") : "-";
+/** The position name alone; the career level is shown separately. */
+export function formatPositionName(employee?: Pick<Employee, "position"> | null) {
+  return employee?.position?.name || "-";
 }
 
 export function formatDepartmentName(
@@ -60,14 +51,9 @@ export function formatDepartmentName(
   if (!department) {
     return "-";
   }
-  const canonicalNames: Record<string, string> = {
-    ENG: "Engineering",
-    IT: "Information Technology",
-    OPS: "Operations",
-    HR: "Human Resources"
-  };
-  const source = canonicalNames[department.code] ?? department.name;
-  return translateText?.(source) || source || "-";
+  // The stored name is what admins typed; replacing it by code showed
+  // "Operations" for "Hành chính - Vận hành".
+  return translateText?.(department.name) || department.name || "-";
 }
 
 export function formatTeamName(team?: Pick<Team, "code" | "name"> | null) {

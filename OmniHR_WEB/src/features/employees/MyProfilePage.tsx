@@ -19,9 +19,9 @@ import { getApiErrorMessage } from "../../api/axios";
 import { authApi, employeesApi } from "../../api/endpoints";
 import {
   formatCareerLevel,
+  formatPositionName,
   formatDate,
-  formatDepartmentName,
-  formatEmployeeJobTitle
+  formatDepartmentName
 } from "../../api/format";
 import { EmployeeAvatar } from "../../components/EmployeeAvatar";
 import { EmployeeAvatarUpload } from "../../components/EmployeeAvatarUpload";
@@ -103,7 +103,7 @@ export function MyProfilePage() {
           <Info label={tx("Full name")} value={profile?.fullName} />
           <Info label={tx("Company email")} value={profile?.companyEmail} />
           <Info label={tx("Department")} value={formatDepartmentName(profile?.department, tx)} />
-          <Info label={tx("Position")} value={formatEmployeeJobTitle(profile, te)} />
+          <Info label={tx("Position")} value={formatPositionName(profile)} />
           <Info
             label={tx("Career level")}
             value={formatCareerLevel(profile?.careerLevel, te)}

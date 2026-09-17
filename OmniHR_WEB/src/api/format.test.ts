@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatPositionName,
   formatCareerLevel,
   formatDepartmentName,
-  formatEmployeeJobTitle,
   formatTeamName,
   formatDays,
   formatMinutes,
@@ -32,24 +32,16 @@ describe("formatCareerLevel", () => {
   });
 });
 
-describe("formatEmployeeJobTitle", () => {
-  it("returns '-' when employee is missing", () => {
-    expect(formatEmployeeJobTitle(null)).toBe("-");
+describe("formatPositionName", () => {
+  it("returns '-' when employee or position is missing", () => {
+    expect(formatPositionName(null)).toBe("-");
+    expect(formatPositionName({ position: null } as never)).toBe("-");
   });
 
-  it("joins career level and position name", () => {
-    expect(
-      formatEmployeeJobTitle({
-        careerLevel: "SENIOR",
-        position: { name: "Backend Engineer" } as never
-      })
-    ).toBe("Senior Backend Engineer");
-  });
-
-  it("returns '-' when neither career level nor position is set", () => {
-    expect(
-      formatEmployeeJobTitle({ careerLevel: null, position: null } as never)
-    ).toBe("-");
+  it("returns the position name without the career level", () => {
+    expect(formatPositionName({ position: { name: "Backend Engineer" } } as never)).toBe(
+      "Backend Engineer"
+    );
   });
 });
 
@@ -58,8 +50,10 @@ describe("formatDepartmentName", () => {
     expect(formatDepartmentName(null)).toBe("-");
   });
 
-  it("maps known department codes to canonical names", () => {
-    expect(formatDepartmentName({ code: "ENG", name: "Kỹ thuật" })).toBe("Engineering");
+  it("uses the stored department name", () => {
+    expect(formatDepartmentName({ code: "OPS", name: "Hành chính - Vận hành" })).toBe(
+      "Hành chính - Vận hành"
+    );
   });
 
   it("falls back to the raw name for unknown codes", () => {
