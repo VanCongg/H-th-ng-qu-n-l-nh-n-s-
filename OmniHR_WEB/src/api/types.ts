@@ -458,16 +458,16 @@ export type AdminDashboard = {
   totalEmployees: number;
   totalDepartments: number;
   totalPositions: number;
-  activeUsers: number;
+  activeEmployees: number;
   pendingLeaveRequests: number;
-  todayAttendanceRecords: number;
+  checkedInToday: number;
   recentAuditLogs: AuditLog[];
 };
 
 export type ManagerDashboard = {
   teamEmployees: number;
   pendingTeamLeaves: number;
-  todayTeamAttendance: number;
+  teamCheckedInToday: number;
   latestTeamLeaves: LeaveRequest[];
   latestSubordinates: Employee[];
 };

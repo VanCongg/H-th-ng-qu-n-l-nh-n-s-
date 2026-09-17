@@ -31,7 +31,7 @@ export function AppDashboardPage() {
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
         <StatCard label="Subordinates" value={data?.teamEmployees ?? 0} icon={Users} color="blue" />
         <StatCard label="Pending Team Leave" value={data?.pendingTeamLeaves ?? 0} icon={ClipboardList} color="yellow" />
-        <StatCard label="Attendance Today" value={data?.todayTeamAttendance ?? 0} icon={Activity} color="teal" />
+        <StatCard label="Checked in today" value={data?.teamCheckedInToday ?? 0} icon={Activity} color="teal" />
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">

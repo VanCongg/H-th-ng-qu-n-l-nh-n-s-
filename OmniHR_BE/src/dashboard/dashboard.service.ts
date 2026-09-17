@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { LeaveRequestStatus } from "@prisma/client";
+import { AttendanceRecordType, EmployeeStatus, LeaveRequestStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser } from "../common/types";
 import { toDateOnly } from "../common/utils";
-import { currentEmployeeWhere, currentUserWhere } from "../common/prisma-where";
+import { currentEmployeeWhere } from "../common/prisma-where";
 
 @Injectable()
 export class DashboardService {
@@ -21,23 +21,31 @@ export class DashboardService {
       totalEmployees,
       totalDepartments,
       totalPositions,
-      activeUsers,
+      activeEmployees,
       pendingLeaveRequests,
-      todayAttendanceRecords,
+      checkedInToday,
       recentAuditLogs
     ] = await this.prisma.$transaction([
       this.prisma.employee.count({ where: currentEmployeeWhere() }),
       this.prisma.department.count({ where: { deletedAt: null } }),
       this.prisma.position.count({ where: { deletedAt: null } }),
-      this.prisma.user.count({ where: currentUserWhere({ isActive: true }) }),
+      // Employees, not user accounts: the admin account has no employee.
+      this.prisma.employee.count({
+        where: currentEmployeeWhere({ status: EmployeeStatus.ACTIVE })
+      }),
       this.prisma.leaveRequest.count({
         where: {
           status: LeaveRequestStatus.PENDING,
           employee: currentEmployeeWhere()
         }
       }),
-      this.prisma.attendanceRecord.count({
-        where: { workDate: today, employee: currentEmployeeWhere() }
+      // People who checked in today; counting records counted check-outs too.
+      this.prisma.employee.count({
+        where: currentEmployeeWhere({
+          attendanceRecords: {
+            some: { workDate: today, recordType: AttendanceRecordType.CHECK_IN }
+          }
+        })
       }),
       this.prisma.auditLog.findMany({
         include: {
@@ -52,9 +60,9 @@ export class DashboardService {
       totalEmployees,
       totalDepartments,
       totalPositions,
-      activeUsers,
+      activeEmployees,
       pendingLeaveRequests,
-      todayAttendanceRecords,
+      checkedInToday,
       recentAuditLogs
     };
   }
@@ -65,7 +73,7 @@ export class DashboardService {
     const [
       teamEmployees,
       pendingTeamLeaves,
-      todayTeamAttendance,
+      teamCheckedInToday,
       latestTeamLeaves,
       latestSubordinates
     ] = await this.prisma.$transaction([
@@ -79,12 +87,13 @@ export class DashboardService {
           employee: currentEmployeeWhere()
         }
       }),
-      this.prisma.attendanceRecord.count({
-        where: {
-          employeeId: { in: teamIds },
-          workDate: today,
-          employee: currentEmployeeWhere()
-        }
+      this.prisma.employee.count({
+        where: currentEmployeeWhere({
+          id: { in: teamIds },
+          attendanceRecords: {
+            some: { workDate: today, recordType: AttendanceRecordType.CHECK_IN }
+          }
+        })
       }),
       this.prisma.leaveRequest.findMany({
         where: { employeeId: { in: teamIds }, employee: currentEmployeeWhere() },
@@ -106,7 +115,7 @@ export class DashboardService {
     return {
       teamEmployees,
       pendingTeamLeaves,
-      todayTeamAttendance,
+      teamCheckedInToday,
       latestTeamLeaves,
       latestSubordinates
     };

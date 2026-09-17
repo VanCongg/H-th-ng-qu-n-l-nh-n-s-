@@ -29,9 +29,9 @@ export function AdminDashboardPage() {
         <StatCard label="Employees" value={data?.totalEmployees ?? 0} icon={Users} color="blue" />
         <StatCard label="Departments" value={data?.totalDepartments ?? 0} icon={Building2} color="teal" />
         <StatCard label="Positions" value={data?.totalPositions ?? 0} icon={BadgeCheck} color="indigo" />
-        <StatCard label="Active Employees" value={data?.activeUsers ?? 0} icon={Activity} color="green" />
+        <StatCard label="Active Employees" value={data?.activeEmployees ?? 0} icon={Activity} color="green" />
         <StatCard label="Pending Leave" value={data?.pendingLeaveRequests ?? 0} icon={ClipboardList} color="yellow" />
-        <StatCard label="Attendance Today" value={data?.todayAttendanceRecords ?? 0} icon={Activity} color="cyan" />
+        <StatCard label="Checked in today" value={data?.checkedInToday ?? 0} icon={Activity} color="cyan" />
       </SimpleGrid>
 
       <Paper withBorder radius="md" p="md">
