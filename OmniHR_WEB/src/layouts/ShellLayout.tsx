@@ -58,6 +58,8 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const hasRole = useAuthStore((state) => state.hasRole);
+  const hasPermission = useAuthStore((state) => state.hasPermission);
   const accessToken = useAuthStore((state) => state.accessToken);
   const logoutLocal = useAuthStore((state) => state.logoutLocal);
   const connectNotifications = useNotificationsStore((state) => state.connect);
@@ -221,7 +223,13 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
         <Stack gap="md" h="100%">
           <ScrollArea className="nav-scroll">
             <Stack gap={4}>
-              {navItems.map((item) => (
+              {navItems
+                .filter(
+                  (item) =>
+                    (!item.roles || hasRole(item.roles)) &&
+                    (!item.permissions || hasPermission(item.permissions))
+                )
+                .map((item) => (
                 <NavLink
                   key={item.to}
                   component={RouterLink}

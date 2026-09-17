@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
+import { teamTaskProjects } from "./teamTaskAccess";
 import {
   aiTaskSuggestionsApi,
   employeesApi,
@@ -550,12 +551,17 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
   }, [expandedTaskIds, tasksQuery.data?.items]);
 
   const isSubtaskForm = Boolean(form.values.parentTaskId);
-  const canCreateTeamTask =
-    canCreate &&
-    (user?.roles.includes("ADMIN") ||
-      (projectsQuery.data?.items ?? []).some(
-        (project) => project.managerId === user?.employeeId
-      ));
+  const creatableProjects = teamTaskProjects(projectsQuery.data?.items ?? [], user);
+  const canCreateTeamTask = canCreate && creatableProjects.length > 0;
+  // A new team task may only target a department the user heads; editing
+  // and subtasks keep the full list so their fixed project still renders.
+  const formProjectOptions =
+    editing || isSubtaskForm
+      ? projectOptions
+      : creatableProjects.map((item) => ({
+          value: String(item.id),
+          label: `${item.code} - ${item.name}`
+        }));
 
   return (
     <Stack gap="md">
@@ -1025,7 +1031,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <Select
                 label={tx("Project")}
-                data={projectOptions}
+                data={formProjectOptions}
                 clearable
                 searchable
                 required={!isSubtaskForm}

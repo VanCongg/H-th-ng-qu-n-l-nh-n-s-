@@ -1,7 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/AppLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
-import { AuthHydrator, RequireAuth, RequireRole, RootRedirect } from "./guards";
+import {
+  AdminIndexRedirect,
+  AuthHydrator,
+  RequireAuth,
+  RequirePermission,
+  RequireRole,
+  RootRedirect
+} from "./guards";
 import { LoginPage } from "../features/auth/LoginPage";
 import { ForbiddenPage, MobileNoticePage } from "../features/auth/StatusPages";
 import { AppDashboardPage } from "../features/app-dashboard/AppDashboardPage";
@@ -11,12 +18,14 @@ import { DepartmentsPage } from "../features/departments/DepartmentsPage";
 import { TeamsPage } from "../features/teams/TeamsPage";
 import { PositionsPage } from "../features/positions/PositionsPage";
 import { AttendancePage } from "../features/attendance/AttendancePage";
+import { TimesheetPage } from "../features/attendance/TimesheetPage";
 import { LeaveRequestsPage } from "../features/leave-requests/LeaveRequestsPage";
-import { LeaveTypesPage } from "../features/leave-types/LeaveTypesPage";
+import { LeaveBalancesPage } from "../features/leave-balances/LeaveBalancesPage";
 import { UsersPage } from "../features/users/UsersPage";
 import { RolesPermissionsPage } from "../features/roles-permissions/RolesPermissionsPage";
 import { PoliciesPage } from "../features/policies/PoliciesPage";
 import { AuditLogsPage } from "../features/audit-logs/AuditLogsPage";
+import { PayrollPage } from "../features/payroll/PayrollPage";
 import { SystemSettingsPage } from "../features/system-settings/SystemSettingsPage";
 import { MyProfilePage } from "../features/employees/MyProfilePage";
 import { ProjectsPage } from "../features/projects/ProjectsPage";
@@ -24,8 +33,6 @@ import { TasksPage } from "../features/tasks/TasksPage";
 import { SkillsPage } from "../features/skills/SkillsPage";
 import { EmployeeSkillsPage } from "../features/employee-skills/EmployeeSkillsPage";
 import { AiTaskSuggestionsPage } from "../features/ai-task-suggestions/AiTaskSuggestionsPage";
-import { OrgChartPage } from "../features/org-chart/OrgChartPage";
-import { ReviewCyclesPage } from "../features/review-cycles/ReviewCyclesPage";
 import { PerformanceReviewsPage } from "../features/performance-reviews/PerformanceReviewsPage";
 
 export function App() {
@@ -73,29 +80,41 @@ export function App() {
                 <Route path="profile" element={<MyProfilePage />} />
               </Route>
             </Route>
-            <Route element={<RequireRole roles={["ADMIN"]} />}>
+            <Route element={<RequireRole roles={["ADMIN", "ACCOUNTANT"]} />}>
               <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminIndexRedirect />} />
+                <Route element={<RequirePermission permissions={["ATTENDANCE_READ_ALL"]} />}>
+                  <Route path="attendance" element={<AttendancePage scope="all" />} />
+                </Route>
                 <Route
-                  index
-                  element={<Navigate to="/admin/dashboard" replace />}
-                />
-                <Route path="dashboard" element={<AdminDashboardPage />} />
-                <Route path="org-chart" element={<OrgChartPage />} />
-                <Route path="review-cycles" element={<ReviewCyclesPage />} />
-                <Route path="reviews" element={<PerformanceReviewsPage scope="all" />} />
-                <Route path="employees" element={<Navigate to="/admin/users" replace />} />
-                <Route path="departments" element={<DepartmentsPage />} />
-                <Route path="positions" element={<PositionsPage />} />
-                <Route path="leave-types" element={<LeaveTypesPage />} />
-                <Route path="skills" element={<SkillsPage />} />
-                <Route path="users" element={<UsersPage />} />
-                <Route
-                  path="roles-permissions"
-                  element={<RolesPermissionsPage />}
-                />
-                <Route path="policies" element={<PoliciesPage />} />
-                <Route path="audit-logs" element={<AuditLogsPage />} />
-                <Route path="system-settings" element={<SystemSettingsPage />} />
+                  element={
+                    <RequirePermission permissions={["ATTENDANCE_READ_ALL", "PAYROLL_READ"]} />
+                  }
+                >
+                  <Route path="timesheets" element={<TimesheetPage />} />
+                </Route>
+                <Route element={<RequirePermission permissions={["PAYROLL_READ"]} />}>
+                  <Route path="payroll" element={<PayrollPage />} />
+                </Route>
+                <Route element={<RequireRole roles={["ADMIN"]} />}>
+                  <Route path="dashboard" element={<AdminDashboardPage />} />
+                  <Route path="review-cycles" element={<Navigate to="/admin/reviews" replace />} />
+                  <Route path="reviews" element={<PerformanceReviewsPage scope="all" />} />
+                  <Route path="employees" element={<Navigate to="/admin/users" replace />} />
+                  <Route path="departments" element={<DepartmentsPage />} />
+                  <Route path="positions" element={<PositionsPage />} />
+                  <Route path="leave-balances" element={<LeaveBalancesPage />} />
+                  <Route path="leave-types" element={<Navigate to="/admin/leave-balances" replace />} />
+                  <Route path="skills" element={<SkillsPage />} />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route
+                    path="roles-permissions"
+                    element={<RolesPermissionsPage />}
+                  />
+                  <Route path="policies" element={<PoliciesPage />} />
+                  <Route path="audit-logs" element={<AuditLogsPage />} />
+                  <Route path="system-settings" element={<SystemSettingsPage />} />
+                </Route>
               </Route>
             </Route>
           </Route>

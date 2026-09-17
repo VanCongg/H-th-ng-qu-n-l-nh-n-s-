@@ -17,16 +17,22 @@ import { getApiErrorMessage } from "../../api/axios";
 import { dashboardApi } from "../../api/endpoints";
 import { PageHeader } from "../../components/PageHeader";
 import { useTranslation } from "../../i18n";
+import { CompanyLocationPicker } from "./CompanyLocationPicker";
 
 type SettingsFormValues = {
   companyName: string;
   companyAddress: string;
-  companyLatitude: string;
-  companyLongitude: string;
+  companyLatitude: number | null;
+  companyLongitude: number | null;
   attendanceRadiusMeters: number;
   requireAttendanceLocation: boolean;
   timezoneOffsetMinutes: number;
   attendanceEarlyCheckInMinutes: number;
+  attendanceGraceMinutes: number;
+  overtimeRatePercent: number;
+  insuranceRatePercent: number;
+  seniorityLeaveEveryYears: number;
+  annualLeaveCarryOverMaxDays: number;
   morningShiftStart: string;
   morningShiftEnd: string;
   afternoonShiftStart: string;
@@ -35,24 +41,29 @@ type SettingsFormValues = {
 };
 
 const WORK_WEEK_DAYS = [
-  { value: "MONDAY", label: "Thứ 2" },
-  { value: "TUESDAY", label: "Thứ 3" },
-  { value: "WEDNESDAY", label: "Thứ 4" },
-  { value: "THURSDAY", label: "Thứ 5" },
-  { value: "FRIDAY", label: "Thứ 6" },
-  { value: "SATURDAY", label: "Thứ 7" },
-  { value: "SUNDAY", label: "Chủ nhật" }
+  { value: "MONDAY", label: "Monday" },
+  { value: "TUESDAY", label: "Tuesday" },
+  { value: "WEDNESDAY", label: "Wednesday" },
+  { value: "THURSDAY", label: "Thursday" },
+  { value: "FRIDAY", label: "Friday" },
+  { value: "SATURDAY", label: "Saturday" },
+  { value: "SUNDAY", label: "Sunday" }
 ];
 
 const initialValues: SettingsFormValues = {
   companyName: "OmniHR",
   companyAddress: "",
-  companyLatitude: "",
-  companyLongitude: "",
+  companyLatitude: null,
+  companyLongitude: null,
   attendanceRadiusMeters: 100,
   requireAttendanceLocation: true,
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
+  attendanceGraceMinutes: 0,
+  overtimeRatePercent: 150,
+  insuranceRatePercent: 10.5,
+  seniorityLeaveEveryYears: 5,
+  annualLeaveCarryOverMaxDays: 5,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
@@ -66,10 +77,6 @@ export function SystemSettingsPage() {
   const form = useForm<SettingsFormValues>({
     initialValues,
     validate: {
-      companyLatitude: (value) =>
-        validateCoordinate(value, -90, 90, tx("Invalid coordinate")),
-      companyLongitude: (value) =>
-        validateCoordinate(value, -180, 180, tx("Invalid coordinate")),
       workWeek: (value) =>
         value.length > 0 ? null : tx("Select at least one working day")
     }
@@ -104,13 +111,7 @@ export function SystemSettingsPage() {
       />
       <Paper withBorder radius="md" p="md">
         <form
-          onSubmit={form.onSubmit((values) =>
-            mutation.mutate({
-              ...values,
-              companyLatitude: nullableNumber(values.companyLatitude),
-              companyLongitude: nullableNumber(values.companyLongitude)
-            })
-          )}
+          onSubmit={form.onSubmit((values) => mutation.mutate({ ...values }))}
         >
           <Stack>
             <Checkbox.Group
@@ -122,7 +123,7 @@ export function SystemSettingsPage() {
             >
               <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} mt="xs">
                 {WORK_WEEK_DAYS.map((day) => (
-                  <Checkbox key={day.value} value={day.value} label={day.label} />
+                  <Checkbox key={day.value} value={day.value} label={tx(day.label)} />
                 ))}
               </SimpleGrid>
             </Checkbox.Group>
@@ -135,16 +136,6 @@ export function SystemSettingsPage() {
               <TextInput
                 label={tx("Company address")}
                 {...form.getInputProps("companyAddress")}
-              />
-              <TextInput
-                label={tx("Company latitude")}
-                placeholder="21.02776"
-                {...form.getInputProps("companyLatitude")}
-              />
-              <TextInput
-                label={tx("Company longitude")}
-                placeholder="105.83416"
-                {...form.getInputProps("companyLongitude")}
               />
               <NumberInput
                 label={tx("Attendance radius")}
@@ -192,6 +183,57 @@ export function SystemSettingsPage() {
                 required
                 {...form.getInputProps("timezoneOffsetMinutes")}
               />
+              <NumberInput
+                label={tx("Grace period")}
+                description={tx(
+                  "Late arrival or early leave within this many minutes is not deducted"
+                )}
+                min={0}
+                max={120}
+                suffix=" min"
+                required
+                {...form.getInputProps("attendanceGraceMinutes")}
+              />
+              <NumberInput
+                label={tx("Overtime rate")}
+                min={100}
+                max={400}
+                suffix="%"
+                required
+                {...form.getInputProps("overtimeRatePercent")}
+              />
+              <NumberInput
+                label={tx("Insurance rate")}
+                description={tx("Employee share of BHXH, BHYT and BHTN")}
+                min={0}
+                max={50}
+                decimalScale={2}
+                suffix="%"
+                required
+                {...form.getInputProps("insuranceRatePercent")}
+              />
+              <NumberInput
+                label={tx("Seniority leave step")}
+                description={tx(
+                  "One extra annual leave day per this many full years of service (0 turns it off)"
+                )}
+                min={0}
+                max={10}
+                suffix={` ${tx("years")}`}
+                required
+                {...form.getInputProps("seniorityLeaveEveryYears")}
+              />
+              <NumberInput
+                label={tx("Carry-over limit")}
+                description={tx(
+                  "Unused annual leave days that roll into the next year (0 turns it off)"
+                )}
+                min={0}
+                max={30}
+                suffix={` ${tx("days")}`}
+                required
+                {...form.getInputProps("annualLeaveCarryOverMaxDays")}
+              />
               <Switch
                 label={tx("Require attendance location")}
                 {...form.getInputProps("requireAttendanceLocation", {
@@ -199,6 +241,17 @@ export function SystemSettingsPage() {
                 })}
               />
             </SimpleGrid>
+            <CompanyLocationPicker
+              latitude={form.values.companyLatitude}
+              longitude={form.values.companyLongitude}
+              radiusMeters={form.values.attendanceRadiusMeters}
+              onChange={(latitude, longitude) =>
+                form.setValues({
+                  companyLatitude: latitude,
+                  companyLongitude: longitude
+                })
+              }
+            />
             <Button
               type="submit"
               leftSection={<Save size={16} />}
@@ -213,10 +266,6 @@ export function SystemSettingsPage() {
   );
 }
 
-function formatNullableNumber(value: unknown) {
-  return typeof value === "number" ? String(value) : "";
-}
-
 function settingsToFormValues(settings: Record<string, unknown>): SettingsFormValues {
   return {
     companyName: stringValue(settings.companyName, initialValues.companyName),
@@ -224,8 +273,8 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
       settings.companyAddress,
       initialValues.companyAddress
     ),
-    companyLatitude: formatNullableNumber(settings.companyLatitude),
-    companyLongitude: formatNullableNumber(settings.companyLongitude),
+    companyLatitude: nullableNumberValue(settings.companyLatitude),
+    companyLongitude: nullableNumberValue(settings.companyLongitude),
     attendanceRadiusMeters: numberValue(
       settings.attendanceRadiusMeters,
       initialValues.attendanceRadiusMeters
@@ -241,6 +290,26 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
     attendanceEarlyCheckInMinutes: numberValue(
       settings.attendanceEarlyCheckInMinutes,
       initialValues.attendanceEarlyCheckInMinutes
+    ),
+    attendanceGraceMinutes: numberValue(
+      settings.attendanceGraceMinutes,
+      initialValues.attendanceGraceMinutes
+    ),
+    overtimeRatePercent: numberValue(
+      settings.overtimeRatePercent,
+      initialValues.overtimeRatePercent
+    ),
+    insuranceRatePercent: numberValue(
+      settings.insuranceRatePercent,
+      initialValues.insuranceRatePercent
+    ),
+    seniorityLeaveEveryYears: numberValue(
+      settings.seniorityLeaveEveryYears,
+      initialValues.seniorityLeaveEveryYears
+    ),
+    annualLeaveCarryOverMaxDays: numberValue(
+      settings.annualLeaveCarryOverMaxDays,
+      initialValues.annualLeaveCarryOverMaxDays
     ),
     morningShiftStart: stringValue(
       settings.morningShiftStart,
@@ -280,27 +349,6 @@ function booleanValue(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function nullableNumber(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const numberValue = Number(trimmed);
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
-
-function validateCoordinate(
-  value: string,
-  min: number,
-  max: number,
-  message: string
-) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const numberValue = Number(trimmed);
-  return Number.isFinite(numberValue) && numberValue >= min && numberValue <= max
-    ? null
-    : message;
+function nullableNumberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }

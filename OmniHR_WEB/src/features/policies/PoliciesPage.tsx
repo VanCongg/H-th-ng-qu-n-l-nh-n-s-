@@ -1,5 +1,5 @@
 import { List, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
-import { ClipboardCheck, FileText, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, FileText } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { useTranslation } from "../../i18n";
 
@@ -81,20 +81,6 @@ export function PoliciesPage() {
               )}
             </Text>
           </Stack>
-
-          <Paper withBorder radius="md" p="md" className="policy-note">
-            <Stack gap={6}>
-              <ThemeIcon size={34} radius="md" variant="light" color="teal">
-                <ShieldCheck size={19} />
-              </ThemeIcon>
-              <Text fw={700}>{tx("Note")}</Text>
-              <Text size="sm" c="dimmed">
-                {tx(
-                  "This page replaces the table-style policy management module. If dynamic ABAC is needed later, the system can add a dedicated rule engine."
-                )}
-              </Text>
-            </Stack>
-          </Paper>
         </Stack>
       </Paper>
     </Stack>

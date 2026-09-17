@@ -121,3 +121,46 @@ export function statusColor(status?: string) {
       return "blue";
   }
 }
+
+export function formatMoney(value?: number | null) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return new Intl.NumberFormat(getCurrentLocale(), {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
+/** Minutes as "1h05" or "45m"; zero stays "0". */
+export function formatMinutes(minutes: number) {
+  if (!minutes) {
+    return "0";
+  }
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours}h${String(rest).padStart(2, "0")}` : `${rest}m`;
+}
+
+/** Work days, which are whole or half days. */
+export function formatDays(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+export function formatMonthYear(value: { month: number; year: number }) {
+  return `${String(value.month).padStart(2, "0")}/${value.year}`;
+}
+
+export function monthOptions(prefix: string) {
+  return Array.from({ length: 12 }, (_, index) => ({
+    value: String(index + 1),
+    label: `${prefix} ${index + 1}`
+  }));
+}
+
+export function yearOptions(currentYear = new Date().getFullYear()) {
+  return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1].map(
+    (year) => ({ value: String(year), label: String(year) })
+  );
+}

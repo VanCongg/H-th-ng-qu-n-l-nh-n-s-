@@ -1,8 +1,8 @@
-import { Badge, Button, Group, Modal, Select, Stack, Text, Textarea } from "@mantine/core";
+import { Badge, Button, Group, Modal, Select, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, Plus, UserPlus, XCircle } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { performanceReviewsApi, reviewCyclesApi } from "../../api/endpoints";
@@ -10,6 +10,7 @@ import type { PerformanceReview, PerformanceReviewStatus } from "../../api/types
 import { openConfirmModal } from "../../components/ConfirmModal";
 import { DataTable } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
+import { PermissionGate } from "../../components/PermissionGate";
 import { useTranslation } from "../../i18n";
 
 type PerformanceReviewsPageProps = {
@@ -47,6 +48,7 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
   );
   const [page, setPage] = useState(1);
   const [reviewing, setReviewing] = useState<PerformanceReview | null>(null);
+  const [cycleModalOpened, setCycleModalOpened] = useState(false);
 
   const listQuery = useQuery({
     queryKey: ["performance-reviews", scope, cycleId, status, page],
@@ -63,6 +65,16 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
   const cyclesQuery = useQuery({ queryKey: ["review-cycles-filter"], queryFn: reviewCyclesApi.list });
 
   const reviewForm = useForm({ initialValues: { managerRating: "5", managerComment: "" } });
+  const cycleForm = useForm({ initialValues: { name: "", startDate: "", endDate: "" } });
+
+  function refreshReviews() {
+    queryClient.invalidateQueries({ queryKey: ["review-cycles-filter"] });
+    queryClient.invalidateQueries({ queryKey: ["performance-reviews"] });
+  }
+
+  function showError(error: unknown) {
+    notifications.show({ color: "red", message: getApiErrorMessage(error) });
+  }
 
   const submitManagerMutation = useMutation({
     mutationFn: (values: { id: number; managerRating: number; managerComment: string }) =>
@@ -75,7 +87,7 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
       queryClient.invalidateQueries({ queryKey: ["performance-reviews"] });
       setReviewing(null);
     },
-    onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
+    onError: showError
   });
 
   const finalizeMutation = useMutation({
@@ -84,17 +96,65 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
       notifications.show({ color: "green", message: tx("Review finalized") });
       queryClient.invalidateQueries({ queryKey: ["performance-reviews"] });
     },
-    onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
+    onError: showError
+  });
+
+  // A new cycle is launched straight away, so every active employee gets a review to fill in.
+  const createCycleMutation = useMutation({
+    mutationFn: async (values: typeof cycleForm.values) => {
+      const cycle = await reviewCyclesApi.create(values);
+      const { createdCount } = await reviewCyclesApi.launch(cycle.id);
+      return { cycle, createdCount };
+    },
+    onSuccess: ({ cycle, createdCount }) => {
+      notifications.show({
+        color: "green",
+        message: `${tx("Review cycle created")}: ${createdCount} ${tx("reviews created")}`
+      });
+      setCycleId(String(cycle.id));
+      setStatus(null);
+      setPage(1);
+      setCycleModalOpened(false);
+      refreshReviews();
+    },
+    onError: showError
+  });
+
+  const launchMutation = useMutation({
+    mutationFn: (id: number) => reviewCyclesApi.launch(id),
+    onSuccess: ({ createdCount }) => {
+      notifications.show({
+        color: "green",
+        message: `${tx("Review cycle launched")}: ${createdCount} ${tx("reviews created")}`
+      });
+      refreshReviews();
+    },
+    onError: showError
+  });
+
+  const closeCycleMutation = useMutation({
+    mutationFn: (id: number) => reviewCyclesApi.update(id, { status: "CLOSED" }),
+    onSuccess: () => {
+      notifications.show({ color: "green", message: tx("Review cycle closed") });
+      refreshReviews();
+    },
+    onError: showError
   });
 
   const cycleOptions = (cyclesQuery.data ?? []).map((cycle) => ({
     value: String(cycle.id),
-    label: cycle.name
+    label: `${cycle.name} · ${te(cycle.status)}`
   }));
+  const selectedCycle = (cyclesQuery.data ?? []).find((cycle) => String(cycle.id) === cycleId);
 
   function openReview(review: PerformanceReview) {
     reviewForm.setValues({ managerRating: "5", managerComment: "" });
     setReviewing(review);
+  }
+
+  function openCreateCycle() {
+    cycleForm.setValues({ name: "", startDate: "", endDate: "" });
+    setCycleModalOpened(true);
   }
 
   return (
@@ -106,8 +166,17 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
             ? "Review your team's self-assessments and submit your ratings."
             : "Track performance reviews across the organization and finalize completed ones."
         }
+        actions={
+          scope === "all" ? (
+            <PermissionGate permissions={["REVIEW_MANAGE"]}>
+              <Button leftSection={<Plus size={16} />} onClick={openCreateCycle}>
+                {tx("New review cycle")}
+              </Button>
+            </PermissionGate>
+          ) : null
+        }
       />
-      <Group align="flex-end">
+      <Group align="flex-end" wrap="wrap">
         <Select
           label={tx("Cycle")}
           placeholder={tx("All cycles")}
@@ -132,6 +201,45 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
           }}
           w={240}
         />
+        {scope === "all" && selectedCycle?.status === "OPEN" ? (
+          <PermissionGate permissions={["REVIEW_MANAGE"]}>
+            <Group gap="xs">
+              <Button
+                variant="light"
+                leftSection={<UserPlus size={16} />}
+                loading={launchMutation.isPending}
+                onClick={() =>
+                  openConfirmModal({
+                    title: tx("Add new employees"),
+                    message: tx(
+                      "Create a review for active employees who do not have one in this cycle yet."
+                    ),
+                    confirmLabel: tx("Add new employees"),
+                    onConfirm: () => launchMutation.mutate(selectedCycle.id)
+                  })
+                }
+              >
+                {tx("Add new employees")}
+              </Button>
+              <Button
+                variant="subtle"
+                color="red"
+                leftSection={<XCircle size={16} />}
+                loading={closeCycleMutation.isPending}
+                onClick={() =>
+                  openConfirmModal({
+                    title: tx("Close cycle"),
+                    message: tx("Close this review cycle?"),
+                    confirmLabel: tx("Close cycle"),
+                    onConfirm: () => closeCycleMutation.mutate(selectedCycle.id)
+                  })
+                }
+              >
+                {tx("Close cycle")}
+              </Button>
+            </Group>
+          </PermissionGate>
+        ) : null}
       </Group>
       <DataTable<PerformanceReview>
         data={listQuery.data?.items ?? []}
@@ -247,6 +355,23 @@ export function PerformanceReviewsPage({ scope }: PerformanceReviewsPageProps) {
             </Stack>
           </form>
         ) : null}
+      </Modal>
+      <Modal opened={cycleModalOpened} onClose={() => setCycleModalOpened(false)} title={tx("New review cycle")}>
+        <form onSubmit={cycleForm.onSubmit((values) => createCycleMutation.mutate(values))}>
+          <Stack>
+            <TextInput label={tx("Name")} required {...cycleForm.getInputProps("name")} />
+            <Group grow>
+              <TextInput label={tx("Start date")} type="date" required {...cycleForm.getInputProps("startDate")} />
+              <TextInput label={tx("End date")} type="date" required {...cycleForm.getInputProps("endDate")} />
+            </Group>
+            <Text size="sm" c="dimmed">
+              {tx("Create a performance review for every active employee in this cycle.")}
+            </Text>
+            <Button type="submit" loading={createCycleMutation.isPending}>
+              {tx("Create review cycle")}
+            </Button>
+          </Stack>
+        </form>
       </Modal>
     </Stack>
   );

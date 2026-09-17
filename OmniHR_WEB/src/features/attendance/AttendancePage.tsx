@@ -6,6 +6,7 @@ import {
   Modal,
   Paper,
   Select,
+  SimpleGrid,
   Stack,
   Text,
   TextInput,
@@ -16,6 +17,7 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, LogIn, LogOut, Plus } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { attendanceApi, employeesApi } from "../../api/endpoints";
 import { formatDate, formatDateTime } from "../../api/format";
@@ -74,15 +76,19 @@ export function AttendancePage({ scope }: AttendancePageProps) {
   const { te, tx } = useTranslation();
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  // The timesheet links here with an employee and month preselected.
+  const [searchParams] = useSearchParams();
+  const [employeeId, setEmployeeId] = useState<string | null>(searchParams.get("employeeId"));
+  const [fromDate, setFromDate] = useState(searchParams.get("fromDate") ?? "");
+  const [toDate, setToDate] = useState(searchParams.get("toDate") ?? "");
   const [page, setPage] = useState(1);
   const hasEmployeeProfile = useAuthStore((state) => Boolean(state.user?.employeeId));
   const listQuery = useQuery({
-    queryKey: ["attendance", scope, employeeId, page],
+    queryKey: ["attendance", scope, employeeId, fromDate, toDate, page],
     queryFn: () =>
       scope === "team"
-        ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, page, limit: 20 })
-        : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, page, limit: 20 })
+        ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, fromDate: fromDate || undefined, toDate: toDate || undefined, page, limit: 20 })
+        : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, fromDate: fromDate || undefined, toDate: toDate || undefined, page, limit: 20 })
   });
   const employeeQuery = useQuery({
     queryKey: ["attendance-employees", scope],
@@ -152,11 +158,12 @@ export function AttendancePage({ scope }: AttendancePageProps) {
                 </PermissionGate>
               </>
             ) : null}
-            {scope === "all" ? <Button leftSection={<Plus size={16} />} onClick={() => setOpened(true)}>{tx("Adjustment")}</Button> : null}
+            {scope === "all" ? <PermissionGate permissions={["ATTENDANCE_ADJUST"]}><Button leftSection={<Plus size={16} />} onClick={() => setOpened(true)}>{tx("Adjustment")}</Button></PermissionGate> : null}
           </Group>
         }
       />
       <Paper withBorder radius="md" p="md" className="filter-bar">
+        <SimpleGrid cols={{ base: 1, sm: 3 }}>
         <Select
           label={tx("Employee")}
           placeholder={tx("All employees")}
@@ -168,6 +175,25 @@ export function AttendancePage({ scope }: AttendancePageProps) {
             setPage(1);
           }}
         />
+        <TextInput
+          label={tx("From date")}
+          type="date"
+          value={fromDate}
+          onChange={(event) => {
+            setFromDate(event.currentTarget.value);
+            setPage(1);
+          }}
+        />
+        <TextInput
+          label={tx("To date")}
+          type="date"
+          value={toDate}
+          onChange={(event) => {
+            setToDate(event.currentTarget.value);
+            setPage(1);
+          }}
+        />
+        </SimpleGrid>
       </Paper>
       <DataTable<AttendanceRecord>
         data={listQuery.data?.items ?? []}

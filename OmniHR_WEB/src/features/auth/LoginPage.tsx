@@ -156,18 +156,26 @@ function postLoginPath(roles: RoleName[], from?: string) {
   if (roles.includes("MANAGER")) {
     return "/app/dashboard";
   }
+  if (roles.includes("ACCOUNTANT")) {
+    return "/admin/payroll";
+  }
   return "/employee-web-notice";
 }
 
 function canReturnToPath(roles: RoleName[], path: string) {
   if (path.startsWith("/admin")) {
-    return roles.includes("ADMIN");
+    return roles.includes("ADMIN") || roles.includes("ACCOUNTANT");
   }
   if (path.startsWith("/app")) {
     return roles.includes("MANAGER");
   }
   if (path.startsWith("/employee-web-notice")) {
-    return roles.includes("EMPLOYEE") && !roles.includes("ADMIN") && !roles.includes("MANAGER");
+    return (
+      roles.includes("EMPLOYEE") &&
+      !roles.includes("ADMIN") &&
+      !roles.includes("MANAGER") &&
+      !roles.includes("ACCOUNTANT")
+    );
   }
   return false;
 }

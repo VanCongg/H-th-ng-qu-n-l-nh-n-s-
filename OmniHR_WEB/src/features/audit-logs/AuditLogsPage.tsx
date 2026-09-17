@@ -244,19 +244,19 @@ export function AuditLogsPage() {
                 <Text size="sm" fw={700}>{selectedLog.ipAddress ?? "-"}</Text>
               </Paper>
               <Paper withBorder radius="md" p="sm" className="audit-detail-tile">
-                <Text size="xs" c="dimmed">User agent</Text>
+                <Text size="xs" c="dimmed">{tx("User agent")}</Text>
                 <Text size="sm" lineClamp={2}>{selectedLog.userAgent ?? "-"}</Text>
               </Paper>
             </SimpleGrid>
             <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
               <Stack gap="xs">
-                <Text fw={700}>Old value</Text>
+                <Text fw={700}>{tx("Old value")}</Text>
                 <Box component="pre" className="admin-json-block">
                   {formatAuditPayload(selectedLog.oldValue)}
                 </Box>
               </Stack>
               <Stack gap="xs">
-                <Text fw={700}>New value</Text>
+                <Text fw={700}>{tx("New value")}</Text>
                 <Box component="pre" className="admin-json-block">
                   {formatAuditPayload(selectedLog.newValue)}
                 </Box>

@@ -5,7 +5,7 @@ export type ApiEnvelope<T> = {
   errorCode?: string;
 };
 
-export type RoleName = "ADMIN" | "MANAGER" | "EMPLOYEE";
+export type RoleName = "ADMIN" | "MANAGER" | "EMPLOYEE" | "ACCOUNTANT";
 
 export type AuthUser = {
   id: number;
@@ -122,6 +122,7 @@ export type LeaveType = {
   code: string;
   name: string;
   annualAllowance?: number | null;
+  isPaid: boolean;
   isActive: boolean;
 };
 
@@ -142,32 +143,6 @@ export type LeaveRequest = {
   approver?: UserSummary | null;
   approvedAt?: string | null;
   createdAt: string;
-};
-
-export type OrgChartTeam = {
-  id: number;
-  code: string;
-  name: string;
-  lead?: { id: number; fullName: string } | null;
-  _count: { members: number };
-};
-
-export type OrgChartNode = {
-  id: number;
-  code: string;
-  name: string;
-  parentId?: number | null;
-  manager?: { id: number; fullName: string } | null;
-  teams: OrgChartTeam[];
-  _count: { employees: number };
-  children: OrgChartNode[];
-};
-
-export type OrgAnalytics = {
-  totalActiveEmployees: number;
-  todayAttendance: number;
-  attendanceRate: number;
-  byDepartment: { departmentId: number; departmentName: string; headcount: number }[];
 };
 
 export type ReviewCycleStatus = "OPEN" | "CLOSED";
@@ -495,4 +470,130 @@ export type ManagerDashboard = {
   todayTeamAttendance: number;
   latestTeamLeaves: LeaveRequest[];
   latestSubordinates: Employee[];
+};
+
+export type EmployeeRef = {
+  id: number;
+  employeeCode: string;
+  fullName: string;
+  companyEmail: string;
+  department?: Pick<Department, "id" | "code" | "name"> | null;
+  position?: Pick<Position, "id" | "code" | "name"> | null;
+};
+
+export type EmployeeTimesheet = {
+  standardWorkDays: number;
+  attendanceDays: number;
+  paidLeaveDays: number;
+  unpaidLeaveDays: number;
+  payableDays: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  overtimeMinutes: number;
+  missingCheckOuts: number;
+  workedMinutes: number;
+  shiftMinutesPerDay: number;
+};
+
+export type TimesheetRow = {
+  employee: EmployeeRef;
+  timesheet: EmployeeTimesheet;
+};
+
+export type EmployeeCompensation = {
+  id: number;
+  employeeId: number;
+  baseSalary: number;
+  allowance: number;
+  insuranceSalary?: number | null;
+  updatedAt: string;
+};
+
+export type CompensationRow = EmployeeRef & {
+  compensation?: EmployeeCompensation | null;
+};
+
+export type PayrollPeriodStatus = "DRAFT" | "FINALIZED";
+
+export type PayrollPeriodSummary = {
+  id: number;
+  year: number;
+  month: number;
+  status: PayrollPeriodStatus;
+  calculatedAt?: string | null;
+  finalizedAt?: string | null;
+  createdAt: string;
+  _count: { payslips: number };
+};
+
+export type Payslip = {
+  id: number;
+  periodId: number;
+  employeeId: number;
+  employee: EmployeeRef;
+  baseSalary: number;
+  allowance: number;
+  insuranceSalary: number;
+  standardWorkDays: number;
+  attendanceDays: number;
+  paidLeaveDays: number;
+  payableDays: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  overtimeMinutes: number;
+  missingCheckOuts: number;
+  grossSalary: number;
+  overtimePay: number;
+  attendanceDeduction: number;
+  insuranceDeduction: number;
+  netSalary: number;
+  emailedAt?: string | null;
+  emailError?: string | null;
+};
+
+export type PayrollPeriod = Omit<PayrollPeriodSummary, "_count"> & {
+  payslips: Payslip[];
+};
+
+export type SendPayslipsResult = {
+  sent: number;
+  failed: number;
+  failures: Array<{ employeeId: number; error: string }>;
+};
+
+export type LeaveBalanceStatus = "AVAILABLE" | "LOW" | "EXHAUSTED";
+
+export type AnnualLeaveBalance = {
+  year: number;
+  monthsWorked: number;
+  annualAllowance: number;
+  seniorityDays: number;
+  entitlementDays: number;
+  accruedDays: number;
+  carriedOverDays: number;
+  usedDays: number;
+  pendingDays: number;
+  remainingDays: number;
+  availableDays: number;
+  hireDateMissing: boolean;
+  status: LeaveBalanceStatus;
+};
+
+export type LeaveBalanceRow = AnnualLeaveBalance & {
+  employee: EmployeeRef & { hireDate?: string | null };
+};
+
+export type LeaveBalanceList = Paginated<LeaveBalanceRow> & {
+  summary: {
+    year: number;
+    asOf: string;
+    annualAllowance: number;
+    seniorityEveryYears: number;
+    carryOverMaxDays: number;
+    annualLeaveTypeConfigured: boolean;
+    totalEmployees: number;
+    lowCount: number;
+    exhaustedCount: number;
+    missingHireDateCount: number;
+  };
 };

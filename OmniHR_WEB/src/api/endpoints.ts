@@ -17,8 +17,6 @@ import type {
   LoginResponse,
   ManagerDashboard,
   Notification,
-  OrgAnalytics,
-  OrgChartNode,
   Paginated,
   PerformanceReview,
   Permission,
@@ -31,7 +29,14 @@ import type {
   TaskAssignment,
   Team,
   UserSummary,
-  AuditLog
+  AuditLog,
+  CompensationRow,
+  EmployeeCompensation,
+  PayrollPeriod,
+  PayrollPeriodSummary,
+  SendPayslipsResult,
+  TimesheetRow,
+  LeaveBalanceList
 } from "./types";
 
 type QueryParams = Record<string, string | number | boolean | undefined | null>;
@@ -55,8 +60,6 @@ export const authApi = {
 export const dashboardApi = {
   admin: () => unwrap<AdminDashboard>(api.get("/admin/dashboard")),
   manager: () => unwrap<ManagerDashboard>(api.get("/app/dashboard")),
-  orgChart: () => unwrap<OrgChartNode[]>(api.get("/admin/dashboard/org-chart")),
-  orgAnalytics: () => unwrap<OrgAnalytics>(api.get("/admin/dashboard/org-analytics")),
   settings: () => unwrap<Record<string, unknown>>(api.get("/system-settings")),
   updateSettings: (settings: Record<string, unknown>) =>
     unwrap<Record<string, unknown>>(api.patch("/system-settings", { settings }))
@@ -220,6 +223,8 @@ export const attendanceApi = {
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/self", { params })),
   team: (params?: QueryParams) =>
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/team", { params })),
+  timesheets: (params?: QueryParams) =>
+    unwrap<Paginated<TimesheetRow>>(api.get("/attendance/timesheets", { params })),
   checkIn: (payload?: Record<string, unknown>) =>
     unwrap<AttendanceRecord>(api.post("/attendance/check-in", payload ?? {})),
   checkOut: (payload?: Record<string, unknown>) =>
@@ -338,4 +343,28 @@ export const performanceReviewsApi = {
 export const auditLogsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<AuditLog>>(api.get("/audit-logs", { params }))
+};
+
+export const payrollApi = {
+  compensations: (params?: QueryParams) =>
+    unwrap<Paginated<CompensationRow>>(api.get("/payroll/compensations", { params })),
+  upsertCompensation: (employeeId: number, payload: Record<string, unknown>) =>
+    unwrap<EmployeeCompensation>(api.put(`/payroll/compensations/${employeeId}`, payload)),
+  periods: () => unwrap<PayrollPeriodSummary[]>(api.get("/payroll/periods")),
+  period: (id: number) => unwrap<PayrollPeriod>(api.get(`/payroll/periods/${id}`)),
+  createPeriod: (payload: { year: number; month: number }) =>
+    unwrap<PayrollPeriod>(api.post("/payroll/periods", payload)),
+  calculate: (id: number) =>
+    unwrap<PayrollPeriod>(api.post(`/payroll/periods/${id}/calculate`)),
+  finalize: (id: number) =>
+    unwrap<PayrollPeriod>(api.post(`/payroll/periods/${id}/finalize`)),
+  sendPayslips: (id: number, payload: { employeeIds?: number[]; onlyUnsent?: boolean }) =>
+    unwrap<SendPayslipsResult>(api.post(`/payroll/periods/${id}/send-payslips`, payload)),
+  removePeriod: (id: number) =>
+    unwrap<{ id: number }>(api.delete(`/payroll/periods/${id}`))
+};
+
+export const leaveBalancesApi = {
+  list: (params?: QueryParams) =>
+    unwrap<LeaveBalanceList>(api.get("/leave-balances", { params }))
 };

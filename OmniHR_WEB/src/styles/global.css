@@ -776,3 +776,15 @@ select {
     transform: scaleX(1);
   }
 }
+
+/* Leaflet pin for the company location picker, drawn as markup so the
+   bundler never has to resolve Leaflet's default marker images. */
+.company-location-pin__dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--mantine-color-blue-6);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+}
