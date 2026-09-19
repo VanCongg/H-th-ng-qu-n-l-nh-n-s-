@@ -6,9 +6,13 @@ import {
   ChatbotActionType,
   EmployeeStatus,
   LeaveRequestStatus,
+  PayrollPeriodStatus,
   Prisma,
   TaskStatus,
+  TeamMemberRole,
 } from "@prisma/client";
+import { monthRange } from "../attendance/timesheet";
+import { TimesheetService } from "../attendance/timesheet.service";
 import { ANNUAL_LEAVE_CODE } from "../leave-balances/leave-accrual";
 import { LeaveBalancesService } from "../leave-balances/leave-balances.service";
 import { ApiError } from "../common/api-error";
@@ -35,6 +39,15 @@ const ACTIVE_TASK_STATUSES = [
 ];
 const MAX_BIRTHDAY_RANGE_DAYS = 93;
 const MAX_LEAVE_RANGE_DAYS = 31;
+const WEEKDAY_INDEX: Record<string, number> = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+};
 
 @Injectable()
 export class ChatbotToolsService {
@@ -45,6 +58,7 @@ export class ChatbotToolsService {
     private readonly systemSettings: SystemSettingsService,
     private readonly leaveRequests: LeaveRequestsService,
     private readonly leaveBalances: LeaveBalancesService,
+    private readonly timesheets: TimesheetService,
   ) {}
 
   availableTools(user: AuthUser): ChatbotToolDefinition[] {
@@ -173,6 +187,56 @@ export class ChatbotToolsService {
       });
     }
 
+    if (user.employeeId && this.hasAny(user, "ATTENDANCE_READ_SELF")) {
+      tools.push({
+        name: "get_my_attendance_summary",
+        description:
+          "Monthly attendance of the current employee: days worked, late, early leave, missing check-out, absences",
+      });
+    }
+
+    if (user.employeeId && this.hasAny(user, "EMPLOYEE_READ_SELF")) {
+      tools.push({
+        name: "get_my_payslip",
+        description:
+          "Finalized payslip of the current employee for a month (gross, deductions, net)",
+      });
+      tools.push({
+        name: "get_my_team_members",
+        description: "Teams of the current employee with their lead and members",
+      });
+    }
+
+    if (user.employeeId && this.hasAny(user, "REVIEW_READ_SELF")) {
+      tools.push({
+        name: "get_my_performance_reviews",
+        description:
+          "Performance reviews of the current employee: cycle, step, ratings, manager comment",
+      });
+    }
+
+    if (user.employeeId && this.hasAny(user, "TASK_READ_SELF")) {
+      tools.push({
+        name: "get_my_projects",
+        description: "Projects the current employee has tasks in",
+      });
+      tools.push({
+        name: "get_my_task_stats",
+        description:
+          "Monthly task statistics of the current employee: completed, on time, late, overdue, hours",
+      });
+    }
+
+    if (
+      user.employeeId &&
+      this.hasAny(user, "EMPLOYEE_SKILL_READ", "EMPLOYEE_READ_SELF")
+    ) {
+      tools.push({
+        name: "get_my_skills",
+        description: "Skills recorded for the current employee",
+      });
+    }
+
     return tools;
   }
 
@@ -279,6 +343,35 @@ export class ChatbotToolsService {
           return this.success(
             call.toolName,
             await this.getDepartmentHeadcount(user, call.arguments),
+          );
+        case "get_my_attendance_summary":
+          return this.success(
+            call.toolName,
+            await this.getMyAttendanceSummary(user, call.arguments),
+          );
+        case "get_my_payslip":
+          return this.success(
+            call.toolName,
+            await this.getMyPayslip(user, call.arguments),
+          );
+        case "get_my_performance_reviews":
+          return this.success(
+            call.toolName,
+            await this.getMyPerformanceReviews(user, call.arguments),
+          );
+        case "get_my_projects":
+          return this.success(call.toolName, await this.getMyProjects(user));
+        case "get_my_skills":
+          return this.success(call.toolName, await this.getMySkills(user));
+        case "get_my_team_members":
+          return this.success(
+            call.toolName,
+            await this.getMyTeamMembers(user),
+          );
+        case "get_my_task_stats":
+          return this.success(
+            call.toolName,
+            await this.getMyTaskStats(user, call.arguments),
           );
         default:
           return {
@@ -1219,6 +1312,376 @@ export class ChatbotToolsService {
     };
   }
 
+  private async getMyAttendanceSummary(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const employeeId = this.requireEmployee(user);
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const { year, month } = this.monthArg(args, today);
+    const { start, end } = monthRange(year, month);
+
+    const [timesheets, records, leaves, employee, firstRecord] = await Promise.all([
+      this.timesheets.forEmployees(year, month, [employeeId]),
+      this.prisma.attendanceRecord.findMany({
+        where: { employeeId, workDate: { gte: start, lte: end } },
+        select: { workDate: true, recordType: true, attendanceStatus: true },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: {
+          employeeId,
+          status: LeaveRequestStatus.APPROVED,
+          startDate: { lte: end },
+          endDate: { gte: start },
+        },
+        select: { startDate: true, endDate: true },
+      }),
+      this.prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { hireDate: true },
+      }),
+      this.prisma.attendanceRecord.findFirst({
+        where: { employeeId },
+        orderBy: { workDate: "asc" },
+        select: { workDate: true },
+      }),
+    ]);
+    const timesheet = timesheets.get(employeeId);
+
+    const lateDays = new Set<string>();
+    const earlyLeaveDays = new Set<string>();
+    const attendedDays = new Set<string>();
+    for (const record of records) {
+      const day = this.dateKey(record.workDate);
+      if (record.recordType === AttendanceRecordType.CHECK_IN) {
+        attendedDays.add(day);
+        if (record.attendanceStatus === AttendanceStatus.LATE) {
+          lateDays.add(day);
+        }
+      }
+      if (
+        record.recordType === AttendanceRecordType.CHECK_OUT &&
+        record.attendanceStatus === AttendanceStatus.EARLY_OUT
+      ) {
+        earlyLeaveDays.add(day);
+      }
+    }
+
+    // A past work day with no check-in and no approved leave is an absence.
+    // Today is left out: the employee may simply not have checked in yet.
+    // Days before the hire date or before the employee's first ever record
+    // (attendance was not tracked in OmniHR yet) are not absences either.
+    const workDays = new Set(
+      settings.workWeek.map((day) => WEEKDAY_INDEX[day.toUpperCase()]),
+    );
+    const trackedFrom = [start, employee?.hireDate, firstRecord?.workDate]
+      .filter((value): value is Date => Boolean(value))
+      .map((value) => toDateOnly(value))
+      .reduce((latest, value) => (value > latest ? value : latest));
+    const absentDates: string[] = [];
+    for (
+      let day = new Date(trackedFrom);
+      day <= end && day < today;
+      day = this.addDays(day, 1)
+    ) {
+      const key = this.dateKey(day);
+      const onLeave = leaves.some(
+        (leave) =>
+          toDateOnly(leave.startDate) <= day && toDateOnly(leave.endDate) >= day,
+      );
+      if (workDays.has(day.getUTCDay()) && !attendedDays.has(key) && !onLeave) {
+        absentDates.push(key);
+      }
+    }
+
+    return {
+      year,
+      month,
+      isCurrentMonth:
+        year === today.getUTCFullYear() && month === today.getUTCMonth() + 1,
+      standardWorkDays: timesheet?.standardWorkDays ?? 0,
+      attendanceDays: timesheet?.attendanceDays ?? 0,
+      paidLeaveDays: timesheet?.paidLeaveDays ?? 0,
+      unpaidLeaveDays: timesheet?.unpaidLeaveDays ?? 0,
+      lateCount: lateDays.size,
+      lateMinutes: timesheet?.lateMinutes ?? 0,
+      earlyLeaveCount: earlyLeaveDays.size,
+      earlyLeaveMinutes: timesheet?.earlyLeaveMinutes ?? 0,
+      missingCheckOuts: timesheet?.missingCheckOuts ?? 0,
+      overtimeMinutes: timesheet?.overtimeMinutes ?? 0,
+      workedHours: Math.round((timesheet?.workedMinutes ?? 0) / 6) / 10,
+      absentDates,
+    };
+  }
+
+  /** Only finalized payslips: a draft period can still change. */
+  private async getMyPayslip(user: AuthUser, args: Record<string, unknown>) {
+    const employeeId = this.requireEmployee(user);
+    const requestedMonth = this.optionalIntegerArg(args.month);
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const target = requestedMonth ? this.monthArg(args, today) : null;
+
+    const payslip = await this.prisma.payslip.findFirst({
+      where: {
+        employeeId,
+        period: {
+          status: PayrollPeriodStatus.FINALIZED,
+          ...(target ? { year: target.year, month: target.month } : {}),
+        },
+      },
+      include: { period: true },
+      orderBy: [{ period: { year: "desc" } }, { period: { month: "desc" } }],
+    });
+
+    if (!payslip) {
+      return { found: false, year: target?.year ?? null, month: target?.month ?? null };
+    }
+    return {
+      found: true,
+      year: payslip.period.year,
+      month: payslip.period.month,
+      baseSalary: payslip.baseSalary,
+      allowance: payslip.allowance,
+      standardWorkDays: payslip.standardWorkDays,
+      payableDays: payslip.payableDays,
+      grossSalary: payslip.grossSalary,
+      overtimeMinutes: payslip.overtimeMinutes,
+      overtimePay: payslip.overtimePay,
+      lateAndEarlyMinutes: payslip.lateMinutes + payslip.earlyLeaveMinutes,
+      attendanceDeduction: payslip.attendanceDeduction,
+      insuranceDeduction: payslip.insuranceDeduction,
+      netSalary: payslip.netSalary,
+    };
+  }
+
+  private async getMyPerformanceReviews(
+    user: AuthUser,
+    args: Record<string, unknown>,
+  ) {
+    const employeeId = this.requireEmployee(user);
+    const reviews = await this.prisma.performanceReview.findMany({
+      where: { employeeId },
+      include: { cycle: true },
+      orderBy: { cycle: { startDate: "desc" } },
+      take: Math.min(Math.max(this.integerArg(args.limit, 4), 1), 8),
+    });
+    return {
+      items: reviews.map((review) => ({
+        cycleName: review.cycle.name,
+        cycleStatus: review.cycle.status,
+        startDate: this.dateKey(review.cycle.startDate),
+        endDate: this.dateKey(review.cycle.endDate),
+        status: review.status,
+        selfRating: review.selfRating,
+        managerRating: review.managerRating,
+        finalRating: review.finalRating,
+        managerComment: review.managerComment,
+      })),
+    };
+  }
+
+  private async getMyProjects(user: AuthUser) {
+    const employeeId = this.requireEmployee(user);
+    const tasks = await this.prisma.task.findMany({
+      where: {
+        assigneeId: employeeId,
+        deletedAt: null,
+        project: { deletedAt: null },
+      },
+      select: {
+        status: true,
+        project: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            status: true,
+            endDate: true,
+            manager: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+
+    const projects = new Map<
+      number,
+      {
+        code: string;
+        name: string;
+        status: string;
+        endDate: string | null;
+        managerName: string | null;
+        openTaskCount: number;
+        doneTaskCount: number;
+      }
+    >();
+    for (const task of tasks) {
+      if (!task.project) {
+        continue;
+      }
+      const current = projects.get(task.project.id) ?? {
+        code: task.project.code,
+        name: task.project.name,
+        status: task.project.status,
+        endDate: task.project.endDate ? this.dateKey(task.project.endDate) : null,
+        managerName: task.project.manager?.fullName ?? null,
+        openTaskCount: 0,
+        doneTaskCount: 0,
+      };
+      if ((ACTIVE_TASK_STATUSES as TaskStatus[]).includes(task.status)) {
+        current.openTaskCount += 1;
+      } else if (task.status === TaskStatus.DONE) {
+        current.doneTaskCount += 1;
+      }
+      projects.set(task.project.id, current);
+    }
+
+    const items = Array.from(projects.values()).sort(
+      (left, right) =>
+        right.openTaskCount - left.openTaskCount ||
+        right.doneTaskCount - left.doneTaskCount,
+    );
+    return { total: items.length, items: items.slice(0, 10) };
+  }
+
+  private async getMySkills(user: AuthUser) {
+    const employeeId = this.requireEmployee(user);
+    const skills = await this.prisma.employeeSkill.findMany({
+      where: { employeeId, skill: { isActive: true } },
+      include: { skill: true },
+    });
+    const rank = { EXPERT: 4, ADVANCED: 3, INTERMEDIATE: 2, BEGINNER: 1 };
+    return {
+      items: skills
+        .map((item) => ({
+          name: item.skill.name,
+          category: item.skill.category,
+          proficiency: item.proficiency,
+          yearsExperience:
+            item.yearsExperience === null ? null : Number(item.yearsExperience),
+          lastUsedAt: item.lastUsedAt ? this.dateKey(item.lastUsedAt) : null,
+        }))
+        .sort(
+          (left, right) =>
+            rank[right.proficiency] - rank[left.proficiency] ||
+            left.name.localeCompare(right.name),
+        ),
+    };
+  }
+
+  /** Names and positions only: enough to know who you work with. */
+  private async getMyTeamMembers(user: AuthUser) {
+    const employeeId = this.requireEmployee(user);
+    const memberships = await this.prisma.teamMember.findMany({
+      where: {
+        employeeId,
+        isActive: true,
+        team: { isActive: true, deletedAt: null },
+      },
+      include: {
+        team: {
+          include: {
+            lead: { select: { id: true, fullName: true } },
+            members: {
+              where: {
+                isActive: true,
+                employee: currentEmployeeWhere({ status: EmployeeStatus.ACTIVE }),
+              },
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    fullName: true,
+                    position: { select: { name: true } },
+                  },
+                },
+              },
+              orderBy: { employee: { fullName: "asc" } },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      items: memberships.map(({ team }) => ({
+        teamName: team.name,
+        leadName: team.lead?.fullName ?? null,
+        memberCount: team.members.length,
+        members: team.members.map((member) => ({
+          fullName: member.employee.fullName,
+          positionName: member.employee.position?.name ?? null,
+          isLead: member.role === TeamMemberRole.LEAD,
+          isMe: member.employee.id === employeeId,
+        })),
+      })),
+    };
+  }
+
+  private async getMyTaskStats(user: AuthUser, args: Record<string, unknown>) {
+    const employeeId = this.requireEmployee(user);
+    const settings = await this.systemSettings.getSettings();
+    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
+    const { year, month } = this.monthArg(args, today);
+    const { start, end } = monthRange(year, month);
+    const monthEnd = this.addDays(end, 1);
+
+    const [completed, assignedCount, overdueNow] = await Promise.all([
+      this.prisma.task.findMany({
+        where: {
+          assigneeId: employeeId,
+          deletedAt: null,
+          status: TaskStatus.DONE,
+          completedAt: { gte: start, lt: monthEnd },
+        },
+        select: { dueDate: true, completedAt: true, actualHours: true },
+      }),
+      this.prisma.task.count({
+        where: {
+          assigneeId: employeeId,
+          deletedAt: null,
+          createdAt: { gte: start, lt: monthEnd },
+        },
+      }),
+      this.prisma.task.count({
+        where: {
+          assigneeId: employeeId,
+          deletedAt: null,
+          status: { in: ACTIVE_TASK_STATUSES },
+          dueDate: { lt: today },
+        },
+      }),
+    ]);
+
+    const onTime = completed.filter(
+      (task) =>
+        !task.dueDate ||
+        (task.completedAt &&
+          this.workDateFor(task.completedAt, settings.timezoneOffsetMinutes) <=
+            toDateOnly(task.dueDate)),
+    ).length;
+    const actualHours = completed.reduce(
+      (sum, task) => sum + Number(task.actualHours ?? 0),
+      0,
+    );
+
+    return {
+      year,
+      month,
+      completedCount: completed.length,
+      onTimeCount: onTime,
+      lateCount: completed.length - onTime,
+      onTimeRate: completed.length
+        ? Math.round((onTime / completed.length) * 100)
+        : null,
+      assignedCount,
+      overdueOpenCount: overdueNow,
+      actualHours: Math.round(actualHours * 10) / 10,
+    };
+  }
+
   private async loadOwnedAction(actionId: number, userId: number) {
     const action = await this.prisma.chatbotPendingAction.findFirst({
       where: { id: actionId, userId },
@@ -1746,6 +2209,26 @@ export class ChatbotToolsService {
     return Number.isInteger(numberValue) && numberValue > 0
       ? numberValue
       : undefined;
+  }
+
+  /**
+   * Month and year from tool arguments, defaulting to the current month. A
+   * month later than the current one with no year means last year's.
+   */
+  private monthArg(args: Record<string, unknown>, today: Date) {
+    const currentYear = today.getUTCFullYear();
+    const currentMonth = today.getUTCMonth() + 1;
+    const requestedMonth = this.optionalIntegerArg(args.month);
+    const requestedYear = this.optionalIntegerArg(args.year);
+    const month =
+      requestedMonth && requestedMonth <= 12 ? requestedMonth : currentMonth;
+    const year =
+      requestedYear && requestedYear >= 2000 && requestedYear <= 2100
+        ? requestedYear
+        : month > currentMonth
+          ? currentYear - 1
+          : currentYear;
+    return { year, month };
   }
 
   private pendingActionTtlMs() {

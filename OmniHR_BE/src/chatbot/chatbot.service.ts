@@ -17,6 +17,9 @@ import {
 
 const AI_FALLBACK_REPLY =
   "HRGenie hiện chưa phản hồi được. Bạn vui lòng thử lại sau hoặc thao tác trực tiếp trên app.";
+// Results the user may see but the external LLM must not: they are stored
+// flagged as sensitive and left out of the history sent to the planner.
+const SENSITIVE_TOOLS = new Set(["get_my_payslip"]);
 
 @Injectable()
 export class ChatbotService {
@@ -81,6 +84,7 @@ export class ChatbotService {
             this.toJsonValue({
               toolName: result.toolName,
               success: result.success,
+              sensitive: SENSITIVE_TOOLS.has(result.toolName),
             }),
           );
         }
@@ -105,6 +109,9 @@ export class ChatbotService {
           confidence: plan.confidence,
           fallbackUsed: plan.fallbackUsed ?? null,
           pendingActionId: pendingAction?.actionId ?? null,
+          sensitive: (toolResults ?? []).some((result) =>
+            SENSITIVE_TOOLS.has(result.toolName),
+          ),
         }),
       );
     } catch (error) {
@@ -268,6 +275,20 @@ export class ChatbotService {
         return this.teamTaskSummaryReply(first.data);
       case "get_department_headcount":
         return this.headcountReply(first.data);
+      case "get_my_attendance_summary":
+        return this.attendanceMonthReply(first.data);
+      case "get_my_payslip":
+        return this.payslipReply(first.data);
+      case "get_my_performance_reviews":
+        return this.reviewsReply(first.data);
+      case "get_my_projects":
+        return this.projectsReply(first.data);
+      case "get_my_skills":
+        return this.skillsReply(first.data);
+      case "get_my_team_members":
+        return this.teamMembersReply(first.data);
+      case "get_my_task_stats":
+        return this.taskStatsReply(first.data);
       default:
         return fallback || "Tôi đã lấy được thông tin bạn cần.";
     }
@@ -491,6 +512,169 @@ export class ChatbotService {
       );
     }
     return lines.join("\n");
+  }
+
+  private attendanceMonthReply(data: unknown) {
+    const summary = this.record(data);
+    const period = `tháng ${summary.month}/${summary.year}`;
+    const lines = [
+      `Chấm công ${period}${summary.isCurrentMonth ? " (tính đến hôm nay)" : ""}:`,
+      `- Ngày đi làm: ${summary.attendanceDays ?? 0}/${summary.standardWorkDays ?? 0} ngày công chuẩn`,
+      `- Đi muộn: ${summary.lateCount ?? 0} lần, tổng ${summary.lateMinutes ?? 0} phút`,
+      `- Về sớm: ${summary.earlyLeaveCount ?? 0} lần, tổng ${summary.earlyLeaveMinutes ?? 0} phút`,
+      `- Quên check-out: ${summary.missingCheckOuts ?? 0} lần`,
+      `- Nghỉ phép có lương: ${summary.paidLeaveDays ?? 0} ngày, không lương: ${summary.unpaidLeaveDays ?? 0} ngày`,
+      `- Tổng giờ làm: ${summary.workedHours ?? 0} giờ, tăng ca ${summary.overtimeMinutes ?? 0} phút`,
+    ];
+    const absent = Array.isArray(summary.absentDates) ? summary.absentDates : [];
+    lines.push(
+      absent.length
+        ? `- Vắng không phép: ${absent.length} ngày (${absent
+            .slice(0, 6)
+            .map((day) => this.formatDate(day))
+            .join(", ")}${absent.length > 6 ? ", ..." : ""})`
+        : "- Không có ngày vắng không phép.",
+    );
+    return lines.join("\n");
+  }
+
+  private payslipReply(data: unknown) {
+    const payslip = this.record(data);
+    if (!payslip.found) {
+      return payslip.month
+        ? `Chưa có phiếu lương đã chốt cho tháng ${payslip.month}/${payslip.year}. Phiếu lương chỉ xem được sau khi phòng nhân sự chốt kỳ lương.`
+        : "Bạn chưa có phiếu lương nào đã chốt.";
+    }
+    return [
+      `Phiếu lương tháng ${payslip.month}/${payslip.year} của bạn:`,
+      `- Lương cơ bản: ${this.formatMoney(payslip.baseSalary)}, phụ cấp: ${this.formatMoney(payslip.allowance)}`,
+      `- Ngày công tính lương: ${payslip.payableDays}/${payslip.standardWorkDays}`,
+      `- Lương theo ngày công: ${this.formatMoney(payslip.grossSalary)}`,
+      `- Tăng ca: ${payslip.overtimeMinutes ?? 0} phút = ${this.formatMoney(payslip.overtimePay)}`,
+      `- Trừ đi muộn/về sớm (${payslip.lateAndEarlyMinutes ?? 0} phút): ${this.formatMoney(payslip.attendanceDeduction)}`,
+      `- Trừ bảo hiểm: ${this.formatMoney(payslip.insuranceDeduction)}`,
+      `- Thực lĩnh: ${this.formatMoney(payslip.netSalary)}`,
+    ].join("\n");
+  }
+
+  private reviewsReply(data: unknown) {
+    const items = this.items(data);
+    if (!items.length) {
+      return "Bạn chưa có kỳ đánh giá nào.";
+    }
+    const stepLabels: Record<string, string> = {
+      PENDING_SELF: "chờ bạn tự đánh giá",
+      SELF_SUBMITTED: "đã tự đánh giá, chờ quản lý chấm",
+      MANAGER_REVIEWED: "quản lý đã chấm, chờ chốt",
+      FINALIZED: "đã chốt",
+    };
+    const rating = (value: unknown) =>
+      value === null || value === undefined ? "-" : `${String(value)}/5`;
+    const lines = items.slice(0, 4).map((item) => {
+      const step = stepLabels[String(item.status)] ?? String(item.status);
+      return `- ${String(item.cycleName)}: ${step}; tự chấm ${rating(item.selfRating)}, quản lý ${rating(item.managerRating)}, điểm cuối ${rating(item.finalRating)}`;
+    });
+    const comment = items.find((item) => item.managerComment)?.managerComment;
+    if (comment) {
+      lines.push(`Nhận xét gần nhất của quản lý: "${String(comment)}"`);
+    }
+    return `Kết quả đánh giá của bạn:\n${lines.join("\n")}`;
+  }
+
+  private projectsReply(data: unknown) {
+    const payload = this.record(data);
+    const items = this.items(data);
+    if (!items.length) {
+      return "Bạn chưa có task nào thuộc dự án.";
+    }
+    const lines = items.slice(0, 8).map((item, index) => {
+      const manager = item.managerName ? `, quản lý: ${String(item.managerName)}` : "";
+      return `${index + 1}. ${String(item.name)} (${this.projectStatusLabel(item.status)}${manager}): ${String(item.openTaskCount)} task đang mở, ${String(item.doneTaskCount)} đã xong`;
+    });
+    return `Bạn đang có task trong ${String(payload.total ?? items.length)} dự án:\n${lines.join("\n")}`;
+  }
+
+  private skillsReply(data: unknown) {
+    const items = this.items(data);
+    if (!items.length) {
+      return "Hồ sơ của bạn chưa ghi nhận kỹ năng nào. Bạn có thể cập nhật trong mục Hồ sơ.";
+    }
+    const levels: Record<string, string> = {
+      EXPERT: "chuyên gia",
+      ADVANCED: "thành thạo",
+      INTERMEDIATE: "khá",
+      BEGINNER: "cơ bản",
+    };
+    const lines = items.slice(0, 12).map((item) => {
+      const years =
+        item.yearsExperience === null || item.yearsExperience === undefined
+          ? ""
+          : `, ${String(item.yearsExperience)} năm`;
+      const level = levels[String(item.proficiency)] ?? String(item.proficiency);
+      return `- ${String(item.name)}: ${level}${years}`;
+    });
+    const suffix =
+      items.length > 12 ? `\n... và ${items.length - 12} kỹ năng khác.` : "";
+    return `Kỹ năng đang ghi nhận trong hồ sơ của bạn:\n${lines.join("\n")}${suffix}`;
+  }
+
+  private teamMembersReply(data: unknown) {
+    const teams = this.items(data);
+    if (!teams.length) {
+      return "Bạn chưa thuộc nhóm nào.";
+    }
+    return teams
+      .map((team) => {
+        const members = this.items(team.members).map((member) => {
+          const tags = [
+            member.isLead ? "trưởng nhóm" : null,
+            member.isMe ? "bạn" : null,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          const position = member.positionName
+            ? ` - ${String(member.positionName)}`
+            : "";
+          return `- ${String(member.fullName)}${position}${tags ? ` (${tags})` : ""}`;
+        });
+        const lead = team.leadName ? String(team.leadName) : "chưa có";
+        return `${String(team.teamName)} có ${String(team.memberCount)} thành viên, trưởng nhóm ${lead}:\n${members.join("\n")}`;
+      })
+      .join("\n\n");
+  }
+
+  private taskStatsReply(data: unknown) {
+    const stats = this.record(data);
+    const rate =
+      stats.onTimeRate === null || stats.onTimeRate === undefined
+        ? "chưa có task hoàn thành"
+        : `${String(stats.onTimeRate)}%`;
+    return [
+      `Task của bạn tháng ${String(stats.month)}/${String(stats.year)}:`,
+      `- Hoàn thành: ${String(stats.completedCount ?? 0)} (đúng hạn ${String(stats.onTimeCount ?? 0)}, trễ hạn ${String(stats.lateCount ?? 0)})`,
+      `- Tỉ lệ đúng hạn: ${rate}`,
+      `- Giờ thực tế của các task đã xong: ${String(stats.actualHours ?? 0)} giờ`,
+      `- Task được giao mới trong tháng: ${String(stats.assignedCount ?? 0)}`,
+      `- Task đang quá hạn hiện tại: ${String(stats.overdueOpenCount ?? 0)}`,
+    ].join("\n");
+  }
+
+  private projectStatusLabel(status: unknown) {
+    const labels: Record<string, string> = {
+      PLANNING: "đang lên kế hoạch",
+      ACTIVE: "đang chạy",
+      ON_HOLD: "tạm dừng",
+      COMPLETED: "đã hoàn thành",
+      CANCELLED: "đã hủy",
+    };
+    const key = String(status ?? "");
+    return labels[key] ?? (key || "-");
+  }
+
+  private formatMoney(value: unknown) {
+    const amount = Number(value ?? 0);
+    const safe = Number.isFinite(amount) ? amount : 0;
+    return `${new Intl.NumberFormat("vi-VN").format(safe)} đ`;
   }
 
   private leaveLines(items: Array<Record<string, unknown>>) {

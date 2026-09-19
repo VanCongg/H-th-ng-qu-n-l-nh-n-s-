@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AttendanceModule } from "../attendance/attendance.module";
 import { LeaveBalancesModule } from "../leave-balances/leave-balances.module";
 import { LeaveRequestsModule } from "../leave-requests/leave-requests.module";
 import { ChatbotAiClientService } from "./chatbot-ai-client.service";
@@ -8,7 +9,7 @@ import { ChatbotService } from "./chatbot.service";
 import { ChatbotToolsService } from "./chatbot-tools.service";
 
 @Module({
-  imports: [LeaveRequestsModule, LeaveBalancesModule],
+  imports: [AttendanceModule, LeaveRequestsModule, LeaveBalancesModule],
   controllers: [ChatbotController],
   providers: [
     ChatbotService,

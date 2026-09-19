@@ -4,6 +4,9 @@ import { ApiError } from "../common/api-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChatbotHistoryItem } from "./types/chatbot.types";
 
+const SENSITIVE_PLACEHOLDER =
+  "[Nội dung lương đã được ẩn khỏi ngữ cảnh gửi cho AI]";
+
 @Injectable()
 export class ChatbotHistoryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -68,8 +71,19 @@ export class ChatbotHistoryService {
 
     return messages.reverse().map((message) => ({
       role: message.role.toLowerCase() as ChatbotHistoryItem["role"],
-      content: message.content,
+      content: this.isSensitive(message.metadata)
+        ? SENSITIVE_PLACEHOLDER
+        : message.content,
     }));
+  }
+
+  private isSensitive(metadata: Prisma.JsonValue) {
+    return (
+      typeof metadata === "object" &&
+      metadata !== null &&
+      !Array.isArray(metadata) &&
+      metadata.sensitive === true
+    );
   }
 
   async listConversations(userId: number) {

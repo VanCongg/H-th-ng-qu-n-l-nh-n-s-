@@ -10,6 +10,7 @@ import { SystemSettingsService } from "../common/services/system-settings.servic
 import { AuthUser } from "../common/types";
 import { LeaveRequestsService } from "../leave-requests/leave-requests.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { TimesheetService } from "../attendance/timesheet.service";
 import { ChatbotToolsService } from "./chatbot-tools.service";
 
 describe("ChatbotToolsService", () => {
@@ -43,11 +44,20 @@ describe("ChatbotToolsService", () => {
       employee: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
+        findUnique: jest.fn(),
       },
       attendanceRecord: {
         findMany: jest.fn(),
+        findFirst: jest.fn(),
       },
       task: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      payslip: {
+        findFirst: jest.fn(),
+      },
+      teamMember: {
         findMany: jest.fn(),
       },
     };
@@ -61,6 +71,7 @@ describe("ChatbotToolsService", () => {
     };
     const systemSettings = { getSettings: jest.fn() };
     const leaveRequests = { create: jest.fn(), cancel: jest.fn() };
+    const timesheets = { forEmployees: jest.fn() };
 
     return {
       service: new ChatbotToolsService(
@@ -70,14 +81,216 @@ describe("ChatbotToolsService", () => {
         systemSettings as unknown as SystemSettingsService,
         leaveRequests as unknown as LeaveRequestsService,
         {} as LeaveBalancesService,
+        timesheets as unknown as TimesheetService,
       ),
       prisma,
       audit,
       accessControl,
       systemSettings,
       leaveRequests,
+      timesheets,
     };
   }
+
+  const settings = {
+    workWeek: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+    timezoneOffsetMinutes: 420,
+  };
+  const selfUser: AuthUser = {
+    ...user,
+    permissions: [
+      "EMPLOYEE_READ_SELF",
+      "ATTENDANCE_READ_SELF",
+      "TASK_READ_SELF",
+      "REVIEW_READ_SELF",
+    ],
+  };
+
+  describe("personal data tools", () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-11-19T03:00:00.000Z"));
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("offers them only with the matching self permission", () => {
+      const { service } = createService();
+      const names = (permissions: string[]) =>
+        service
+          .availableTools({ ...user, permissions })
+          .map((tool) => tool.name);
+
+      expect(names(selfUser.permissions)).toEqual(
+        expect.arrayContaining([
+          "get_my_attendance_summary",
+          "get_my_payslip",
+          "get_my_performance_reviews",
+          "get_my_projects",
+          "get_my_skills",
+          "get_my_team_members",
+          "get_my_task_stats",
+        ]),
+      );
+      expect(names(["LEAVE_READ_SELF"])).not.toContain("get_my_payslip");
+      expect(
+        service
+          .availableTools({ ...selfUser, employeeId: undefined })
+          .map((tool) => tool.name),
+      ).not.toContain("get_my_attendance_summary");
+    });
+
+    it("reads only finalized payslips of the caller, last year for a later month", async () => {
+      const { service, prisma, systemSettings } = createService();
+      systemSettings.getSettings.mockResolvedValue(settings);
+      prisma.payslip.findFirst.mockResolvedValue(null);
+
+      const result = await service.executeTool(
+        7,
+        { id: "c", toolName: "get_my_payslip", arguments: { month: 12 } },
+        selfUser,
+      );
+
+      expect(result.data).toEqual({ found: false, year: 2025, month: 12 });
+      expect(prisma.payslip.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            employeeId: 10,
+            period: { status: "FINALIZED", year: 2025, month: 12 },
+          },
+        }),
+      );
+    });
+
+    it("counts late days, early leaves and absences in the month", async () => {
+      const { service, prisma, systemSettings, timesheets } = createService();
+      systemSettings.getSettings.mockResolvedValue(settings);
+      timesheets.forEmployees.mockResolvedValue(
+        new Map([[10, { attendanceDays: 2, lateMinutes: 25, workedMinutes: 900 }]]),
+      );
+      const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
+      prisma.attendanceRecord.findMany.mockResolvedValue([
+        { workDate: day("2026-11-02"), recordType: "CHECK_IN", attendanceStatus: "LATE" },
+        { workDate: day("2026-11-02"), recordType: "CHECK_OUT", attendanceStatus: "EARLY_OUT" },
+        { workDate: day("2026-11-03"), recordType: "CHECK_IN", attendanceStatus: "ON_TIME" },
+      ]);
+      prisma.leaveRequest.findMany.mockResolvedValue([
+        { startDate: day("2026-11-04"), endDate: day("2026-11-17") },
+      ]);
+      prisma.employee.findUnique.mockResolvedValue({ hireDate: null });
+      prisma.attendanceRecord.findFirst.mockResolvedValue({
+        workDate: day("2026-11-02"),
+      });
+
+      const result = await service.executeTool(
+        7,
+        { id: "c", toolName: "get_my_attendance_summary", arguments: {} },
+        selfUser,
+      );
+
+      expect(result.data).toEqual(
+        expect.objectContaining({
+          year: 2026,
+          month: 11,
+          lateCount: 1,
+          lateMinutes: 25,
+          earlyLeaveCount: 1,
+          workedHours: 15,
+          // 18/11 is absent; 19/11 is today and not counted yet.
+          absentDates: ["2026-11-18"],
+        }),
+      );
+    });
+
+    it("does not count days before attendance was tracked as absences", async () => {
+      const { service, prisma, systemSettings, timesheets } = createService();
+      systemSettings.getSettings.mockResolvedValue(settings);
+      timesheets.forEmployees.mockResolvedValue(new Map());
+      const day = (value: string) => new Date(`${value}T00:00:00.000Z`);
+      prisma.attendanceRecord.findMany.mockResolvedValue([
+        { workDate: day("2026-11-17"), recordType: "CHECK_IN", attendanceStatus: "ON_TIME" },
+      ]);
+      prisma.leaveRequest.findMany.mockResolvedValue([]);
+      prisma.employee.findUnique.mockResolvedValue({ hireDate: day("2020-01-06") });
+      prisma.attendanceRecord.findFirst.mockResolvedValue({
+        workDate: day("2026-11-17"),
+      });
+
+      const result = await service.executeTool(
+        7,
+        { id: "c", toolName: "get_my_attendance_summary", arguments: {} },
+        selfUser,
+      );
+
+      expect(result.data).toEqual(
+        expect.objectContaining({ absentDates: ["2026-11-18"] }),
+      );
+    });
+
+    it("lists team members with names and positions only", async () => {
+      const { service, prisma } = createService();
+      prisma.teamMember.findMany.mockResolvedValue([
+        {
+          team: {
+            name: "Nhóm Backend",
+            lead: { id: 3, fullName: "Vũ Anh Tuấn" },
+            members: [
+              { role: "LEAD", employee: { id: 3, fullName: "Vũ Anh Tuấn", position: { name: "Trưởng nhóm" } } },
+              { role: "MEMBER", employee: { id: 10, fullName: "Lê Bảo Ngọc", position: null } },
+            ],
+          },
+        },
+      ]);
+
+      const result = await service.executeTool(
+        7,
+        { id: "c", toolName: "get_my_team_members", arguments: {} },
+        selfUser,
+      );
+
+      expect(result.data).toEqual({
+        items: [
+          {
+            teamName: "Nhóm Backend",
+            leadName: "Vũ Anh Tuấn",
+            memberCount: 2,
+            members: [
+              { fullName: "Vũ Anh Tuấn", positionName: "Trưởng nhóm", isLead: true, isMe: false },
+              { fullName: "Lê Bảo Ngọc", positionName: null, isLead: false, isMe: true },
+            ],
+          },
+        ],
+      });
+    });
+
+    it("splits completed tasks into on time and late", async () => {
+      const { service, prisma, systemSettings } = createService();
+      systemSettings.getSettings.mockResolvedValue(settings);
+      prisma.task.findMany.mockResolvedValue([
+        { dueDate: new Date("2026-11-10T00:00:00.000Z"), completedAt: new Date("2026-11-10T09:00:00.000Z"), actualHours: 6 },
+        { dueDate: new Date("2026-11-05T00:00:00.000Z"), completedAt: new Date("2026-11-07T09:00:00.000Z"), actualHours: 10.5 },
+      ]);
+      prisma.task.count.mockResolvedValueOnce(4).mockResolvedValueOnce(1);
+
+      const result = await service.executeTool(
+        7,
+        { id: "c", toolName: "get_my_task_stats", arguments: { month: 11 } },
+        selfUser,
+      );
+
+      expect(result.data).toEqual({
+        year: 2026,
+        month: 11,
+        completedCount: 2,
+        onTimeCount: 1,
+        lateCount: 1,
+        onTimeRate: 50,
+        assignedCount: 4,
+        overdueOpenCount: 1,
+        actualHours: 16.5,
+      });
+    });
+  });
 
   it("creates only a pending action for create_leave_request_draft", async () => {
     const { service, prisma, audit, leaveRequests, systemSettings } = createService();
