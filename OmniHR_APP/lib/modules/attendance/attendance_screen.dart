@@ -25,6 +25,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   DateTime? _selectedDay;
   bool _submitting = false;
   bool _justRecorded = false;
+  Set<int> _workWeekdays = LocationPolicy.defaultWorkWeekdays;
 
   @override
   void initState() {
@@ -33,6 +34,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _visibleMonth = DateTime(now.year, now.month);
     _selectedDay = DateTime(now.year, now.month, now.day);
     _future = _load();
+    _loadWorkWeek();
+  }
+
+  /// The company work week decides which days without a check-in count as
+  /// missed; Mon–Fri stays as the fallback if the policy cannot be loaded.
+  Future<void> _loadWorkWeek() async {
+    try {
+      final data = await widget.session.api.get('/attendance/location-policy');
+      final policy = LocationPolicy.fromJson(mapOf(data));
+      if (mounted) setState(() => _workWeekdays = policy.workWeekdays);
+    } catch (_) {
+      // Keep the default work week.
+    }
   }
 
   Future<List<AttendanceRecord>> _load() {
@@ -383,7 +397,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         icon: nextIsCheckIn
                             ? Icons.login_rounded
                             : Icons.logout_rounded,
-                        color: nextIsCheckIn ? brandColor : accentColor,
+                        // Fixed deep tones: the dark palette's pale blue and
+                        // orange are for text on navy, not for white labels.
+                        color: nextIsCheckIn
+                            ? const Color(0xFF1C7ED6)
+                            : const Color(0xFFE8590C),
                         submitting: _submitting,
                         onPressed: () => _record(nextAction, records),
                       ),
@@ -407,6 +425,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   children: [
                     MonthAttendanceCalendar(
                       visibleMonth: _visibleMonth,
+                      workWeekdays: _workWeekdays,
                       records: records,
                       selectedDay: _selectedDay,
                       onPreviousMonth: () => _changeMonth(-1),
@@ -442,6 +461,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
     required this.onPreviousMonth,
     required this.onNextMonth,
     required this.onDaySelected,
+    this.workWeekdays = LocationPolicy.defaultWorkWeekdays,
   });
 
   final DateTime visibleMonth;
@@ -450,6 +470,9 @@ class MonthAttendanceCalendar extends StatelessWidget {
   final VoidCallback onPreviousMonth;
   final VoidCallback onNextMonth;
   final ValueChanged<DateTime> onDaySelected;
+
+  /// [DateTime.weekday] values the company works on.
+  final Set<int> workWeekdays;
 
   @override
   Widget build(BuildContext context) {
@@ -527,6 +550,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
             return _AttendanceDayCell(
               day: day,
               hasAttendance: _hasAttendance(day),
+              workDay: workWeekdays.contains(day.weekday),
               selected: selectedDay != null && sameDate(selectedDay!, day),
               onTap: () => onDaySelected(day),
             );
@@ -568,12 +592,14 @@ class _AttendanceDayCell extends StatelessWidget {
   const _AttendanceDayCell({
     required this.day,
     required this.hasAttendance,
+    required this.workDay,
     required this.selected,
     required this.onTap,
   });
 
   final DateTime day;
   final bool hasAttendance;
+  final bool workDay;
   final bool selected;
   final VoidCallback onTap;
 
@@ -583,12 +609,17 @@ class _AttendanceDayCell extends StatelessWidget {
     final todayOnly = DateTime(today.year, today.month, today.day);
     final dayOnly = DateTime(day.year, day.month, day.day);
     final future = dayOnly.isAfter(todayOnly);
+    // Days outside the company work week are days off, not absences.
+    final absent = !hasAttendance && !future && workDay;
+    final isToday = dayOnly == todayOnly;
+    // Light tints with coloured numbers, like the web badges; solid green and
+    // red discs for every day of the month were loud.
     final color = hasAttendance
         ? brandGreen
-        : future
-        ? mutedTextColor
-        : dangerColor;
-    final backgroundOpacity = future && !hasAttendance ? 0.10 : 0.86;
+        : absent
+        ? dangerColor
+        : mutedTextColor;
+    final backgroundOpacity = hasAttendance || absent ? 0.16 : 0.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -599,8 +630,12 @@ class _AttendanceDayCell extends StatelessWidget {
           shape: BoxShape.circle,
           color: color.withValues(alpha: backgroundOpacity),
           border: Border.all(
-            color: selected ? brandColor : surfaceColor,
-            width: selected ? 2.4 : 1.2,
+            color: selected
+                ? brandColor
+                : isToday
+                ? brandColor.withValues(alpha: 0.45)
+                : Colors.transparent,
+            width: selected ? 2.2 : 1.2,
           ),
           boxShadow: selected
               ? [
@@ -615,8 +650,10 @@ class _AttendanceDayCell extends StatelessWidget {
         child: Text(
           '${day.day}',
           style: TextStyle(
-            color: future && !hasAttendance ? mutedTextColor : Colors.white,
-            fontWeight: FontWeight.w900,
+            color: hasAttendance || absent ? color : mutedTextColor,
+            fontWeight: hasAttendance || absent || isToday
+                ? FontWeight.w800
+                : FontWeight.w600,
             fontSize: 15,
           ),
         ),

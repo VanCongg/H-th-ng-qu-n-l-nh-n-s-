@@ -296,19 +296,44 @@ class LocationPolicy {
     this.companyLongitude,
     required this.attendanceRadiusMeters,
     required this.requireAttendanceLocation,
+    this.workWeekdays = defaultWorkWeekdays,
   });
+
+  /// Monday to Friday, as [DateTime.weekday] values.
+  static const defaultWorkWeekdays = {1, 2, 3, 4, 5};
+
+  static const _weekdayNumbers = {
+    'MONDAY': DateTime.monday,
+    'TUESDAY': DateTime.tuesday,
+    'WEDNESDAY': DateTime.wednesday,
+    'THURSDAY': DateTime.thursday,
+    'FRIDAY': DateTime.friday,
+    'SATURDAY': DateTime.saturday,
+    'SUNDAY': DateTime.sunday,
+  };
 
   final double? companyLatitude;
   final double? companyLongitude;
   final double attendanceRadiusMeters;
   final bool requireAttendanceLocation;
 
+  /// The company work week from system settings; other days are days off.
+  final Set<int> workWeekdays;
+
   factory LocationPolicy.fromJson(Map<String, dynamic> json) {
+    final workWeek = json['workWeek'];
+    final workWeekdays = workWeek is List
+        ? workWeek
+              .map((day) => _weekdayNumbers[day.toString().toUpperCase()])
+              .whereType<int>()
+              .toSet()
+        : <int>{};
     return LocationPolicy(
       companyLatitude: doubleOf(json['companyLatitude']),
       companyLongitude: doubleOf(json['companyLongitude']),
       attendanceRadiusMeters: doubleOf(json['attendanceRadiusMeters']) ?? 0,
       requireAttendanceLocation: json['requireAttendanceLocation'] == true,
+      workWeekdays: workWeekdays.isEmpty ? defaultWorkWeekdays : workWeekdays,
     );
   }
 }

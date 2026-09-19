@@ -69,7 +69,9 @@ export class AttendanceService {
       companyLatitude: settings.companyLatitude,
       companyLongitude: settings.companyLongitude,
       attendanceRadiusMeters: settings.attendanceRadiusMeters,
-      requireAttendanceLocation: settings.requireAttendanceLocation
+      requireAttendanceLocation: settings.requireAttendanceLocation,
+      // Lets the mobile calendar tell days off from missed work days.
+      workWeek: settings.workWeek
     };
   }
 
