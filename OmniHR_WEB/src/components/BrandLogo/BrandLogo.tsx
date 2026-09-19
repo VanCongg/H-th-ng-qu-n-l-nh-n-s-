@@ -17,19 +17,21 @@ export function BrandLogo({ className, title = "OmniHR" }: BrandLogoProps) {
       className={["brand-logo", className].filter(Boolean).join(" ")}
       role="img"
     >
-      <svg viewBox="0 0 72 72" focusable="false" aria-hidden="true">
+      {/* fill="none" and userSpaceOnUse matter: without them the ring rendered
+          as a black disc and every gradient collapsed to its first colour. */}
+      <svg viewBox="0 0 72 72" fill="none" focusable="false" aria-hidden="true">
         <defs>
-          <linearGradient id={badgeGradient} x1="11" y1="9" x2="61" y2="64">
+          <linearGradient id={badgeGradient} gradientUnits="userSpaceOnUse" x1="11" y1="9" x2="61" y2="64">
             <stop offset="0" stopColor="#12b886" />
             <stop offset="0.42" stopColor="#1971c2" />
             <stop offset="1" stopColor="#243b6b" />
           </linearGradient>
-          <linearGradient id={edgeGradient} x1="16" y1="12" x2="57" y2="61">
+          <linearGradient id={edgeGradient} gradientUnits="userSpaceOnUse" x1="16" y1="12" x2="57" y2="61">
             <stop offset="0" stopColor="#fff3bf" />
             <stop offset="0.46" stopColor="#74c0fc" />
             <stop offset="1" stopColor="#63e6be" />
           </linearGradient>
-          <linearGradient id={shineGradient} x1="18" y1="12" x2="50" y2="55">
+          <linearGradient id={shineGradient} gradientUnits="userSpaceOnUse" x1="18" y1="12" x2="50" y2="55">
             <stop offset="0" stopColor="#ffffff" stopOpacity="0.9" />
             <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
           </linearGradient>
