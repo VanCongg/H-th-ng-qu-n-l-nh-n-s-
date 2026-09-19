@@ -76,6 +76,16 @@ npm run prisma:simulate -- --until 2026-10-02    # hoặc tới một ngày cụ
 
 Tiến độ mô phỏng lưu ở `system_settings` (key `simulation`), nên chạy lại không tạo trùng ngày. `prisma migrate reset` sẽ xóa luôn tiến độ này.
 
+### Đánh giá gợi ý người nhận task
+
+`prisma/evaluate-suggestions.ts` dựng lại từng lần trưởng nhóm giao task con trong dữ liệu mô phỏng: tình trạng của mỗi ứng viên tại đúng thời điểm giao (task đang ôm, lịch nghỉ đã biết, điểm đánh giá đã chốt), chấm điểm bằng đúng hàm API dùng (`src/ai-task-suggestions/suggestion-scoring.ts`), rồi so với năng lực ẩn của bộ mô phỏng và kết quả thực tế của task. Chỉ đọc dữ liệu; chạy trên một DB mô phỏng riêng, không chạy trên DB thật:
+
+```bash
+DATABASE_URL=postgresql://.../omnihr_eval npm run eval:suggestions
+```
+
+Báo cáo ghi ra `eval_results/suggestions-eval.md`.
+
 `prisma/seed-ai-large.ts` là bộ dữ liệu cũ dùng cấu trúc khác, không tương thích với seed này — đừng chạy nó sau khi reset.
 
 Run the backend with Docker Compose from this folder, not by clicking Run on
