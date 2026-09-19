@@ -1,0 +1,1714 @@
+[
+  {
+    "category": "fixture",
+    "message": "Hôm nay tôi đã chấm công chưa?",
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_TODAY_ATTENDANCE"
+    ],
+    "expectedTools": [
+      "get_today_attendance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi check-in hôm nay chưa?",
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TODAY_ATTENDANCE"
+    ],
+    "expectedTools": [
+      "get_today_attendance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Kiểm tra check in hôm nay giúp tôi",
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TODAY_ATTENDANCE"
+    ],
+    "expectedTools": [
+      "get_today_attendance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hôm nay tôi chấm công chưa nhỉ?",
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TODAY_ATTENDANCE"
+    ],
+    "expectedTools": [
+      "get_today_attendance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi đi muộn hôm nay không?",
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TODAY_ATTENDANCE"
+    ],
+    "expectedTools": [
+      "get_today_attendance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Giờ làm việc công ty là mấy giờ?",
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_ATTENDANCE_POLICY"
+    ],
+    "expectedTools": [
+      "get_attendance_policy"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Quy định chấm công hiện tại thế nào?",
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_ATTENDANCE_POLICY"
+    ],
+    "expectedTools": [
+      "get_attendance_policy"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Bán kính chấm công là bao nhiêu mét?",
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_ATTENDANCE_POLICY"
+    ],
+    "expectedTools": [
+      "get_attendance_policy"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đi muộn thì tính như thế nào?",
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_ATTENDANCE_POLICY"
+    ],
+    "expectedTools": [
+      "get_attendance_policy"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cho tôi xem quy định chấm công",
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_ATTENDANCE_POLICY"
+    ],
+    "expectedTools": [
+      "get_attendance_policy"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi còn bao nhiêu ngày phép?",
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_BALANCE"
+    ],
+    "expectedTools": [
+      "get_my_leave_balance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Số phép năm của tôi còn lại bao nhiêu?",
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_BALANCE"
+    ],
+    "expectedTools": [
+      "get_my_leave_balance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Phép còn của tôi là bao nhiêu?",
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_BALANCE"
+    ],
+    "expectedTools": [
+      "get_my_leave_balance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Kiểm tra số phép giúp tôi",
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_BALANCE"
+    ],
+    "expectedTools": [
+      "get_my_leave_balance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Năm nay tôi còn bao nhiêu ngày phép?",
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_BALANCE"
+    ],
+    "expectedTools": [
+      "get_my_leave_balance"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đơn nghỉ gần nhất của tôi thế nào?",
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_REQUESTS"
+    ],
+    "expectedTools": [
+      "get_my_leave_requests"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Trạng thái đơn nghỉ của tôi ra sao?",
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_REQUESTS"
+    ],
+    "expectedTools": [
+      "get_my_leave_requests"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đơn nghỉ của tôi duyệt chưa?",
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_REQUESTS"
+    ],
+    "expectedTools": [
+      "get_my_leave_requests"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Xem các đơn nghỉ của tôi",
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_REQUESTS"
+    ],
+    "expectedTools": [
+      "get_my_leave_requests"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đơn xin nghỉ gần đây của tôi",
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_LEAVE_REQUESTS"
+    ],
+    "expectedTools": [
+      "get_my_leave_requests"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Mai tôi muốn nghỉ 1 ngày vì có việc gia đình",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-07-09",
+      "endDate": "2026-07-09",
+      "reason": "có việc gia đình"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.4,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      "create_leave_request_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi xin nghỉ ngày mai",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-07-09",
+      "endDate": "2026-07-09",
+      "reason": "Tạo từ HRGenie"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      "create_leave_request_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Ngày kia tôi muốn nghỉ phép",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-07-10",
+      "endDate": "2026-07-10",
+      "reason": "Tạo từ HRGenie"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      "create_leave_request_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hôm nay tôi nghỉ ốm",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "SICK_LEAVE",
+      "startDate": "2026-07-08",
+      "endDate": "2026-07-08",
+      "reason": "Tạo từ HRGenie"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      "create_leave_request_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi muốn nghỉ phép 12/07",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-07-12",
+      "endDate": "2026-07-12",
+      "reason": "Tạo từ HRGenie"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      "create_leave_request_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi muốn nghỉ phép",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi muốn nghỉ",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Xin nghỉ phép giúp tôi",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CREATE_LEAVE_REQUEST_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hủy đơn nghỉ gần nhất của tôi",
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
+    "arguments": {},
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CANCEL_MY_PENDING_LEAVE_REQUEST"
+    ],
+    "expectedTools": [
+      "cancel_my_pending_leave_request"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hủy đơn nghỉ đang chờ duyệt",
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
+    "arguments": {},
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CANCEL_MY_PENDING_LEAVE_REQUEST"
+    ],
+    "expectedTools": [
+      "cancel_my_pending_leave_request"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi muốn hủy đơn nghỉ ngày mai",
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
+    "arguments": {
+      "startDate": "2026-07-09"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CANCEL_MY_PENDING_LEAVE_REQUEST"
+    ],
+    "expectedTools": [
+      "cancel_my_pending_leave_request"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hủy phép ngày kia giúp tôi",
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
+    "arguments": {
+      "startDate": "2026-07-10"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CANCEL_MY_PENDING_LEAVE_REQUEST"
+    ],
+    "expectedTools": [
+      "cancel_my_pending_leave_request"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hủy nghỉ hôm nay",
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
+    "arguments": {
+      "startDate": "2026-07-08"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "CANCEL_MY_PENDING_LEAVE_REQUEST"
+    ],
+    "expectedTools": [
+      "cancel_my_pending_leave_request"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi thuộc phòng ban nào?",
+    "intent": "GET_MY_PROFILE",
+    "tool": "get_my_profile",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_PROFILE"
+    ],
+    "expectedTools": [
+      "get_my_profile"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Quản lý trực tiếp của tôi là ai?",
+    "intent": "GET_MY_PROFILE",
+    "tool": "get_my_profile",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_PROFILE"
+    ],
+    "expectedTools": [
+      "get_my_profile"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Xem hồ sơ nhân viên của tôi",
+    "intent": "GET_MY_PROFILE",
+    "tool": "get_my_profile",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_PROFILE"
+    ],
+    "expectedTools": [
+      "get_my_profile"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi là ai trong hệ thống?",
+    "intent": "GET_MY_PROFILE",
+    "tool": "get_my_profile",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_PROFILE"
+    ],
+    "expectedTools": [
+      "get_my_profile"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Manager của tôi là ai?",
+    "intent": "GET_MY_MANAGER",
+    "tool": "get_my_manager",
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_MANAGER"
+    ],
+    "expectedTools": [
+      "get_my_manager"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tháng này có ai sinh nhật không?",
+    "intent": "GET_EMPLOYEE_BIRTHDAYS",
+    "tool": "get_employee_birthdays",
+    "arguments": {
+      "scope": "allowed",
+      "month": 7,
+      "year": 2026
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_EMPLOYEE_BIRTHDAYS"
+    ],
+    "expectedTools": [
+      "get_employee_birthdays"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hôm nay team tôi có ai nghỉ không?",
+    "intent": "GET_WHO_IS_ON_LEAVE_TODAY",
+    "tool": "get_who_is_on_leave_today",
+    "arguments": {
+      "date": "2026-07-08",
+      "scope": "my_team"
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_WHO_IS_ON_LEAVE_TODAY"
+    ],
+    "expectedTools": [
+      "get_who_is_on_leave_today"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tuần này ai nghỉ phép?",
+    "intent": "GET_UPCOMING_LEAVES",
+    "tool": "get_upcoming_leaves",
+    "arguments": {
+      "fromDate": "2026-07-06",
+      "toDate": "2026-07-12",
+      "scope": "allowed"
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_UPCOMING_LEAVES"
+    ],
+    "expectedTools": [
+      "get_upcoming_leaves"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hôm nay team tôi có ai chưa check-in không?",
+    "intent": "GET_TEAM_ATTENDANCE_SUMMARY",
+    "tool": "get_team_attendance_summary",
+    "arguments": {
+      "date": "2026-07-08",
+      "scope": "my_team"
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TEAM_ATTENDANCE_SUMMARY"
+    ],
+    "expectedTools": [
+      "get_team_attendance_summary"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Team tôi có task nào quá hạn không?",
+    "intent": "GET_TEAM_TASK_SUMMARY",
+    "tool": "get_team_task_summary",
+    "arguments": {
+      "scope": "my_team",
+      "includeOverdue": true
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_TEAM_TASK_SUMMARY"
+    ],
+    "expectedTools": [
+      "get_team_task_summary"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Phòng tôi có bao nhiêu người?",
+    "intent": "GET_DEPARTMENT_HEADCOUNT",
+    "tool": "get_department_headcount",
+    "arguments": {
+      "scope": "my_department"
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_DEPARTMENT_HEADCOUNT"
+    ],
+    "expectedTools": [
+      "get_department_headcount"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Task nào của tôi sắp đến hạn?",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "upcoming",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_UPCOMING_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_upcoming_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi có task nào quá hạn không?",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "overdue",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": true
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_UPCOMING_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_upcoming_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hôm nay tôi cần làm gì?",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "today",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_UPCOMING_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_upcoming_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Công việc nào sắp đến hạn?",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "upcoming",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_UPCOMING_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_upcoming_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Task quá hạn của tôi",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "overdue",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": true
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_UPCOMING_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_upcoming_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Xem task của tôi",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi có công việc nào đang mở?",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Danh sách task hiện tại",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Deadline của tôi có gì?",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Các task đang làm của tôi",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Xin chào HRGenie",
+    "intent": "SMALL_TALK",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.0,
+    "expectedIntents": [
+      "SMALL_TALK"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Chào bạn",
+    "intent": "SMALL_TALK",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.0,
+    "expectedIntents": [
+      "SMALL_TALK"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cảm ơn nhé",
+    "intent": "SMALL_TALK",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.0,
+    "expectedIntents": [
+      "SMALL_TALK"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Thanks HRGenie",
+    "intent": "SMALL_TALK",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.0,
+    "expectedIntents": [
+      "SMALL_TALK"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Bạn giúp được gì?",
+    "intent": "UNKNOWN",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UNKNOWN"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Thời tiết hôm nay thế nào?",
+    "intent": "UNKNOWN",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UNKNOWN"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đặt vé máy bay cho tôi",
+    "intent": "UNKNOWN",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UNKNOWN"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Mở nhạc giúp tôi",
+    "intent": "UNKNOWN",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UNKNOWN"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tìm quán ăn gần đây",
+    "intent": "UNKNOWN",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UNKNOWN"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Chính sách cộng dồn phép năm sang năm sau thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Làm việc từ xa cần đăng ký thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Công ty có bảo hiểm gì không?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Quy tắc ứng xử với đồng nghiệp thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Nhân viên có được thưởng lương tháng 13 không?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Bảo mật thông tin công ty thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  }
+]

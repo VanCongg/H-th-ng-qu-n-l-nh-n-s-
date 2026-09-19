@@ -134,3 +134,21 @@ pytest
 
 The intent test uses a failing fake LLM client so it verifies hybrid fallback
 without spending LLM quota.
+
+## Evaluation
+
+`app/tests/fixtures/intent_cases.json` is the set the rule-based planner was
+written against, so it only checks for regressions. Generalisation is measured
+on `app/eval/planner_holdout.json`: 82 labelled messages (paraphrases, no
+diacritics, leave drafts with expected dates, forbidden requests, off-topic)
+that do not appear in the fixtures.
+
+```bash
+python scripts/evaluate_planner.py                          # rule_based, held-out set
+python scripts/evaluate_planner.py --cases fixtures         # regression set
+python scripts/evaluate_planner.py --mode hybrid --delay 4  # needs a valid LLM_API_KEY
+```
+
+Reports (Markdown + per-case JSON) go to `eval_results/`. In `hybrid` mode check
+the "Quay về luật" (fallback) row: if it is 100%, the LLM never answered (for
+example an invalid key) and the numbers are the rule-based ones.
