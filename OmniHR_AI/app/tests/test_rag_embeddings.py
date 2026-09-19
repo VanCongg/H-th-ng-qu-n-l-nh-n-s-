@@ -157,9 +157,12 @@ class RagServiceEmbeddingTest(unittest.TestCase):
         self.assertEqual(service.active_mode, "keyword")
 
     def test_embeddings_answer_a_question_that_shares_no_words_with_the_policy(self):
-        # "được hỗ trợ gì khi ốm đau" shares no meaningful token with the
-        # "Bảo hiểm" section, so keyword retrieval cannot reach it.
-        query = "duoc ho tro gi khi om dau"
+        # "có được WFH không" shares no meaningful token with the remote-work
+        # section ("làm việc từ xa"), so keyword retrieval cannot reach it.
+        # Remote work is used because only one section covers it: sickness and
+        # insurance now appear in several sections, and the minimum-gap rule
+        # rightly refuses to pick between near-equal matches.
+        query = "co duoc wfh khong"
 
         keyword_only = RagService(mode="keyword")
         keyword_hits = keyword_only.search(RagSearchRequest(query=query, topK=3))
@@ -169,7 +172,7 @@ class RagServiceEmbeddingTest(unittest.TestCase):
         hybrid_hits = hybrid.search(RagSearchRequest(query=query, topK=3))
 
         self.assertTrue(hybrid_hits.items, "embeddings should rescue it")
-        self.assertEqual(hybrid_hits.items[0].documentId, "phuc_loi")
+        self.assertEqual(hybrid_hits.items[0].documentId, "cham_cong_lam_viec")
 
     def test_keyword_matches_still_win_on_exact_wording(self):
         hybrid = self.build_service("hybrid")
