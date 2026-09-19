@@ -47,7 +47,15 @@ class RuleBasedPlannerService:
                 "Tôi sẽ tổng hợp tình hình chấm công trong phạm vi bạn được xem.",
             )
 
-        if self._has_any(normalized, "manager cua toi", "quan ly cua toi", "ai duyet don", "nguoi duyet don"):
+        if self._has_any(
+            normalized,
+            "manager cua toi",
+            "quan ly cua toi",
+            "ai duyet don",
+            "nguoi duyet don",
+            "ai phe duyet",
+            "nguoi phe duyet",
+        ):
             return self._tool_plan(
                 "get_my_manager",
                 {},
@@ -510,7 +518,8 @@ class RuleBasedPlannerService:
         )
 
     def _is_cancel_leave_request(self, normalized: str) -> bool:
-        return self._has_any(normalized, "huy don nghi", "huy nghi", "huy phep") or (
+        # The only request an employee can cancel here is a leave request.
+        return self._has_any(normalized, "huy don", "huy nghi", "huy phep", "khong nghi nua") or (
             self._has_any(normalized, "huy") and self._has_any(normalized, "don nghi", "nghi phep")
         )
 
