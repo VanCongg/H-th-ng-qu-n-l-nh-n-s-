@@ -3,18 +3,15 @@ import 'package:flutter/material.dart';
 /// Two color sets only: [light] and [dark]. Every screen reads colors via
 /// `Theme.of(context).colorScheme` (or the [AppColorsX] shortcut) instead of
 /// hardcoded constants, so toggling theme mode repaints the whole app.
+/// The values match the web admin so both apps look like one product.
 abstract class AppTheme {
-  static const _brandBlue = Color(0xFF228BE6);
-  static const _brandGreen = Color(0xFF12B886);
-  static const _brandOrange = Color(0xFFF59F00);
-  static const _brandRed = Color(0xFFDC2626);
-
   static ThemeData get light => _build(
     brightness: Brightness.light,
-    primary: _brandBlue,
-    secondary: _brandGreen,
-    tertiary: _brandOrange,
-    error: _brandRed,
+    primary: const Color(0xFF228BE6),
+    filled: const Color(0xFF228BE6),
+    secondary: const Color(0xFF12B886),
+    tertiary: const Color(0xFFF59F00),
+    error: const Color(0xFFE03131),
     surface: const Color(0xFFFFFFFF),
     onSurface: const Color(0xFF182230),
     onSurfaceVariant: const Color(0xFF667085),
@@ -24,20 +21,24 @@ abstract class AppTheme {
 
   static ThemeData get dark => _build(
     brightness: Brightness.dark,
-    primary: const Color(0xFF4DABF7),
-    secondary: const Color(0xFF3DDC97),
+    primary: const Color(0xFF74C0FC),
+    // Pale blue with white labels was unreadable; filled controls use the
+    // same deep blue as the web dark theme.
+    filled: const Color(0xFF1971C2),
+    secondary: const Color(0xFF38D9A9),
     tertiary: const Color(0xFFFFC078),
-    error: const Color(0xFFEF4444),
-    surface: const Color(0xFF1E293B),
-    onSurface: const Color(0xFFF1F5F9),
-    onSurfaceVariant: const Color(0xFF94A3B8),
-    outline: const Color(0xFF334155),
-    scaffoldBackground: const Color(0xFF0F172A),
+    error: const Color(0xFFFF8787),
+    surface: const Color(0xFF172033),
+    onSurface: const Color(0xFFE4E9F2),
+    onSurfaceVariant: const Color(0xFF98A6BD),
+    outline: const Color(0xFF253950),
+    scaffoldBackground: const Color(0xFF101828),
   );
 
   static ThemeData _build({
     required Brightness brightness,
     required Color primary,
+    required Color filled,
     required Color secondary,
     required Color tertiary,
     required Color error,
@@ -83,14 +84,14 @@ abstract class AppTheme {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.black.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: primary.withValues(alpha: 0.12)),
+          side: BorderSide(color: outline),
           borderRadius: BorderRadius.circular(8),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(48),
-          backgroundColor: primary,
+          backgroundColor: filled,
           foregroundColor: Colors.white,
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -100,7 +101,7 @@ abstract class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(48),
           foregroundColor: primary,
-          side: BorderSide(color: primary.withValues(alpha: 0.24)),
+          side: BorderSide(color: outline),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -121,12 +122,10 @@ abstract class AppTheme {
           ),
           backgroundColor: WidgetStateProperty.resolveWith(
             (states) => states.contains(WidgetState.selected)
-                ? primary
+                ? filled
                 : Colors.transparent,
           ),
-          side: WidgetStateProperty.all(
-            BorderSide(color: primary.withValues(alpha: 0.18)),
-          ),
+          side: WidgetStateProperty.all(BorderSide(color: outline)),
           textStyle: WidgetStateProperty.all(
             const TextStyle(fontWeight: FontWeight.w800),
           ),

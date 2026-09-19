@@ -95,10 +95,16 @@ class _ProfileAvatarButton extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
+                // Same avatar gradient as the web header.
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [brandColor, brandGreen],
+                  colors: [
+                    Color(0xFF1971C2),
+                    Color(0xFF0CA678),
+                    Color(0xFFF59F00),
+                  ],
+                  stops: [0, 0.65, 1],
                 ),
               ),
               child: Text(
@@ -188,33 +194,40 @@ class _HrGenieBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    // The circle and its shadow sit outside the Material: painted as Ink
+    // inside it, the offset shadow was clipped to the square bounds and
+    // showed as a pale block under the bubble.
     return Semantics(
       label: 'HRGenie',
       button: true,
       child: SizedBox.square(
         dimension: 68,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () => _openChat(context),
-            child: Ink(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: brandColor.withValues(alpha: 0.28),
-                  width: 1.6,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: brandColor.withValues(alpha: 0.24),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: surfaceColor,
+            border: Border.all(
+              color: brandColor.withValues(alpha: dark ? 0.35 : 0.28),
+              width: 1.6,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: dark
+                    ? Colors.black.withValues(alpha: 0.45)
+                    : const Color(0xFF1971C2).withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => _openChat(context),
               child: const Padding(
                 padding: EdgeInsets.all(7),
                 child: CustomPaint(painter: _GenieMascotPainter()),

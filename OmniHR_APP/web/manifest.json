@@ -1,11 +1,11 @@
 {
-    "name": "omnihr_app",
-    "short_name": "omnihr_app",
+    "name": "OmniHR",
+    "short_name": "OmniHR",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F5F7FB",
+    "theme_color": "#1971C2",
+    "description": "OmniHR - ứng dụng nhân viên: chấm công, nghỉ phép, công việc.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

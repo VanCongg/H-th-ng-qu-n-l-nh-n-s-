@@ -33,9 +33,7 @@ class AppHeaderBar extends StatelessWidget {
           height: preferredHeight,
           decoration: BoxDecoration(
             color: surfaceColor.withValues(alpha: 0.72),
-            border: Border(
-              bottom: BorderSide(color: brandColor.withValues(alpha: 0.10)),
-            ),
+            border: Border(bottom: BorderSide(color: borderColor)),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

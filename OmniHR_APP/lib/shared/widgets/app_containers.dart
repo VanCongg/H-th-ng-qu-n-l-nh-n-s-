@@ -48,11 +48,11 @@ class AppPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: brandColor.withValues(alpha: 0.11)),
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 22,
+            color: const Color(0xFF101828).withValues(alpha: 0.04),
+            blurRadius: 28,
             offset: const Offset(0, 10),
           ),
         ],

@@ -18,6 +18,7 @@ class _Palette {
     required this.surface,
     required this.ink,
     required this.muted,
+    required this.border,
   });
 
   final Color brand;
@@ -28,28 +29,33 @@ class _Palette {
   final Color surface;
   final Color ink;
   final Color muted;
+  final Color border;
 }
 
+// Both palettes mirror the web admin (OmniHR_WEB theme + global.css) so the
+// two apps read as one product: same blue, same neutrals, same navy dark mode.
 const _lightPalette = _Palette(
   brand: Color(0xFF228BE6),
   brandGreen: Color(0xFF12B886),
   accent: Color(0xFFF59F00),
-  danger: Color(0xFFDC2626),
+  danger: Color(0xFFE03131),
   background: Color(0xFFF5F7FB),
   surface: Colors.white,
   ink: Color(0xFF182230),
   muted: Color(0xFF667085),
+  border: Color(0xFFE5E7EB),
 );
 
 const _darkPalette = _Palette(
-  brand: Color(0xFF4DABF7),
-  brandGreen: Color(0xFF3DDC97),
+  brand: Color(0xFF74C0FC),
+  brandGreen: Color(0xFF38D9A9),
   accent: Color(0xFFFFC078),
-  danger: Color(0xFFEF4444),
-  background: Color(0xFF0F172A),
-  surface: Color(0xFF1E293B),
-  ink: Color(0xFFF1F5F9),
-  muted: Color(0xFF94A3B8),
+  danger: Color(0xFFFF8787),
+  background: Color(0xFF101828),
+  surface: Color(0xFF172033),
+  ink: Color(0xFFE4E9F2),
+  muted: Color(0xFF98A6BD),
+  border: Color(0xFF253950),
 );
 
 /// Two color sets only: [applyAppBrightness] swaps every one of these
@@ -63,6 +69,7 @@ Color appBackgroundColor = _lightPalette.background;
 Color surfaceColor = _lightPalette.surface;
 Color inkColor = _lightPalette.ink;
 Color mutedTextColor = _lightPalette.muted;
+Color borderColor = _lightPalette.border;
 
 void applyAppBrightness(Brightness brightness) {
   final palette = brightness == Brightness.dark ? _darkPalette : _lightPalette;
@@ -74,6 +81,7 @@ void applyAppBrightness(Brightness brightness) {
   surfaceColor = palette.surface;
   inkColor = palette.ink;
   mutedTextColor = palette.muted;
+  borderColor = palette.border;
 }
 
 final dateFormat = DateFormat('dd/MM/yyyy');

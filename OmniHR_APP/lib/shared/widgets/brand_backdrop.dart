@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';
 
+/// App background, matching the web admin shell: a plain neutral page with a
+/// faint blue tint that fades out within the first screen. The old full-height
+/// green wash, rainbow stripe and decorative circles made every screen look
+/// tinted and busy.
 class BrandBackdrop extends StatelessWidget {
   const BrandBackdrop({
     super.key,
@@ -14,20 +18,10 @@ class BrandBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: appBackgroundColor,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            brandColor.withValues(alpha: 0.08),
-            brandGreen.withValues(alpha: 0.035),
-            appBackgroundColor,
-          ],
-          stops: const [0, 0.34, 0.78],
-        ),
-      ),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    return ColoredBox(
+      color: appBackgroundColor,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -35,36 +29,29 @@ class BrandBackdrop extends StatelessWidget {
             left: 0,
             right: 0,
             top: 0,
-            child: Container(
-              height: 4,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [brandColor, brandGreen, accentColor],
+            height: 620,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    // Web: rgba(25,113,194,.08) -> rgba(18,184,134,.04) at 340px
+                    // (dark: .20 blue -> .12 violet at 360px) -> transparent.
+                    colors: dark
+                        ? [
+                            const Color(0xFF1971C2).withValues(alpha: 0.20),
+                            const Color(0xFF7048E8).withValues(alpha: 0.12),
+                            Colors.transparent,
+                          ]
+                        : [
+                            const Color(0xFF1971C2).withValues(alpha: 0.08),
+                            const Color(0xFF12B886).withValues(alpha: 0.04),
+                            Colors.transparent,
+                          ],
+                    stops: dark ? const [0, 0.58, 1] : const [0, 0.55, 1],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: -80,
-            top: 96,
-            child: Container(
-              width: 210,
-              height: 210,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: brandColor.withValues(alpha: 0.045),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -110,
-            bottom: -60,
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: brandGreen.withValues(alpha: 0.045),
               ),
             ),
           ),
