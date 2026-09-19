@@ -6,7 +6,6 @@ import {
   LeaveRequestStatus,
   PerformanceReviewStatus,
   Prisma,
-  SkillProficiency,
   TaskAssignmentType,
   TaskSkillImportance,
   TaskStatus
@@ -23,36 +22,21 @@ import { AiTaskSuggestionQueryDto } from "./dto/ai-task-suggestion-query.dto";
 import { CancelAiTaskSuggestionDto } from "./dto/cancel-ai-task-suggestion.dto";
 import { GenerateAiTaskSuggestionDto } from "./dto/generate-ai-task-suggestion.dto";
 import { SelectAiTaskSuggestionDto } from "./dto/select-ai-task-suggestion.dto";
+import {
+  PERFORMANCE_REVIEW_WINDOW,
+  PERFORMANCE_WEIGHT,
+  SCORE_WEIGHTS as scoreWeights,
+  SkillAssessment,
+  assessSkills,
+  availabilityScoreFor,
+  combineScores,
+  compareCandidates,
+  performanceFromRatings,
+  skillImportanceWeights
+} from "./suggestion-scoring";
 
 const AI_TASK_ALGORITHM_VERSION = "rule-based-v4";
 const AI_SUGGESTION_TTL_MS = 24 * 60 * 60 * 1000;
-
-const scoreWeights = {
-  withAvailability: { skill: 0.5, workload: 0.35, availability: 0.15 },
-  withoutAvailability: { skill: 0.6, workload: 0.4 }
-};
-
-// Past performance is an extra term on top of the weights above rather than a
-// redistribution of them, so a candidate with no finalized review scores
-// exactly as they did before this signal existed - new hires are not penalised
-// for having no history.
-const PERFORMANCE_WEIGHT = 0.2;
-
-// Only the most recent cycles count, so one weak quarter years ago does not
-// follow someone forever.
-const PERFORMANCE_REVIEW_WINDOW = 3;
-
-const skillImportanceWeights: Record<TaskSkillImportance, number> = {
-  REQUIRED: 1.5,
-  IMPORTANT: 1,
-  NICE_TO_HAVE: 0.5
-};
-
-const missingSkillScores: Record<TaskSkillImportance, number> = {
-  REQUIRED: 0,
-  IMPORTANT: 30,
-  NICE_TO_HAVE: 60
-};
 
 const suggestionInclude = {
   task: {
@@ -97,27 +81,6 @@ type SuggestionForSelect = Prisma.AiTaskSuggestionGetPayload<{
     task: { include: { requiredSkills: { include: { skill: true } } } };
   };
 }>;
-
-type SkillAssessment = {
-  score: number;
-  eligible: boolean;
-  matchedSkills: string[];
-  missingRequiredSkills: string[];
-  missingImportantSkills: string[];
-  missingNiceToHaveSkills: string[];
-  belowMinimumSkills: string[];
-  requiredSkillCount: number;
-  matchedRequiredSkillCount: number;
-  warnings: string[];
-  breakdown: Array<{
-    skillId: number;
-    code: string;
-    importance: TaskSkillImportance;
-    requiredProficiency: SkillProficiency;
-    actualProficiency: SkillProficiency | null;
-    score: number;
-  }>;
-};
 
 type AvailabilityAssessment = {
   score: number;
@@ -242,7 +205,7 @@ export class AiTaskSuggestionsService {
           averageRating: null,
           reviewCount: 0
         };
-        const score = this.combineScores([
+        const score = combineScores([
           ...(options.includeAvailability
             ? [
                 { value: skill.score, weight: scoreWeights.withAvailability.skill },
@@ -293,12 +256,7 @@ export class AiTaskSuggestionsService {
     );
 
     const items = scored
-      .sort(
-        (left, right) =>
-          Number(right.eligible) - Number(left.eligible) ||
-          right.score - left.score ||
-          right.skillScore - left.skillScore
-      )
+      .sort(compareCandidates)
       .slice(0, options.limit)
       .map((item, index) => ({ ...item, rank: index + 1 }));
 
@@ -725,152 +683,7 @@ export class AiTaskSuggestionsService {
     requiredSkills: TaskWithRequiredSkills["requiredSkills"],
     employeeSkills: EmployeeWithSkills["employeeSkills"]
   ): SkillAssessment {
-    if (!requiredSkills.length) {
-      return {
-        score: 70,
-        eligible: true,
-        matchedSkills: [],
-        missingRequiredSkills: [],
-        missingImportantSkills: [],
-        missingNiceToHaveSkills: [],
-        belowMinimumSkills: [],
-        requiredSkillCount: 0,
-        matchedRequiredSkillCount: 0,
-        warnings: ["NO_REQUIRED_SKILLS"],
-        breakdown: []
-      };
-    }
-
-    const employeeSkillById = new Map(employeeSkills.map((skill) => [skill.skillId, skill]));
-    const totalWeight = requiredSkills.reduce(
-      (total, item) => total + skillImportanceWeights[item.importance],
-      0
-    );
-    const matchedSkills: string[] = [];
-    const missingRequiredSkills: string[] = [];
-    const missingImportantSkills: string[] = [];
-    const missingNiceToHaveSkills: string[] = [];
-    const belowMinimumSkills: string[] = [];
-    const breakdown: SkillAssessment["breakdown"] = [];
-    let matchedRequiredSkillCount = 0;
-
-    const weighted = requiredSkills.reduce((total, required) => {
-      const employeeSkill = employeeSkillById.get(required.skillId);
-      if (employeeSkill) {
-        matchedSkills.push(required.skill.code);
-        if (
-          required.importance === TaskSkillImportance.REQUIRED &&
-          this.meetsProficiency(employeeSkill.proficiency, required.requiredProficiency)
-        ) {
-          matchedRequiredSkillCount += 1;
-        }
-        if (
-          required.importance === TaskSkillImportance.REQUIRED &&
-          !this.meetsProficiency(employeeSkill.proficiency, required.requiredProficiency)
-        ) {
-          belowMinimumSkills.push(required.skill.code);
-        }
-      } else {
-        if (required.importance === TaskSkillImportance.REQUIRED) {
-          missingRequiredSkills.push(required.skill.code);
-        } else if (required.importance === TaskSkillImportance.IMPORTANT) {
-          missingImportantSkills.push(required.skill.code);
-        } else {
-          missingNiceToHaveSkills.push(required.skill.code);
-        }
-      }
-
-      const score = employeeSkill
-        ? this.clamp(
-            this.proficiencyScore(employeeSkill.proficiency, required.requiredProficiency) +
-              this.experienceBonus(Number(employeeSkill.yearsExperience ?? 0)) -
-              this.recencyPenalty(employeeSkill.lastUsedAt)
-          )
-        : missingSkillScores[required.importance];
-      breakdown.push({
-        skillId: required.skillId,
-        code: required.skill.code,
-        importance: required.importance,
-        requiredProficiency: required.requiredProficiency,
-        actualProficiency: employeeSkill?.proficiency ?? null,
-        score
-      });
-      return total + score * skillImportanceWeights[required.importance];
-    }, 0);
-
-    const warnings = this.uniqueWarnings([
-      ...(missingRequiredSkills.length ? ["MISSING_REQUIRED_SKILLS"] : []),
-      ...(belowMinimumSkills.length ? ["REQUIRED_SKILL_BELOW_MINIMUM"] : []),
-      ...(missingImportantSkills.length ? ["MISSING_IMPORTANT_SKILLS"] : []),
-      ...(missingNiceToHaveSkills.length ? ["MISSING_NICE_TO_HAVE_SKILLS"] : [])
-    ]);
-    return {
-      score: totalWeight > 0 ? weighted / totalWeight : 0,
-      eligible: !missingRequiredSkills.length && !belowMinimumSkills.length,
-      matchedSkills,
-      missingRequiredSkills,
-      missingImportantSkills,
-      missingNiceToHaveSkills,
-      belowMinimumSkills,
-      requiredSkillCount: requiredSkills.filter(
-        (skill) => skill.importance === TaskSkillImportance.REQUIRED
-      ).length,
-      matchedRequiredSkillCount,
-      warnings,
-      breakdown
-    };
-  }
-
-  private proficiencyScore(actual: SkillProficiency, required: SkillProficiency) {
-    const scoreByLevel: Record<SkillProficiency, number> = {
-      BEGINNER: 40,
-      INTERMEDIATE: 65,
-      ADVANCED: 85,
-      EXPERT: 100
-    };
-    const levels: SkillProficiency[] = [
-      SkillProficiency.BEGINNER,
-      SkillProficiency.INTERMEDIATE,
-      SkillProficiency.ADVANCED,
-      SkillProficiency.EXPERT
-    ];
-    const actualScore = scoreByLevel[actual];
-    const gap = levels.indexOf(required) - levels.indexOf(actual);
-    return gap <= 0 ? actualScore : Math.max(0, actualScore - (gap === 1 ? 15 : 30));
-  }
-
-  private experienceBonus(years: number) {
-    if (years >= 4) {
-      return 10;
-    }
-    if (years >= 2) {
-      return 7;
-    }
-    if (years >= 1) {
-      return 4;
-    }
-    return 0;
-  }
-
-  private recencyPenalty(lastUsedAt?: Date | null) {
-    if (!lastUsedAt) {
-      return 0;
-    }
-    const ageInDays = Math.max(0, (Date.now() - lastUsedAt.getTime()) / (24 * 60 * 60 * 1000));
-    if (ageInDays > 2 * 365) {
-      return 10;
-    }
-    return ageInDays > 365 ? 5 : 0;
-  }
-
-  private meetsProficiency(actual: SkillProficiency, required: SkillProficiency) {
-    const rank: Record<SkillProficiency, number> = {
-      BEGINNER: 0,
-      INTERMEDIATE: 1,
-      ADVANCED: 2,
-      EXPERT: 3
-    };
-    return rank[actual] >= rank[required];
+    return assessSkills(requiredSkills, employeeSkills);
   }
 
   private async availabilityAssessment(
@@ -936,15 +749,11 @@ export class AiTaskSuggestionsService {
     const pendingOverlapWorkDays = Array.from(pendingDays).filter(
       (key) => !approvedDays.has(key)
     ).length;
-    const approvedPenalty = Math.min(
-      60,
-      (approvedOverlapWorkDays / taskWorkDays) * 60
+    const score = availabilityScoreFor(
+      taskWorkDays,
+      approvedOverlapWorkDays,
+      pendingOverlapWorkDays
     );
-    const pendingPenalty = Math.min(
-      25,
-      (pendingOverlapWorkDays / taskWorkDays) * 25
-    );
-    const score = this.clamp(100 - approvedPenalty - pendingPenalty, 0, 100);
     const warnings: string[] = [];
     if (approvedOverlapWorkDays > 0) {
       warnings.push("APPROVED_LEAVE_OVERLAP");
@@ -1063,47 +872,10 @@ export class AiTaskSuggestionsService {
 
     const assessments = new Map<number, PerformanceAssessment>();
     for (const employeeId of employeeIds) {
-      const ratings = ratingsByEmployee.get(employeeId) ?? [];
-      if (!ratings.length) {
-        assessments.set(employeeId, {
-          score: null,
-          averageRating: null,
-          reviewCount: 0
-        });
-        continue;
-      }
-
-      const averageRating =
-        ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
-      assessments.set(employeeId, {
-        score: ((averageRating - 1) / 4) * 100,
-        averageRating,
-        reviewCount: ratings.length
-      });
+      assessments.set(employeeId, performanceFromRatings(ratingsByEmployee.get(employeeId) ?? []));
     }
 
     return assessments;
-  }
-
-  /**
-   * Combines the weighted signals, dropping any the candidate has no data for
-   * and renormalising what remains so every candidate is scored out of 100.
-   */
-  private combineScores(components: Array<{ value: number | null; weight: number }>) {
-    const usable = components.filter(
-      (component): component is { value: number; weight: number } =>
-        component.value !== null
-    );
-    const totalWeight = usable.reduce((sum, component) => sum + component.weight, 0);
-    if (totalWeight <= 0) {
-      return 0;
-    }
-
-    const weighted = usable.reduce(
-      (sum, component) => sum + component.value * component.weight,
-      0
-    );
-    return weighted / totalWeight;
   }
 
   private reason(

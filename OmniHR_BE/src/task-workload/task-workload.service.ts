@@ -5,6 +5,10 @@ import { AccessControlService } from "../common/services/access-control.service"
 import { AuthUser } from "../common/types";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { toDateOnly } from "../common/utils";
+import {
+  WORKLOAD_CAPACITY_HOURS_PER_WEEK,
+  workloadScoreFor
+} from "../ai-task-suggestions/suggestion-scoring";
 import { TaskWorkloadQueryDto, TaskWorkloadScope } from "./dto/task-workload-query.dto";
 
 export type WorkloadSummary = {
@@ -77,12 +81,9 @@ export class TaskWorkloadService {
     const overdueTaskCount = tasks.filter(
       (task) => task.dueDate && task.dueDate < today
     ).length;
-    const capacityHoursPerWeek = 40;
+    const capacityHoursPerWeek = WORKLOAD_CAPACITY_HOURS_PER_WEEK;
     const availableHours = capacityHoursPerWeek - totalEstimatedHours;
-    const workloadScore = Math.max(
-      0,
-      this.baseWorkloadScore(availableHours) - overdueTaskCount * 10
-    );
+    const workloadScore = workloadScoreFor(totalEstimatedHours, overdueTaskCount);
 
     return {
       employeeId,
@@ -105,22 +106,6 @@ export class TaskWorkloadService {
       availableHours: 40,
       workloadScore: 100
     };
-  }
-
-  private baseWorkloadScore(availableHours: number) {
-    if (availableHours >= 20) {
-      return 100;
-    }
-    if (availableHours >= 10) {
-      return 80;
-    }
-    if (availableHours >= 5) {
-      return 60;
-    }
-    if (availableHours > 0) {
-      return 40;
-    }
-    return 20;
   }
 
   private async singleEmployeeScope(
