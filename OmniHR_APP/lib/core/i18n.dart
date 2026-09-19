@@ -249,6 +249,13 @@ const Map<String, String> _enDictionary = {
   'Công việc nào của tôi sắp đến hạn?': 'Which of my tasks are due soon?',
   'Tháng này có ai sinh nhật?': 'Any birthdays this month?',
   'Manager của tôi là ai?': 'Who is my manager?',
+  'Tháng này tôi đi muộn mấy lần?': 'How many times was I late this month?',
+  'Lương tháng trước của tôi bao nhiêu?': 'What was my pay last month?',
+  'Kết quả đánh giá gần nhất của tôi?': 'What was my latest review result?',
+  'Tôi đang tham gia dự án nào?': 'Which projects am I on?',
+  'Team tôi gồm những ai?': 'Who is on my team?',
+  'Tháng này tôi hoàn thành bao nhiêu task?':
+      'How many tasks did I finish this month?',
   'Tôi chưa có phản hồi phù hợp.': 'I don\'t have a good answer for that yet.',
   'Đã xác nhận thao tác.': 'Action confirmed.',
   'Đã hủy thao tác.': 'Action cancelled.',
