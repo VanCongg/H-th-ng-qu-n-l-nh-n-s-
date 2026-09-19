@@ -25,6 +25,14 @@ class RuleBasedPlannerService:
         if self._is_cancel_leave_request(normalized):
             return self._cancel_leave_request_plan(request, normalized, available)
 
+        forbidden = self._forbidden_plan(text, normalized)
+        if forbidden is not None:
+            return forbidden
+
+        personal = self._personal_data_plan(request, text, normalized, available)
+        if personal is not None:
+            return personal
+
         if self._has_any(normalized, "sinh nhat", "birthday"):
             return self._birthdays_plan(request, normalized, available)
 
@@ -406,6 +414,117 @@ class RuleBasedPlannerService:
             confidence=0.84,
         )
 
+    def _forbidden_plan(self, text: str, normalized: str) -> ChatPlanResponse | None:
+        """Other people's pay or reviews, or editing recorded data."""
+        edits = (
+            "sua luong", "chinh luong", "doi luong", "tang luong", "giam luong",
+            "sua diem", "chinh diem", "doi diem",
+            "sua gio", "chinh gio", "doi gio",
+            "doi muc ky nang", "sua ky nang", "doi ky nang", "chinh ky nang",
+        )
+        if self._has_any(normalized, *edits):
+            return self._forbidden("Tôi không thể tự sửa lương, điểm đánh giá, kỹ năng hay giờ chấm công. "
+                                   "Bạn vui lòng liên hệ quản lý hoặc phòng nhân sự để được điều chỉnh.")
+
+        private = self._has_any(normalized, "luong", "danh gia", "diem")
+        someone_else = self._has_any(
+            normalized,
+            "cua anh", "cua chi", "cua em", "cua ban ", "cua dong nghiep", "cua truong",
+            "cua sep", "cua ca ", "cua moi nguoi", "cua nhan vien", "ca phong", "ca team",
+        ) or re.search(r"của\s+[A-ZĐ]", text) is not None
+        if private and someone_else:
+            return self._forbidden("Lương và kết quả đánh giá là thông tin riêng của từng người, "
+                                   "tôi chỉ có thể cho bạn xem thông tin của chính bạn.")
+        return None
+
+    def _forbidden(self, reply: str) -> ChatPlanResponse:
+        return ChatPlanResponse(type="answer", intent="FORBIDDEN_REQUEST", reply=reply, confidence=0.8)
+
+    def _personal_data_plan(
+        self,
+        request: ChatPlanRequest,
+        text: str,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse | None:
+        month_args = self._month_args(request, normalized)
+        has_month = bool(month_args) or "thang nay" in normalized
+        is_self = self._mentions_self(text, normalized)
+        policy_question = self._has_any(
+            normalized, "the nao", "co khong", "quy dinh", "co bi", "co duoc", "tinh sao", "cach tinh",
+            "xu ly", "bi phat", "duoc tra",
+        )
+        if policy_question and not is_self:
+            return None
+
+        if (
+            is_self
+            and not policy_question
+            and not self._has_any(normalized, "nghi", "phep")
+            and self._has_any(normalized, "luong", "thuc linh", "tien tang ca", "tien lam them", "lam them gio")
+        ):
+            return self._tool_plan("get_my_payslip", month_args, available,
+                                   "Tôi sẽ lấy phiếu lương đã chốt của bạn.")
+
+        if self._has_any(normalized, "danh gia", "performance review", "cham diem", "diem cuoi"):
+            return self._tool_plan("get_my_performance_reviews", {}, available,
+                                   "Tôi sẽ kiểm tra kết quả đánh giá của bạn.")
+
+        task_words = self._has_any(normalized, "task", "cong viec", "viec")
+        stats_words = self._has_any(
+            normalized, "hoan thanh", "xong", "dung han", "tre han", "log", "so gio", "hieu suat", "ti le"
+        )
+        if task_words and stats_words and (has_month or "hieu suat" in normalized or "ti le" in normalized):
+            return self._tool_plan("get_my_task_stats", month_args, available,
+                                   "Tôi sẽ thống kê task của bạn trong tháng.")
+
+        attendance_words = self._has_any(
+            normalized, "di muon", "di tre", "tre gio", "ve som", "cham cong", "check-out", "check out",
+            "di lam", "vang", "quen",
+        )
+        if (has_month or self._has_any(normalized, "thong ke cham cong", "tong ket cham cong")) and attendance_words:
+            return self._tool_plan("get_my_attendance_summary", month_args, available,
+                                   "Tôi sẽ tổng hợp chấm công trong tháng của bạn.")
+
+        if self._has_any(normalized, "du an", "project"):
+            return self._tool_plan("get_my_projects", {}, available,
+                                   "Tôi sẽ kiểm tra các dự án bạn đang tham gia.")
+
+        if self._has_any(normalized, "ky nang", "skill", "trinh do", "nam kinh nghiem", "thanh thao"):
+            return self._tool_plan("get_my_skills", {}, available,
+                                   "Tôi sẽ kiểm tra kỹ năng trong hồ sơ của bạn.")
+
+        team_words = self._has_any(
+            normalized, "thanh vien", "dong nghiep", "cung nhom", "cung team", "trong nhom",
+            "team toi gom", "team minh co", "nhom toi co", "nhom cua minh", "nhom toi gom",
+        )
+        other_topic = re.search(
+            r"\b(task|viec|nghi|cham cong|check|sinh nhat|bao nhieu nguoi)\b", normalized
+        ) is not None
+        if team_words and not other_topic:
+            return self._tool_plan("get_my_team_members", {}, available,
+                                   "Tôi sẽ kiểm tra thành viên trong nhóm của bạn.")
+        return None
+
+    def _mentions_self(self, text: str, normalized: str) -> bool:
+        # Without diacritics "toi" is both "tôi" (I) and "tối" (evening), so
+        # trust the accented words when the user typed accents.
+        lowered = text.lower()
+        if lowered != normalized:
+            return re.search(r"\b(tôi|mình|tui|em)\b", lowered) is not None
+        return re.search(r"\b(toi|minh|tui)\b", normalized) is not None
+
+    def _month_args(self, request: ChatPlanRequest, normalized: str) -> dict[str, int]:
+        today = self._today(request)
+        if "thang truoc" in normalized:
+            year, month = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+            return {"month": month, "year": year}
+        match = re.search(r"\bthang (\d{1,2})\b", normalized)
+        if match and 1 <= int(match.group(1)) <= 12:
+            month = int(match.group(1))
+            return {"month": month, "year": today.year if month <= today.month else today.year - 1}
+        return {}
+
     def _intent_for_tool(self, tool_name: str) -> str:
         return {
             "get_my_profile": "GET_MY_PROFILE",
@@ -425,6 +544,13 @@ class RuleBasedPlannerService:
             "get_team_task_summary": "GET_TEAM_TASK_SUMMARY",
             "get_department_headcount": "GET_DEPARTMENT_HEADCOUNT",
             "get_my_manager": "GET_MY_MANAGER",
+            "get_my_attendance_summary": "GET_MY_ATTENDANCE_SUMMARY",
+            "get_my_payslip": "GET_MY_PAYSLIP",
+            "get_my_performance_reviews": "GET_MY_PERFORMANCE_REVIEWS",
+            "get_my_projects": "GET_MY_PROJECTS",
+            "get_my_skills": "GET_MY_SKILLS",
+            "get_my_team_members": "GET_MY_TEAM_MEMBERS",
+            "get_my_task_stats": "GET_MY_TASK_STATS",
         }.get(tool_name, "UNKNOWN")
 
     def _is_leave_today_query(self, normalized: str) -> bool:

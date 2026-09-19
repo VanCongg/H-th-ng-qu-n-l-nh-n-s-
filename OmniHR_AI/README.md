@@ -144,6 +144,8 @@ Three message sets, each with a different job:
 | fixtures | `app/tests/fixtures/intent_cases.json` | The rule-based planner was written against it; regression check only. |
 | dev | `app/eval/planner_holdout.json` (82) | Used to tune the prompt and fallback rules, so its scores are optimistic. |
 | test | `app/eval/planner_test.json` (80) | Committed before tuning and never tuned on. Report this one. |
+| dev2 | `app/eval/planner_v2_dev.json` (50) | Seven personal-data questions (monthly attendance, payslip, reviews, projects, skills, team, task stats), forbidden variants and regressions. |
+| test2 | `app/eval/planner_v2_test.json` (50) | Written with dev2, before the tools existed; score once. |
 
 ```bash
 python scripts/evaluate_planner.py                                    # rule_based, dev set
@@ -163,6 +165,8 @@ Latest results (`gemini-3.5-flash-lite`, hybrid):
 |---|---|---|
 | dev | 81/82 (98.8%) | 45/82 (54.9%) |
 | test | 80/80 (100%) | 38/80 (47.5%) |
+| dev2 | 50/50 (100%) | 47/50 (94%) |
+| test2 | not run yet (Gemini free-tier daily quota) | 44/50 (88%) |
 
 Mean latency is about 1.6 s per message (p95 about 1.9 s). The LLM can still vary between runs, so
 treat the test score as "about 96–100%" rather than a guarantee.

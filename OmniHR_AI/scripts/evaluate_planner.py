@@ -33,7 +33,8 @@ from app.services.llm_planner_service import LlmPlannerService  # noqa: E402
 from app.services.rule_based_planner_service import RuleBasedPlannerService  # noqa: E402
 
 HOLDOUT = ROOT / "app" / "eval" / "planner_holdout.json"
-TEST = ROOT / "app" / "eval" / "planner_test.json"
+EVAL_DIR = ROOT / "app" / "eval"
+TEST = EVAL_DIR / "planner_test.json"
 FIXTURES = ROOT / "app" / "tests" / "fixtures" / "intent_cases.json"
 RESULTS_DIR = ROOT / "eval_results"
 
@@ -44,13 +45,15 @@ ALL_TOOLS = [
     "create_leave_request_draft", "cancel_my_pending_leave_request", "get_my_tasks",
     "get_my_upcoming_tasks", "get_employee_birthdays", "get_who_is_on_leave_today",
     "get_upcoming_leaves", "get_team_attendance_summary", "get_team_task_summary",
-    "get_department_headcount",
+    "get_department_headcount", "get_my_attendance_summary", "get_my_payslip",
+    "get_my_performance_reviews", "get_my_projects", "get_my_skills", "get_my_team_members",
+    "get_my_task_stats",
 ]
 # A manager-level user, so every tool is available and a miss is the planner's fault.
 PERMISSIONS = [
     "ATTENDANCE_READ_SELF", "LEAVE_CREATE", "LEAVE_CANCEL_SELF", "LEAVE_READ_SELF",
     "TASK_READ_SELF", "TASK_READ_TEAM", "EMPLOYEE_READ_SELF", "EMPLOYEE_READ_TEAM",
-    "ATTENDANCE_READ_TEAM", "LEAVE_READ_TEAM",
+    "ATTENDANCE_READ_TEAM", "LEAVE_READ_TEAM", "REVIEW_READ_SELF", "EMPLOYEE_SKILL_READ",
 ]
 
 
@@ -68,7 +71,13 @@ def load_cases(which: str) -> tuple[str, list[dict]]:
             for item in raw
         ]
         return "2026-07-08", cases
-    path = {"holdout": HOLDOUT, "dev": HOLDOUT, "test": TEST}.get(which, Path(which))
+    path = {
+        "holdout": HOLDOUT,
+        "dev": HOLDOUT,
+        "test": TEST,
+        "dev2": EVAL_DIR / "planner_v2_dev.json",
+        "test2": EVAL_DIR / "planner_v2_test.json",
+    }.get(which, Path(which))
     data = json.loads(path.read_text(encoding="utf-8"))
     return data["today"], data["cases"]
 

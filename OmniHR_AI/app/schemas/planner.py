@@ -26,6 +26,13 @@ class PlannerIntent(str, Enum):
     GET_TEAM_TASK_SUMMARY = "GET_TEAM_TASK_SUMMARY"
     GET_DEPARTMENT_HEADCOUNT = "GET_DEPARTMENT_HEADCOUNT"
     GET_MY_MANAGER = "GET_MY_MANAGER"
+    GET_MY_ATTENDANCE_SUMMARY = "GET_MY_ATTENDANCE_SUMMARY"
+    GET_MY_PAYSLIP = "GET_MY_PAYSLIP"
+    GET_MY_PERFORMANCE_REVIEWS = "GET_MY_PERFORMANCE_REVIEWS"
+    GET_MY_PROJECTS = "GET_MY_PROJECTS"
+    GET_MY_SKILLS = "GET_MY_SKILLS"
+    GET_MY_TEAM_MEMBERS = "GET_MY_TEAM_MEMBERS"
+    GET_MY_TASK_STATS = "GET_MY_TASK_STATS"
     GET_HR_POLICY_INFO = "GET_HR_POLICY_INFO"
     UNKNOWN = "UNKNOWN"
     OUT_OF_SCOPE = "OUT_OF_SCOPE"
@@ -50,6 +57,13 @@ class PlannerToolName(str, Enum):
     GET_TEAM_TASK_SUMMARY = "get_team_task_summary"
     GET_DEPARTMENT_HEADCOUNT = "get_department_headcount"
     GET_MY_MANAGER = "get_my_manager"
+    GET_MY_ATTENDANCE_SUMMARY = "get_my_attendance_summary"
+    GET_MY_PAYSLIP = "get_my_payslip"
+    GET_MY_PERFORMANCE_REVIEWS = "get_my_performance_reviews"
+    GET_MY_PROJECTS = "get_my_projects"
+    GET_MY_SKILLS = "get_my_skills"
+    GET_MY_TEAM_MEMBERS = "get_my_team_members"
+    GET_MY_TASK_STATS = "get_my_task_stats"
 
 
 class PlannerToolCall(BaseModel):
@@ -98,6 +112,13 @@ READ_TOOLS = {
     PlannerToolName.GET_TEAM_TASK_SUMMARY,
     PlannerToolName.GET_DEPARTMENT_HEADCOUNT,
     PlannerToolName.GET_MY_MANAGER,
+    PlannerToolName.GET_MY_ATTENDANCE_SUMMARY,
+    PlannerToolName.GET_MY_PAYSLIP,
+    PlannerToolName.GET_MY_PERFORMANCE_REVIEWS,
+    PlannerToolName.GET_MY_PROJECTS,
+    PlannerToolName.GET_MY_SKILLS,
+    PlannerToolName.GET_MY_TEAM_MEMBERS,
+    PlannerToolName.GET_MY_TASK_STATS,
 }
 
 WRITE_TOOLS = {
@@ -127,6 +148,13 @@ TOOL_ARGUMENT_ALLOWLISTS = {
     PlannerToolName.GET_TEAM_TASK_SUMMARY: {"scope", "includeOverdue"},
     PlannerToolName.GET_DEPARTMENT_HEADCOUNT: {"scope"},
     PlannerToolName.GET_MY_MANAGER: set(),
+    PlannerToolName.GET_MY_ATTENDANCE_SUMMARY: {"month", "year"},
+    PlannerToolName.GET_MY_PAYSLIP: {"month", "year"},
+    PlannerToolName.GET_MY_PERFORMANCE_REVIEWS: {"limit"},
+    PlannerToolName.GET_MY_PROJECTS: set(),
+    PlannerToolName.GET_MY_SKILLS: set(),
+    PlannerToolName.GET_MY_TEAM_MEMBERS: set(),
+    PlannerToolName.GET_MY_TASK_STATS: {"month", "year"},
     PlannerToolName.CREATE_LEAVE_REQUEST_DRAFT: {
         "leaveTypeCode",
         "leaveTypeId",
