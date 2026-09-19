@@ -38,7 +38,7 @@ class Settings:
     llm_api_key: str = os.getenv("LLM_API_KEY", "")
     llm_base_url: str = os.getenv("LLM_BASE_URL", "")
     llm_timeout_seconds: int = _int_env("LLM_TIMEOUT_SECONDS", 20)
-    llm_max_retries: int = _int_env("LLM_MAX_RETRIES", 1)
+    llm_max_retries: int = _int_env("LLM_MAX_RETRIES", 2)
     llm_temperature: float = _float_env("LLM_TEMPERATURE", 0.0)
     llm_max_output_tokens: int = _int_env("LLM_MAX_OUTPUT_TOKENS", 800)
     llm_fallback_to_rule_based: bool = _bool_env("LLM_FALLBACK_TO_RULE_BASED", True)
