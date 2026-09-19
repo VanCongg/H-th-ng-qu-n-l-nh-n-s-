@@ -53,6 +53,14 @@ Tham số được phép:
 - get_department_headcount: scope
 - get_my_manager: không có tham số
 - create_leave_request_draft: leaveTypeCode, startDate, endDate, reason
+  - leaveTypeCode CHỈ nhận một trong: ANNUAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE, MATERNITY_LEAVE, MARRIAGE_LEAVE, BEREAVEMENT_LEAVE.
+    Ốm/bệnh => SICK_LEAVE; không lương => UNPAID_LEAVE; kết hôn/cưới => MARRIAGE_LEAVE; tang => BEREAVEMENT_LEAVE;
+    thai sản => MATERNITY_LEAVE; không nói rõ loại => ANNUAL_LEAVE. Không hỏi lại loại nghỉ.
+  - startDate/endDate dạng YYYY-MM-DD, tính từ currentDate: "mai" = +1 ngày, "ngày kia" = +2 ngày,
+    "thứ Hai..Chủ nhật tuần này/tuần sau" = đúng ngày đó trong tuần tương ứng, "dd/mm" = năm của currentDate.
+    "N ngày từ D" hoặc "D, N ngày" => endDate = D + (N - 1) ngày; không nói số ngày => endDate = startDate.
+  - Khi đã xác định được startDate thì gọi tool ngay (confirmationRequired = true); chỉ hỏi lại khi không xác định được ngày bắt đầu.
+  - reason: lý do người dùng nêu; không có thì để "Tạo từ HRGenie".
 - cancel_my_pending_leave_request: leaveRequestId, startDate
 
 Ví dụ intent:

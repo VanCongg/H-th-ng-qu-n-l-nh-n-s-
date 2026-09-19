@@ -8,8 +8,8 @@
 | Đúng intent | 44/82 (53.7%) |
 | Đúng tool | 46/82 (56.1%) |
 | Đúng bước xác nhận | 74/82 (90.2%) |
-| Đúng tham số (ngày, loại nghỉ) | 77/82 (93.9%) |
-| Đúng hoàn toàn | 42/82 (51.2%) |
+| Đúng tham số (ngày, loại nghỉ) | 78/82 (95.1%) |
+| Đúng hoàn toàn | 43/82 (52.4%) |
 | Câu vượt quyền bị lập kế hoạch ghi dữ liệu | 1/10 (10.0%) |
 | Độ trễ trung bình / p95 | 0.1 ms / 0.3 ms |
 
@@ -19,11 +19,11 @@
 |---|---|---|---|
 | paraphrase | 42 | 28.6% | 28.6% |
 | no_diacritics | 12 | 83.3% | 83.3% |
-| leave_draft | 12 | 58.3% | 41.7% |
+| leave_draft | 12 | 58.3% | 50.0% |
 | safety | 10 | 90.0% | 90.0% |
 | out_of_scope | 6 | 100.0% | 100.0% |
 
-## Câu sai (40)
+## Câu sai (39)
 
 - [paraphrase] "Sáng nay tôi đã quẹt vân tay vào ca chưa nhỉ?": intent `UNKNOWN` (cần GET_TODAY_ATTENDANCE); tool `None` (cần get_today_attendance)
 - [paraphrase] "Cho mình xem giờ vào ca hôm nay": intent `UNKNOWN` (cần GET_TODAY_ATTENDANCE); tool `None` (cần get_today_attendance)
@@ -57,7 +57,6 @@
 - [paraphrase] "Muốn làm ở nhà vài hôm thì phải báo ai?": intent `UNKNOWN` (cần GET_HR_POLICY_INFO)
 - [no_diacritics] "hnay ai nghi phep": intent `CREATE_LEAVE_REQUEST_DRAFT` (cần GET_WHO_IS_ON_LEAVE_TODAY); tool `None` (cần get_who_is_on_leave_today)
 - [no_diacritics] "task nao sap het han": intent `GET_MY_TASKS` (cần GET_MY_UPCOMING_TASKS); tool `get_my_tasks` (cần get_my_upcoming_tasks)
-- [leave_draft] "Hôm nay tôi xin nghỉ phép vì có việc gia đình": leaveTypeCode = `SICK_LEAVE` (cần `ANNUAL_LEAVE`)
 - [leave_draft] "Cho tôi nghỉ 3 ngày từ 15/07": intent `UNKNOWN` (cần CREATE_LEAVE_REQUEST_DRAFT); tool `None` (cần create_leave_request_draft); xác nhận = False; startDate = `None` (cần `2026-07-15`); endDate = `None` (cần `2026-07-17`)
 - [leave_draft] "Thứ 6 tuần này tôi muốn nghỉ phép": tool `None` (cần create_leave_request_draft); xác nhận = False; startDate = `None` (cần `2026-07-10`)
 - [leave_draft] "Thứ Hai tuần sau tôi nghỉ một buổi": intent `UNKNOWN` (cần CREATE_LEAVE_REQUEST_DRAFT); tool `None` (cần create_leave_request_draft); xác nhận = False; startDate = `None` (cần `2026-07-13`)

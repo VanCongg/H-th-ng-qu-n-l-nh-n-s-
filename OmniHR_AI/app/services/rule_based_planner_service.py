@@ -547,7 +547,8 @@ class RuleBasedPlannerService:
     def _leave_type_code(self, normalized: str) -> str:
         if "khong luong" in normalized:
             return "UNPAID_LEAVE"
-        if "om" in normalized or "benh" in normalized:
+        # Whole words only: "om" is also inside "hom nay" (today).
+        if re.search(r"\b(om|benh)\b", normalized):
             return "SICK_LEAVE"
         return "ANNUAL_LEAVE"
 
