@@ -33,7 +33,7 @@ class RuleBasedPlannerService:
                 "get_who_is_on_leave_today",
                 {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
                 available,
-                "Toi se kiem tra nhan vien nghi phep hom nay trong pham vi ban duoc xem.",
+                "Tôi sẽ kiểm tra nhân viên nghỉ phép hôm nay trong phạm vi bạn được xem.",
             )
 
         if self._is_upcoming_leaves_query(normalized):
@@ -44,7 +44,7 @@ class RuleBasedPlannerService:
                 "get_team_attendance_summary",
                 {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
                 available,
-                "Toi se tong hop tinh hinh cham cong trong pham vi ban duoc xem.",
+                "Tôi sẽ tổng hợp tình hình chấm công trong phạm vi bạn được xem.",
             )
 
         if self._has_any(normalized, "manager cua toi", "quan ly cua toi", "ai duyet don", "nguoi duyet don"):
@@ -52,7 +52,7 @@ class RuleBasedPlannerService:
                 "get_my_manager",
                 {},
                 available,
-                "Toi se kiem tra quan ly va phong ban cua ban.",
+                "Tôi sẽ kiểm tra quản lý và phòng ban của bạn.",
             )
 
         if self._is_headcount_query(normalized):
@@ -60,7 +60,7 @@ class RuleBasedPlannerService:
                 "get_department_headcount",
                 {"scope": self._scope(normalized)},
                 available,
-                "Toi se dem so nhan vien active trong pham vi ban duoc xem.",
+                "Tôi sẽ đếm số nhân viên đang làm việc trong phạm vi bạn được xem.",
             )
 
         if self._is_team_task_query(normalized):
@@ -71,7 +71,7 @@ class RuleBasedPlannerService:
                     "includeOverdue": self._has_any(normalized, "qua han", "tre han", "deadline"),
                 },
                 available,
-                "Toi se tong hop task trong pham vi team/phong ban ban duoc xem.",
+                "Tôi sẽ tổng hợp task trong phạm vi nhóm/phòng ban bạn được xem.",
             )
 
         if self._has_any(normalized, "con bao nhieu ngay phep", "so phep", "phep con"):
@@ -147,7 +147,7 @@ class RuleBasedPlannerService:
             return ChatPlanResponse(
                 type="answer",
                 intent="SMALL_TALK",
-                reply="Chao ban, toi la HRGenie. Ban muon hoi ve cham cong, nghi phep hay task?",
+                reply="Chào bạn, tôi là HRGenie. Bạn muốn hỏi về chấm công, nghỉ phép hay task?",
                 confidence=0.78,
             )
 
