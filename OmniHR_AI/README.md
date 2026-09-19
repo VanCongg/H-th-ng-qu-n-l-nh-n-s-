@@ -137,18 +137,32 @@ without spending LLM quota.
 
 ## Evaluation
 
-`app/tests/fixtures/intent_cases.json` is the set the rule-based planner was
-written against, so it only checks for regressions. Generalisation is measured
-on `app/eval/planner_holdout.json`: 82 labelled messages (paraphrases, no
-diacritics, leave drafts with expected dates, forbidden requests, off-topic)
-that do not appear in the fixtures.
+Three message sets, each with a different job:
+
+| Set | File | Role |
+|---|---|---|
+| fixtures | `app/tests/fixtures/intent_cases.json` | The rule-based planner was written against it; regression check only. |
+| dev | `app/eval/planner_holdout.json` (82) | Used to tune the prompt and fallback rules, so its scores are optimistic. |
+| test | `app/eval/planner_test.json` (80) | Committed before tuning and never tuned on. Report this one. |
 
 ```bash
-python scripts/evaluate_planner.py                          # rule_based, held-out set
-python scripts/evaluate_planner.py --cases fixtures         # regression set
-python scripts/evaluate_planner.py --mode hybrid --delay 4  # needs a valid LLM_API_KEY
+python scripts/evaluate_planner.py                                    # rule_based, dev set
+python scripts/evaluate_planner.py --cases fixtures                   # regression set
+python scripts/evaluate_planner.py --mode hybrid --cases test --delay 3   # needs a valid LLM_API_KEY
 ```
 
 Reports (Markdown + per-case JSON) go to `eval_results/`. In `hybrid` mode check
-the "Quay về luật" (fallback) row: if it is 100%, the LLM never answered (for
-example an invalid key) and the numbers are the rule-based ones.
+the "Quay về luật" (fallback) row and the reasons listed under it: if it is
+100%, the LLM never answered (for example an invalid key) and the numbers are
+the rule-based ones. `LLM provider returned 429` means the free-tier rate limit
+was hit; raise `--delay`.
+
+Latest results (`gemini-3.5-flash-lite`, hybrid):
+
+| Set | Fully correct | Rule-based alone |
+|---|---|---|
+| dev | 81/82 (98.8%) | 45/82 (54.9%) |
+| test | 80/80 (100%) | 38/80 (47.5%) |
+
+Mean latency is about 1.6 s per message (p95 about 1.9 s). The LLM can still vary between runs, so
+treat the test score as "about 96–100%" rather than a guarantee.

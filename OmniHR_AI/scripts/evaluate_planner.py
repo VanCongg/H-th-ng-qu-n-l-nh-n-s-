@@ -1,8 +1,12 @@
 """Evaluate the HRGenie planner on a labelled message set.
 
-    python scripts/evaluate_planner.py                         # rule_based on the held-out set
+    python scripts/evaluate_planner.py                         # rule_based on the dev set
     python scripts/evaluate_planner.py --mode hybrid           # LLM with rule-based fallback
+    python scripts/evaluate_planner.py --cases test            # final test set (report this one)
     python scripts/evaluate_planner.py --cases fixtures        # the set the rules were written on
+
+Sets: "dev" (planner_holdout.json, used for tuning), "test" (planner_test.json,
+never tuned on), "fixtures" (regression set of the rule-based planner).
 
 Prints a Markdown report and writes it (plus the raw per-case results as JSON)
 to eval_results/. "hybrid"/"llm" call the LLM configured by the LLM_* settings.
@@ -12,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import re
 import statistics
 import sys
 import time
@@ -27,6 +33,7 @@ from app.services.llm_planner_service import LlmPlannerService  # noqa: E402
 from app.services.rule_based_planner_service import RuleBasedPlannerService  # noqa: E402
 
 HOLDOUT = ROOT / "app" / "eval" / "planner_holdout.json"
+TEST = ROOT / "app" / "eval" / "planner_test.json"
 FIXTURES = ROOT / "app" / "tests" / "fixtures" / "intent_cases.json"
 RESULTS_DIR = ROOT / "eval_results"
 
@@ -61,9 +68,22 @@ def load_cases(which: str) -> tuple[str, list[dict]]:
             for item in raw
         ]
         return "2026-07-08", cases
-    path = HOLDOUT if which == "holdout" else Path(which)
+    path = {"holdout": HOLDOUT, "dev": HOLDOUT, "test": TEST}.get(which, Path(which))
     data = json.loads(path.read_text(encoding="utf-8"))
     return data["today"], data["cases"]
+
+
+class FallbackCapture(logging.Handler):
+    """Keeps the reason LlmPlannerService logs when it falls back to rules."""
+
+    def __init__(self):
+        super().__init__(level=logging.INFO)
+        self.last: str | None = None
+
+    def emit(self, record: logging.LogRecord) -> None:
+        message = record.getMessage()
+        if "fallback used" in message:
+            self.last = message.split("error=", 1)[-1]
 
 
 def build_planner(mode: str):
@@ -105,6 +125,7 @@ def evaluate(case: dict, response, latency_ms: float) -> dict:
         "argsOk": not wrong_args,
         "wrongArgs": wrong_args,
         "fallbackUsed": bool(response.fallbackUsed),
+        "fallbackReason": None,
         "latencyMs": round(latency_ms, 1),
         "expectedIntents": case["intents"],
         "expectedTools": case["tools"],
@@ -146,9 +167,17 @@ def summarize(results: list[dict], mode: str, which: str) -> str:
     if mode != "rule_based":
         fallback = sum(1 for item in results if item["fallbackUsed"])
         lines.append(f"| Quay về luật | {fallback}/{total} ({pct(fallback, total)}) |")
+        reasons = defaultdict(int)
+        for item in results:
+            if item["fallbackUsed"]:
+                reasons[item["fallbackReason"] or "không rõ"] += 1
     latencies = [item["latencyMs"] for item in results]
     p95 = sorted(latencies)[max(0, int(round(0.95 * len(latencies))) - 1)]
     lines.append(f"| Độ trễ trung bình / p95 | {statistics.mean(latencies):.1f} ms / {p95:.1f} ms |")
+
+    if mode != "rule_based" and reasons:
+        lines += ["", "## Lý do quay về luật", ""]
+        lines += [f"- {reason}: {count}" for reason, count in sorted(reasons.items(), key=lambda pair: -pair[1])]
 
     lines += ["", "## Theo nhóm", "", "| Nhóm | Số câu | Đúng intent | Đúng hoàn toàn |", "|---|---|---|---|"]
     by_category = defaultdict(list)
@@ -183,19 +212,30 @@ def main() -> None:
     parser.add_argument("--delay", type=float, default=0.0, help="seconds between LLM calls (rate limits)")
     args = parser.parse_args()
 
+    if args.cases == "dev":
+        args.cases = "holdout"  # same file; keeps the report names stable
     today, cases = load_cases(args.cases)
     planner = build_planner(args.mode)
+    capture = FallbackCapture()
+    planner_logger = logging.getLogger("app.services.llm_planner_service")
+    planner_logger.addHandler(capture)
+    planner_logger.setLevel(logging.INFO)
     results = []
     for case in cases:
+        capture.last = None
         started = time.perf_counter()
         response = planner.plan(request_for(case["message"], today))
-        results.append(evaluate(case, response, (time.perf_counter() - started) * 1000))
+        result = evaluate(case, response, (time.perf_counter() - started) * 1000)
+        if result["fallbackUsed"]:
+            result["fallbackReason"] = capture.last
+        results.append(result)
         if args.delay:
             time.sleep(args.delay)
 
     report = summarize(results, args.mode, args.cases)
     RESULTS_DIR.mkdir(exist_ok=True)
-    name = f"planner-{args.mode}-{Path(args.cases).stem}"
+    model = "" if args.mode == "rule_based" else "-" + re.sub(r"[^a-z0-9.]+", "-", settings.llm_model.lower())
+    name = f"planner-{args.mode}{model}-{Path(args.cases).stem}"
     (RESULTS_DIR / f"{name}.md").write_text(report, encoding="utf-8")
     (RESULTS_DIR / f"{name}.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     sys.stdout.reconfigure(encoding="utf-8")

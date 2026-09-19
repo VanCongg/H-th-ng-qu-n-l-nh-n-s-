@@ -12,6 +12,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.2,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
@@ -35,6 +36,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
@@ -58,6 +60,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
@@ -81,6 +84,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
@@ -104,6 +108,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
@@ -127,6 +132,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
@@ -150,6 +156,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
@@ -173,6 +180,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
@@ -196,6 +204,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
@@ -219,6 +228,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
@@ -244,6 +254,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
@@ -269,6 +280,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
@@ -294,6 +306,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
@@ -319,6 +332,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
@@ -344,6 +358,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
@@ -369,6 +384,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
@@ -394,6 +410,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
@@ -419,6 +436,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
@@ -444,6 +462,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
@@ -469,6 +488,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
@@ -497,7 +517,8 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
-    "latencyMs": 0.4,
+    "fallbackReason": null,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -525,6 +546,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -553,6 +575,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -581,6 +604,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -609,6 +633,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -632,6 +657,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -655,6 +681,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -678,6 +705,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
@@ -701,6 +729,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
@@ -724,6 +753,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
@@ -749,6 +779,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
@@ -774,6 +805,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
@@ -799,7 +831,8 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
-    "latencyMs": 0.1,
+    "fallbackReason": null,
+    "latencyMs": 0.0,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -822,6 +855,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_PROFILE"
@@ -845,6 +879,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_PROFILE"
@@ -868,6 +903,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_PROFILE"
@@ -891,6 +927,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_PROFILE"
@@ -914,6 +951,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_MANAGER"
@@ -941,6 +979,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_EMPLOYEE_BIRTHDAYS"
@@ -967,6 +1006,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_WHO_IS_ON_LEAVE_TODAY"
@@ -994,6 +1034,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_UPCOMING_LEAVES"
@@ -1020,6 +1061,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TEAM_ATTENDANCE_SUMMARY"
@@ -1046,6 +1088,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TEAM_TASK_SUMMARY"
@@ -1071,6 +1114,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_DEPARTMENT_HEADCOUNT"
@@ -1099,6 +1143,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
@@ -1127,6 +1172,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
@@ -1155,6 +1201,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
@@ -1183,6 +1230,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
@@ -1211,6 +1259,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
@@ -1240,6 +1289,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
@@ -1269,6 +1319,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
@@ -1298,6 +1349,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
@@ -1327,6 +1379,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
@@ -1356,6 +1409,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
@@ -1379,7 +1433,8 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
-    "latencyMs": 0.0,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1402,6 +1457,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.0,
     "expectedIntents": [
       "SMALL_TALK"
@@ -1425,6 +1481,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.0,
     "expectedIntents": [
       "SMALL_TALK"
@@ -1448,6 +1505,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.0,
     "expectedIntents": [
       "SMALL_TALK"
@@ -1471,6 +1529,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "UNKNOWN"
@@ -1494,6 +1553,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "UNKNOWN"
@@ -1517,6 +1577,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "UNKNOWN"
@@ -1540,6 +1601,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "UNKNOWN"
@@ -1563,6 +1625,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
       "UNKNOWN"
@@ -1586,6 +1649,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
@@ -1609,6 +1673,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
@@ -1632,6 +1697,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.2,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
@@ -1655,6 +1721,7 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
+    "fallbackReason": null,
     "latencyMs": 0.2,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
@@ -1678,7 +1745,8 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
-    "latencyMs": 0.3,
+    "fallbackReason": null,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1701,7 +1769,8 @@
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
-    "latencyMs": 0.2,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
