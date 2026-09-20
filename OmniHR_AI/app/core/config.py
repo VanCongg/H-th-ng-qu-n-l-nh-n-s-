@@ -1,5 +1,14 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# The Settings field defaults below are evaluated when this module is first
+# imported, so the .env file has to reach os.environ before that happens.
+# override=False keeps real environment variables authoritative, which is what
+# docker compose relies on.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 
 def _bool_env(name: str, default: bool) -> bool:
