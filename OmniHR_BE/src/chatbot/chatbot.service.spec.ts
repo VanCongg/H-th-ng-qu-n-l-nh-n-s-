@@ -2,6 +2,7 @@ import { ChatbotMessageRole } from "@prisma/client";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser } from "../common/types";
 import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
 import { ChatbotAiClientService } from "./chatbot-ai-client.service";
 import { ChatbotHistoryService } from "./chatbot-history.service";
 import { ChatbotService } from "./chatbot.service";
@@ -18,7 +19,7 @@ describe("ChatbotService", () => {
     mustChangePassword: false,
   };
 
-  function createService() {
+  function createService(redisEval?: jest.Mock) {
     const prisma = {
       employee: {
         findUnique: jest.fn().mockResolvedValue({
@@ -58,6 +59,11 @@ describe("ChatbotService", () => {
         timezoneOffsetMinutes: 420,
       }),
     };
+    // No eval mock means "no Redis", which exercises the in-process fallback.
+    const redis = {
+      isReady: () => Boolean(redisEval),
+      getClient: () => (redisEval ? { eval: redisEval } : null),
+    };
 
     return {
       service: new ChatbotService(
@@ -66,6 +72,7 @@ describe("ChatbotService", () => {
         aiClient as unknown as ChatbotAiClientService,
         tools as unknown as ChatbotToolsService,
         systemSettings as unknown as SystemSettingsService,
+        redis as unknown as RedisService,
       ),
       history,
       aiClient,
@@ -179,6 +186,37 @@ describe("ChatbotService", () => {
       }),
     });
 
+    expect(aiClient.plan).toHaveBeenCalledTimes(1);
+  });
+
+  it("rate limits from Redis so the budget is shared across instances", async () => {
+    // Redis owns the decision here: the in-process bucket is still empty, so a
+    // rejection can only have come from the shared counter.
+    const redisEval = jest.fn().mockResolvedValue(0);
+    const { service, aiClient } = createService(redisEval);
+
+    await expect(
+      service.sendMessage({ message: "Xin chào HRGenie" }, user),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        errorCode: "CHATBOT_RATE_LIMITED",
+      }),
+    });
+
+    expect(redisEval).toHaveBeenCalledTimes(1);
+    expect(redisEval.mock.calls[0][2]).toBe("chatbot:ratelimit:1");
+    expect(aiClient.plan).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the in-process bucket when Redis errors", async () => {
+    const redisEval = jest.fn().mockRejectedValue(new Error("connection lost"));
+    const { service, aiClient } = createService(redisEval);
+
+    await expect(
+      service.sendMessage({ message: "Xin chào HRGenie" }, user),
+    ).resolves.toBeDefined();
+
+    expect(redisEval).toHaveBeenCalledTimes(1);
     expect(aiClient.plan).toHaveBeenCalledTimes(1);
   });
 });

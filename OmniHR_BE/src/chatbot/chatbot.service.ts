@@ -4,6 +4,7 @@ import { ApiError } from "../common/api-error";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { PrismaService } from "../prisma/prisma.service";
+import { RedisService } from "../redis/redis.service";
 import { ChatbotAiClientService } from "./chatbot-ai-client.service";
 import { ChatbotHistoryService } from "./chatbot-history.service";
 import { ChatbotToolsService } from "./chatbot-tools.service";
@@ -20,11 +21,30 @@ const AI_FALLBACK_REPLY =
 // Results the user may see but the external LLM must not: they are stored
 // flagged as sensitive and left out of the history sent to the planner.
 const SENSITIVE_TOOLS = new Set(["get_my_payslip"]);
+// Same sliding window as the in-process fallback below, but shared by every
+// API instance. Trimming, counting and adding have to be one atomic step or
+// two concurrent messages can both slip past a full bucket.
+const RATE_LIMIT_SCRIPT = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local windowMs = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+
+redis.call('ZREMRANGEBYSCORE', key, 0, now - windowMs)
+if redis.call('ZCARD', key) >= limit then
+  redis.call('PEXPIRE', key, windowMs)
+  return 0
+end
+redis.call('ZADD', key, now, ARGV[4])
+redis.call('PEXPIRE', key, windowMs)
+return 1
+`;
 
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
   private readonly rateLimitBuckets = new Map<number, number[]>();
+  private rateLimitSeq = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -32,6 +52,7 @@ export class ChatbotService {
     private readonly aiClient: ChatbotAiClientService,
     private readonly tools: ChatbotToolsService,
     private readonly systemSettings: SystemSettingsService,
+    private readonly redis: RedisService,
   ) {}
 
   async sendMessage(
@@ -42,7 +63,7 @@ export class ChatbotService {
     const text = dto.message.trim();
     this.assertNonEmptyMessage(text);
     this.assertMessageLength(text);
-    this.assertRateLimit(user.id);
+    await this.assertRateLimit(user.id);
 
     const conversation = await this.history.getOrCreateConversation(
       user.id,
@@ -726,7 +747,7 @@ export class ChatbotService {
     );
   }
 
-  private assertRateLimit(userId: number) {
+  private async assertRateLimit(userId: number) {
     const ttlSeconds = this.envInt("CHATBOT_RATE_LIMIT_TTL_SECONDS", 60, 1, 3600);
     const limit = this.envInt(
       "CHATBOT_RATE_LIMIT_MAX",
@@ -734,23 +755,78 @@ export class ChatbotService {
       1,
       300,
     );
+    const windowMs = ttlSeconds * 1000;
+
+    const allowed = await this.consumeSharedRateLimit(userId, windowMs, limit);
+    if (allowed === null) {
+      this.consumeLocalRateLimit(userId, windowMs, limit);
+      return;
+    }
+    if (!allowed) {
+      throw this.rateLimitedError();
+    }
+  }
+
+  /**
+   * Counts the message in Redis so the limit holds across API instances.
+   * Returns null when Redis cannot answer, which hands the decision back to
+   * the in-process bucket rather than letting a cache outage block chat.
+   */
+  private async consumeSharedRateLimit(
+    userId: number,
+    windowMs: number,
+    limit: number,
+  ): Promise<boolean | null> {
+    const client = this.redis.getClient();
+    if (!client || !this.redis.isReady()) {
+      return null;
+    }
+
     const now = Date.now();
-    const windowStart = now - ttlSeconds * 1000;
+    try {
+      const allowed = (await client.eval(
+        RATE_LIMIT_SCRIPT,
+        1,
+        `chatbot:ratelimit:${userId}`,
+        now,
+        windowMs,
+        limit,
+        // Two messages can land on the same millisecond; a sorted set would
+        // collapse them into one member without this suffix.
+        `${now}-${(this.rateLimitSeq += 1)}`,
+      )) as number;
+      return allowed === 1;
+    } catch {
+      return null;
+    }
+  }
+
+  private consumeLocalRateLimit(
+    userId: number,
+    windowMs: number,
+    limit: number,
+  ) {
+    const now = Date.now();
+    const windowStart = now - windowMs;
     const bucket = (this.rateLimitBuckets.get(userId) ?? []).filter(
       (timestamp) => timestamp > windowStart,
     );
 
     if (bucket.length >= limit) {
       this.rateLimitBuckets.set(userId, bucket);
-      throw new ApiError(
-        HttpStatus.TOO_MANY_REQUESTS,
-        "Bạn đang gửi quá nhiều tin nhắn. Vui lòng thử lại sau ít phút.",
-        "CHATBOT_RATE_LIMITED",
-      );
+      throw this.rateLimitedError();
     }
 
     bucket.push(now);
     this.rateLimitBuckets.set(userId, bucket);
+  }
+
+  private rateLimitedError() {
+    return new ApiError(
+      HttpStatus.TOO_MANY_REQUESTS,
+      "Bạn đang gửi quá nhiều tin nhắn. Vui lòng thử lại sau ít phút.",
+      "CHATBOT_RATE_LIMITED",
+    );
   }
 
   private logPlan(

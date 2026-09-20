@@ -13,6 +13,7 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "./common/guards/permissions.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { RedisThrottlerStorage } from "./common/throttler/redis-throttler.storage";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DepartmentsModule } from "./departments/departments.module";
 import { EmployeeManagersModule } from "./employee-managers/employee-managers.module";
@@ -29,6 +30,8 @@ import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProjectsModule } from "./projects/projects.module";
+import { RedisModule } from "./redis/redis.module";
+import { RedisService } from "./redis/redis.service";
 import { ReviewCyclesModule } from "./review-cycles/review-cycles.module";
 import { RolesModule } from "./roles/roles.module";
 import { SkillsModule } from "./skills/skills.module";
@@ -78,6 +81,10 @@ function rejectInsecureProductionConfig(
           .default("development"),
         PORT: Joi.number().default(3000),
         DATABASE_URL: Joi.string().required(),
+        // Optional: unset, rate limiting falls back to per-instance counters.
+        REDIS_HOST: Joi.string().allow("").default(""),
+        REDIS_PORT: Joi.number().default(6379),
+        REDIS_PASSWORD: Joi.string().allow("").default(""),
         JWT_ACCESS_SECRET: Joi.string().min(32).required(),
         JWT_REFRESH_SECRET: Joi.string().min(32).required(),
         JWT_ACCESS_EXPIRES_IN: Joi.string().default("15m"),
@@ -113,12 +120,22 @@ function rejectInsecureProductionConfig(
           "any.invalid": "Production config must not use insecure default secrets",
         }),
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 100,
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [RedisModule],
+      inject: [RedisService],
+      useFactory: (redis: RedisService) => ({
+        throttlers: [
+          {
+            ttl: 60000,
+            limit: 100,
+          },
+        ],
+        // Shared across instances, so the limit is the real limit rather
+        // than 100 per process.
+        storage: new RedisThrottlerStorage(redis),
+      }),
+    }),
+    RedisModule,
     PrismaModule,
     AuthModule,
     DashboardModule,
