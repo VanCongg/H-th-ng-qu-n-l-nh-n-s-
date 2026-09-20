@@ -9,6 +9,8 @@ import { AuthUser, RequestContext } from "../common/types";
 import { omitSensitiveUser, pagination, toDateOnly } from "../common/utils";
 import { currentUserWhere } from "../common/prisma-where";
 import { isManagerPosition, type PositionRoleShape } from "../common/position-role";
+import { cacheKeys } from "../redis/cache-keys";
+import { CacheService } from "../redis/cache.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { AssignRoleDto } from "./dto/assign-role.dto";
@@ -42,7 +44,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly cache: CacheService
   ) {}
 
   async findAll(query: UserQueryDto) {
@@ -286,6 +289,9 @@ export class UsersService {
       });
     });
 
+    // Roles, active flag and password all feed the cached AuthUser.
+    await this.cache.del(cacheKeys.authUser(id));
+
     await this.audit.log({
       userId: actor.id,
       action: "UPDATE_USER",
@@ -346,6 +352,8 @@ export class UsersService {
       return deletedUser;
     });
 
+    await this.cache.del(cacheKeys.authUser(id));
+
     await this.audit.log({
       userId: actor.id,
       action: "DELETE_USER",
@@ -372,6 +380,8 @@ export class UsersService {
       create: { userId, roleId: dto.roleId, assignedBy: actor.id },
       update: { assignedBy: actor.id }
     });
+
+    await this.cache.del(cacheKeys.authUser(userId));
 
     await this.audit.log({
       userId: actor.id,
@@ -418,6 +428,8 @@ export class UsersService {
       where: { userId_roleId: { userId, roleId } }
     });
 
+    await this.cache.del(cacheKeys.authUser(userId));
+
     await this.audit.log({
       userId: actor.id,
       action: "REMOVE_ROLE",
@@ -448,6 +460,8 @@ export class UsersService {
       },
       include: userInclude
     });
+
+    await this.cache.del(cacheKeys.authUser(id));
 
     await this.audit.log({
       userId: actor.id,

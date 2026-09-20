@@ -3,6 +3,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { AuditService } from "../common/services/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { createFakeCache } from "../redis/cache.service.fake";
 import { AuthService } from "./auth.service";
 
 describe("AuthService", () => {
@@ -34,15 +35,19 @@ describe("AuthService", () => {
       log: jest.fn()
     };
 
+    const { cache, store } = createFakeCache();
+
     return {
       service: new AuthService(
         prisma as unknown as PrismaService,
         jwt as unknown as JwtService,
         config as unknown as ConfigService,
-        audit as unknown as AuditService
+        audit as unknown as AuditService,
+        cache
       ),
       prisma,
-      jwt
+      jwt,
+      cacheStore: store
     };
   }
 
@@ -108,6 +113,83 @@ describe("AuthService", () => {
         refreshTokenHash: expect.any(String),
         refreshTokenVersion: 3
       }
+    });
+  });
+
+  describe("hydrateAuthUser caching", () => {
+    const dbUser = {
+      id: 1,
+      username: "manager",
+      email: "manager@example.com",
+      isActive: true,
+      deletedAt: null,
+      mustChangePassword: false,
+      employee: { id: 10, deletedAt: null },
+      userRoles: [
+        {
+          role: {
+            name: "MANAGER",
+            rolePermissions: [{ permission: { code: "LEAVE_READ_TEAM" } }]
+          }
+        }
+      ]
+    };
+
+    it("reads from the cache on the second call instead of rejoining four tables", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findUnique.mockResolvedValue(dbUser);
+
+      const first = await service.hydrateAuthUser(1);
+      const second = await service.hydrateAuthUser(1);
+
+      expect(second).toEqual(first);
+      expect(second).toEqual(
+        expect.objectContaining({
+          id: 1,
+          roles: ["MANAGER"],
+          permissions: ["LEAVE_READ_TEAM"]
+        })
+      );
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-reads an inactive user every time rather than caching the rejection", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findUnique.mockResolvedValue({ ...dbUser, isActive: false });
+
+      await expect(service.hydrateAuthUser(1)).resolves.toBeNull();
+      await expect(service.hydrateAuthUser(1)).resolves.toBeNull();
+
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it("drops the cached user when the password changes", async () => {
+      const { service, prisma, cacheStore } = createService();
+      prisma.user.findUnique.mockResolvedValue(dbUser);
+      await service.hydrateAuthUser(1);
+      expect(cacheStore.has("auth:user:1")).toBe(true);
+
+      // changePassword re-reads the row to verify the current password.
+      prisma.user.findUnique.mockResolvedValue({
+        ...dbUser,
+        passwordHash: await bcrypt.hash("old-password", 1)
+      });
+      prisma.user.update.mockResolvedValue({});
+
+      await service.changePassword(
+        {
+          id: 1,
+          username: "manager",
+          email: "manager@example.com",
+          roles: ["MANAGER"],
+          permissions: [],
+          employeeId: 10,
+          mustChangePassword: true
+        },
+        { currentPassword: "old-password", newPassword: "New@password1" }
+      );
+
+      expect(cacheStore.has("auth:user:1")).toBe(false);
     });
   });
 });

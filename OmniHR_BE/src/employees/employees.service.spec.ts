@@ -2,6 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { createFakeCache } from "../redis/cache.service.fake";
 import { EmployeesService } from "./employees.service";
 
 describe("EmployeesService", () => {
@@ -43,7 +44,8 @@ describe("EmployeesService", () => {
         prisma as unknown as PrismaService,
         config as unknown as ConfigService,
         audit as unknown as AuditService,
-        accessControl as unknown as AccessControlService
+        accessControl as unknown as AccessControlService,
+        createFakeCache().cache
       ),
       prisma,
       audit,

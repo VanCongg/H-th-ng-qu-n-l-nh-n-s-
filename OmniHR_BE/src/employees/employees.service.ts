@@ -9,6 +9,8 @@ import { AccessControlService } from "../common/services/access-control.service"
 import { AuthUser, RequestContext } from "../common/types";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { isManagerPosition } from "../common/position-role";
+import { cacheKeys } from "../redis/cache-keys";
+import { CacheService } from "../redis/cache.service";
 import {
   formatDateDdMmYyyy,
   omitSensitiveUser,
@@ -40,7 +42,8 @@ export class EmployeesService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
-    private readonly accessControl: AccessControlService
+    private readonly accessControl: AccessControlService,
+    private readonly cache: CacheService
   ) {}
 
   async findAll(query: EmployeeQueryDto) {
@@ -283,6 +286,13 @@ export class EmployeesService {
       });
     });
 
+    // A company email change renames the login, and a position change grants
+    // or revokes MANAGER - both live in the cached AuthUser. Dropped after the
+    // transaction commits, so a rollback cannot evict a still-valid entry.
+    if (oldValue.userId) {
+      await this.cache.del(cacheKeys.authUser(oldValue.userId));
+    }
+
     await this.audit.log({
       userId: actor.id,
       action: "UPDATE_EMPLOYEE",
@@ -380,6 +390,10 @@ export class EmployeesService {
       return deleted;
     });
 
+    if (oldValue.userId) {
+      await this.cache.del(cacheKeys.authUser(oldValue.userId));
+    }
+
     await this.audit.log({
       userId: actor.id,
       action: "DELETE_EMPLOYEE",
@@ -416,6 +430,8 @@ export class EmployeesService {
         refreshTokenVersion: { increment: 1 }
       }
     });
+
+    await this.cache.del(cacheKeys.authUser(employee.user.id));
 
     await this.audit.log({
       userId: actor.id,
@@ -460,6 +476,9 @@ export class EmployeesService {
         refreshTokenVersion: isActive ? undefined : { increment: 1 }
       }
     });
+
+    // Locking has to bite on the very next request, not once the TTL lapses.
+    await this.cache.del(cacheKeys.authUser(user.id));
 
     await this.audit.log({
       userId: actor.id,

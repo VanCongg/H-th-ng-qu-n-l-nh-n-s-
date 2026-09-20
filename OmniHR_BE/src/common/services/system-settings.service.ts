@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { cacheKeys, SYSTEM_SETTINGS_TTL_SECONDS } from "../../redis/cache-keys";
+import { CacheService } from "../../redis/cache.service";
 
 const SYSTEM_SETTINGS_KEY = "default";
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -57,14 +59,28 @@ export const defaultSystemSettings: SystemSettings = {
 
 @Injectable()
 export class SystemSettingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: CacheService
+  ) {}
 
+  /**
+   * Read from Redis first. Two dozen call sites across attendance, leave,
+   * payroll and the chatbot hit this on nearly every request, for a row that
+   * only the settings screen ever changes.
+   */
   async getSettings(): Promise<SystemSettings> {
-    const record = await this.prisma.systemSetting.findUnique({
-      where: { key: SYSTEM_SETTINGS_KEY }
-    });
+    return this.cache.wrap(
+      cacheKeys.systemSettings(),
+      SYSTEM_SETTINGS_TTL_SECONDS,
+      async () => {
+        const record = await this.prisma.systemSetting.findUnique({
+          where: { key: SYSTEM_SETTINGS_KEY }
+        });
 
-    return normalizeSystemSettings(record?.value);
+        return normalizeSystemSettings(record?.value);
+      }
+    );
   }
 
   async updateSettings(settings: Record<string, unknown>): Promise<SystemSettings> {
@@ -81,6 +97,8 @@ export class SystemSettingsService {
         value: next as unknown as Prisma.InputJsonValue
       }
     });
+
+    await this.cache.del(cacheKeys.systemSettings());
 
     return next;
   }

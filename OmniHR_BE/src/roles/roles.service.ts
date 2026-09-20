@@ -5,6 +5,8 @@ import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { currentUserWhere } from "../common/prisma-where";
+import { cacheKeys } from "../redis/cache-keys";
+import { CacheService } from "../redis/cache.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { AssignPermissionDto } from "./dto/assign-permission.dto";
@@ -22,7 +24,8 @@ const roleInclude = {
 export class RolesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly cache: CacheService
   ) {}
 
   findAll() {
@@ -109,6 +112,10 @@ export class RolesService {
       });
     });
 
+    if (permissionIds) {
+      await this.invalidateRoleHolders(id);
+    }
+
     await this.audit.log({
       userId: actor.id,
       action: "UPDATE_ROLE",
@@ -132,7 +139,10 @@ export class RolesService {
       );
     }
 
+    // Read the holders before the delete cascades their userRole rows away.
+    const holderIds = await this.roleHolderIds(id);
     await this.prisma.role.delete({ where: { id } });
+    await this.cache.del(holderIds.map(cacheKeys.authUser));
     await this.audit.log({
       userId: actor.id,
       action: "DELETE_ROLE",
@@ -171,6 +181,8 @@ export class RolesService {
       update: {}
     });
 
+    await this.invalidateRoleHolders(roleId);
+
     await this.audit.log({
       userId: actor.id,
       action: "ASSIGN_PERMISSION",
@@ -206,6 +218,8 @@ export class RolesService {
       where: { roleId_permissionId: { roleId, permissionId } }
     });
 
+    await this.invalidateRoleHolders(roleId);
+
     await this.audit.log({
       userId: actor.id,
       action: "REMOVE_PERMISSION",
@@ -216,6 +230,23 @@ export class RolesService {
     });
 
     return this.findOne(roleId);
+  }
+
+  /**
+   * A role's permission set is copied into every holder's cached AuthUser, so
+   * changing it has to evict all of them - not just the role itself.
+   */
+  private async invalidateRoleHolders(roleId: number) {
+    const holderIds = await this.roleHolderIds(roleId);
+    await this.cache.del(holderIds.map(cacheKeys.authUser));
+  }
+
+  private async roleHolderIds(roleId: number) {
+    const holders = await this.prisma.userRole.findMany({
+      where: { roleId },
+      select: { userId: true }
+    });
+    return holders.map((holder) => holder.userId);
   }
 
   private ensureAllowedRoleName(name: string) {

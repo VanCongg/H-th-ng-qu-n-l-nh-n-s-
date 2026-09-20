@@ -10,6 +10,8 @@ import { JwtAccessPayload, JwtRefreshPayload } from "./jwt-payload.type";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
+import { AUTH_USER_TTL_SECONDS, cacheKeys } from "../redis/cache-keys";
+import { CacheService } from "../redis/cache.service";
 
 @Injectable()
 export class AuthService {
@@ -17,7 +19,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly cache: CacheService
   ) {}
 
   async login(dto: LoginDto, context?: RequestContext) {
@@ -209,10 +212,30 @@ export class AuthService {
       }
     });
 
+    // mustChangePassword just flipped, and a stale copy would keep prompting.
+    await this.cache.del(cacheKeys.authUser(user.id));
+
     return { message: "Password changed successfully" };
   }
 
+  /**
+   * Runs on every authenticated request, via JwtStrategy.validate, and joins
+   * four tables to do it - so it reads from Redis first.
+   *
+   * Only a hydrated user is cached; a null (inactive, deleted, missing) goes
+   * back to the database every time, so a newly activated account is not
+   * locked out for a whole TTL. Callers that change a user's roles, status or
+   * password drop `cacheKeys.authUser(id)` themselves.
+   */
   async hydrateAuthUser(userId: number): Promise<AuthUser | null> {
+    return this.cache.wrap(
+      cacheKeys.authUser(userId),
+      AUTH_USER_TTL_SECONDS,
+      () => this.loadAuthUser(userId),
+    );
+  }
+
+  private async loadAuthUser(userId: number): Promise<AuthUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
