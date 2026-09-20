@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "helmet": "^8.0.1",
+    "ioredis": "^6.0.0",
     "joi": "^17.13.3",
     "nodemailer": "^10.0.9",
     "passport": "^0.7.0",
@@ -69,5 +70,8 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "multer": "^2.4.0"
   }
 }
