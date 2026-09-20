@@ -90,6 +90,9 @@ export function SystemSettingsPage() {
     if (query.data) {
       form.setValues(settingsToFormValues(query.data));
     }
+    // Mantine rebuilds `form` on every render, so listing it here would loop
+    // forever; the query result is the only real trigger for this sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data]);
 
   const mutation = useMutation({
