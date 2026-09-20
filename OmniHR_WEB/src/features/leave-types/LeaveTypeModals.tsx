@@ -71,7 +71,7 @@ export function LeaveTypeFormModal({ opened, editing, onClose }: LeaveTypeFormMo
           <NumberInput label={tx("Annual allowance")} min={0} {...form.getInputProps("annualAllowance")} />
           <Switch
             label={tx("Paid leave")}
-            description={tx("Counted as a paid work day in payroll")}
+            description={tx("Counted as a paid work day")}
             {...form.getInputProps("isPaid", { type: "checkbox" })}
           />
           <Switch label={tx("Active")} {...form.getInputProps("isActive", { type: "checkbox" })} />

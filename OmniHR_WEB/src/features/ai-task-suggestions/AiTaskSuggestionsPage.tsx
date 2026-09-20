@@ -6,6 +6,7 @@ import {
   Modal,
   NumberInput,
   Paper,
+  Popover,
   Progress,
   Select,
   SimpleGrid,
@@ -17,7 +18,7 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Eye, Sparkles } from "lucide-react";
+import { Check, Eye, Info, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { aiTaskSuggestionsApi, projectsApi, tasksApi } from "../../api/endpoints";
@@ -82,8 +83,7 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
     initialValues: {
       taskId: "",
       limit: 5,
-      includeAvailability: true,
-      includePerformance: true
+      includeAvailability: true
     },
     validate: {
       taskId: (value) => (value ? null : tx("Required"))
@@ -94,8 +94,7 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
     mutationFn: (values: typeof form.values) =>
       aiTaskSuggestionsApi.generate(Number(values.taskId), {
         limit: Number(values.limit || 5),
-        includeAvailability: Boolean(values.includeAvailability),
-        includePerformance: Boolean(values.includePerformance)
+        includeAvailability: Boolean(values.includeAvailability)
       }),
     onSuccess: (result) => {
       notifications.show({ color: "green", message: tx("AI suggestion generated") });
@@ -161,11 +160,6 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
                 label={tx("Include leave availability")}
                 mt="lg"
                 {...form.getInputProps("includeAvailability", { type: "checkbox" })}
-              />
-              <Switch
-                label={tx("Include past review ratings")}
-                mt="lg"
-                {...form.getInputProps("includePerformance", { type: "checkbox" })}
               />
               <Group align="flex-end">
                 <Button
@@ -245,7 +239,6 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
               <Badge color={statusColor(item.status)}>{te(item.status)}</Badge>
             )
           },
-          { key: "algorithm", label: "Algorithm", render: (item) => item.algorithmVersion },
           { key: "created", label: "Created at", render: (item) => formatDateTime(item.createdAt) },
           {
             key: "top",
@@ -276,17 +269,16 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
         opened={Boolean(selectedSuggestion)}
         onClose={() => setSelectedSuggestion(null)}
         title={tx("AI suggestion details")}
-        // The per-candidate reason is a full sentence, and the score breakdown
-        // now carries a fifth column, so the default xl modal wraps it to one
-        // word per line.
-        size="90%"
+        size="xl"
       >
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
             <Stack gap={0}>
               <Text fw={800}>{selectedSuggestion?.task.title}</Text>
               <Text size="sm" c="dimmed">
-                {selectedSuggestion?.algorithmVersion}
+                {selectedSuggestion
+                  ? formatDateTime(selectedSuggestion.createdAt)
+                  : null}
               </Text>
             </Stack>
             {selectedSuggestion ? (
@@ -328,16 +320,11 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
               { key: "workload", label: "Workload", render: (item) => item.workloadScore },
               { key: "availability", label: "Availability", render: (item) => item.availabilityScore },
               {
-                key: "performance",
-                label: "Performance",
-                render: (item) =>
-                  item.performanceScore ?? (
-                    <Text size="xs" c="dimmed">
-                      {tx("No reviews yet")}
-                    </Text>
-                  )
+                key: "reason",
+                label: "Reason",
+                width: 72,
+                render: (item) => <ReasonCell reason={item.reason} />
               },
-              { key: "reason", label: "Reason", render: (item) => item.reason ?? "-" },
               {
                 key: "actions",
                 label: "",
@@ -370,6 +357,49 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
         </Stack>
       </Modal>
     </Stack>
+  );
+}
+
+/**
+ * The scoring reason is a full sentence, so showing it inline squeezed every
+ * other column. It stays collapsed behind an icon and opens on demand.
+ */
+function ReasonCell({ reason }: { reason?: string | null }) {
+  const { tx } = useTranslation();
+  const [opened, setOpened] = useState(false);
+
+  if (!reason) {
+    return (
+      <Text size="sm" c="dimmed">
+        -
+      </Text>
+    );
+  }
+
+  return (
+    <Popover
+      opened={opened}
+      onChange={setOpened}
+      width={340}
+      position="left"
+      withArrow
+      shadow="md"
+    >
+      <Popover.Target>
+        <Tooltip label={tx("Why this candidate")}>
+          <ActionIcon
+            variant={opened ? "light" : "subtle"}
+            aria-label={tx("Why this candidate")}
+            onClick={() => setOpened((open) => !open)}
+          >
+            <Info size={16} />
+          </ActionIcon>
+        </Tooltip>
+      </Popover.Target>
+      <Popover.Dropdown>
+        <Text size="sm">{reason}</Text>
+      </Popover.Dropdown>
+    </Popover>
   );
 }
 

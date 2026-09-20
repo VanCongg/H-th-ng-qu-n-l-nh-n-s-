@@ -18,11 +18,9 @@ import type {
   ManagerDashboard,
   Notification,
   Paginated,
-  PerformanceReview,
   Permission,
   Position,
   Project,
-  ReviewCycle,
   Role,
   Skill,
   Task,
@@ -30,11 +28,6 @@ import type {
   Team,
   UserSummary,
   AuditLog,
-  CompensationRow,
-  EmployeeCompensation,
-  PayrollPeriod,
-  PayrollPeriodSummary,
-  SendPayslipsResult,
   TimesheetRow,
   LeaveBalanceList
 } from "./types";
@@ -305,63 +298,9 @@ export const notificationsApi = {
   markAllRead: () => unwrap(api.patch("/notifications/read-all"))
 };
 
-export const reviewCyclesApi = {
-  list: () => unwrap<ReviewCycle[]>(api.get("/review-cycles")),
-  create: (payload: Record<string, unknown>) =>
-    unwrap<ReviewCycle>(api.post("/review-cycles", payload)),
-  update: (id: number, payload: Record<string, unknown>) =>
-    unwrap<ReviewCycle>(api.patch(`/review-cycles/${id}`, payload)),
-  launch: (id: number) =>
-    unwrap<{ createdCount: number }>(api.post(`/review-cycles/${id}/launch`))
-};
-
-export const performanceReviewsApi = {
-  list: (params?: QueryParams) =>
-    unwrap<Paginated<PerformanceReview>>(api.get("/performance-reviews", { params })),
-  team: (params?: QueryParams) =>
-    unwrap<Paginated<PerformanceReview>>(
-      api.get("/performance-reviews/team", { params })
-    ),
-  self: (params?: QueryParams) =>
-    unwrap<Paginated<PerformanceReview>>(
-      api.get("/performance-reviews/self", { params })
-    ),
-  submitSelf: (id: number, payload: Record<string, unknown>) =>
-    unwrap<PerformanceReview>(
-      api.patch(`/performance-reviews/${id}/submit-self`, payload)
-    ),
-  submitManager: (id: number, payload: Record<string, unknown>) =>
-    unwrap<PerformanceReview>(
-      api.patch(`/performance-reviews/${id}/submit-manager`, payload)
-    ),
-  finalize: (id: number, payload?: Record<string, unknown>) =>
-    unwrap<PerformanceReview>(
-      api.patch(`/performance-reviews/${id}/finalize`, payload ?? {})
-    )
-};
-
 export const auditLogsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<AuditLog>>(api.get("/audit-logs", { params }))
-};
-
-export const payrollApi = {
-  compensations: (params?: QueryParams) =>
-    unwrap<Paginated<CompensationRow>>(api.get("/payroll/compensations", { params })),
-  upsertCompensation: (employeeId: number, payload: Record<string, unknown>) =>
-    unwrap<EmployeeCompensation>(api.put(`/payroll/compensations/${employeeId}`, payload)),
-  periods: () => unwrap<PayrollPeriodSummary[]>(api.get("/payroll/periods")),
-  period: (id: number) => unwrap<PayrollPeriod>(api.get(`/payroll/periods/${id}`)),
-  createPeriod: (payload: { year: number; month: number }) =>
-    unwrap<PayrollPeriod>(api.post("/payroll/periods", payload)),
-  calculate: (id: number) =>
-    unwrap<PayrollPeriod>(api.post(`/payroll/periods/${id}/calculate`)),
-  finalize: (id: number) =>
-    unwrap<PayrollPeriod>(api.post(`/payroll/periods/${id}/finalize`)),
-  sendPayslips: (id: number, payload: { employeeIds?: number[]; onlyUnsent?: boolean }) =>
-    unwrap<SendPayslipsResult>(api.post(`/payroll/periods/${id}/send-payslips`, payload)),
-  removePeriod: (id: number) =>
-    unwrap<{ id: number }>(api.delete(`/payroll/periods/${id}`))
 };
 
 export const leaveBalancesApi = {

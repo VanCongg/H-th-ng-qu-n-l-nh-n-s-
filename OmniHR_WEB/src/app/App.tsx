@@ -25,7 +25,6 @@ import { UsersPage } from "../features/users/UsersPage";
 import { RolesPermissionsPage } from "../features/roles-permissions/RolesPermissionsPage";
 import { PoliciesPage } from "../features/policies/PoliciesPage";
 import { AuditLogsPage } from "../features/audit-logs/AuditLogsPage";
-import { PayrollPage } from "../features/payroll/PayrollPage";
 import { SystemSettingsPage } from "../features/system-settings/SystemSettingsPage";
 import { MyProfilePage } from "../features/employees/MyProfilePage";
 import { ProjectsPage } from "../features/projects/ProjectsPage";
@@ -33,7 +32,6 @@ import { TasksPage } from "../features/tasks/TasksPage";
 import { SkillsPage } from "../features/skills/SkillsPage";
 import { EmployeeSkillsPage } from "../features/employee-skills/EmployeeSkillsPage";
 import { AiTaskSuggestionsPage } from "../features/ai-task-suggestions/AiTaskSuggestionsPage";
-import { PerformanceReviewsPage } from "../features/performance-reviews/PerformanceReviewsPage";
 
 export function App() {
   return (
@@ -73,33 +71,20 @@ export function App() {
                   path="ai-task-suggestions"
                   element={<AiTaskSuggestionsPage scope="team" />}
                 />
-                <Route
-                  path="team-reviews"
-                  element={<PerformanceReviewsPage scope="team" />}
-                />
                 <Route path="profile" element={<MyProfilePage />} />
               </Route>
             </Route>
-            <Route element={<RequireRole roles={["ADMIN", "ACCOUNTANT"]} />}>
+            <Route element={<RequireRole roles={["ADMIN"]} />}>
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminIndexRedirect />} />
                 <Route element={<RequirePermission permissions={["ATTENDANCE_READ_ALL"]} />}>
                   <Route path="attendance" element={<AttendancePage scope="all" />} />
                 </Route>
-                <Route
-                  element={
-                    <RequirePermission permissions={["ATTENDANCE_READ_ALL", "PAYROLL_READ"]} />
-                  }
-                >
+                <Route element={<RequirePermission permissions={["ATTENDANCE_READ_ALL"]} />}>
                   <Route path="timesheets" element={<TimesheetPage />} />
-                </Route>
-                <Route element={<RequirePermission permissions={["PAYROLL_READ"]} />}>
-                  <Route path="payroll" element={<PayrollPage />} />
                 </Route>
                 <Route element={<RequireRole roles={["ADMIN"]} />}>
                   <Route path="dashboard" element={<AdminDashboardPage />} />
-                  <Route path="review-cycles" element={<Navigate to="/admin/reviews" replace />} />
-                  <Route path="reviews" element={<PerformanceReviewsPage scope="all" />} />
                   <Route path="employees" element={<Navigate to="/admin/users" replace />} />
                   <Route path="departments" element={<DepartmentsPage />} />
                   <Route path="positions" element={<PositionsPage />} />

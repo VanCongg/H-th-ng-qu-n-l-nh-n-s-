@@ -108,17 +108,6 @@ export function statusColor(status?: string) {
   }
 }
 
-export function formatMoney(value?: number | null) {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  return new Intl.NumberFormat(getCurrentLocale(), {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0
-  }).format(value);
-}
-
 /** Minutes as "1h05" or "45m"; zero stays "0". */
 export function formatMinutes(minutes: number) {
   if (!minutes) {
@@ -132,10 +121,6 @@ export function formatMinutes(minutes: number) {
 /** Work days, which are whole or half days. */
 export function formatDays(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
-
-export function formatMonthYear(value: { month: number; year: number }) {
-  return `${String(value.month).padStart(2, "0")}/${value.year}`;
 }
 
 export function monthOptions(prefix: string) {

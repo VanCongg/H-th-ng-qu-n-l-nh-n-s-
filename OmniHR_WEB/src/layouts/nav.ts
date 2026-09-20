@@ -13,10 +13,8 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
-  Star,
   UserRound,
-  Users,
-  Wallet
+  Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RoleName } from "../api/types";
@@ -45,7 +43,6 @@ export const appNavItems: NavItem[] = [
   },
   { labelKey: "projects", to: "/app/projects", icon: ClipboardList },
   { labelKey: "teamTasks", to: "/app/team-tasks", icon: CheckSquare },
-  { labelKey: "teamReviews", to: "/app/team-reviews", icon: Star },
   { labelKey: "myProfile", to: "/app/profile", icon: UserRound }
 ];
 
@@ -63,10 +60,8 @@ export const adminNavItems: NavItem[] = [
     labelKey: "timesheets",
     to: "/admin/timesheets",
     icon: CalendarDays,
-    permissions: ["ATTENDANCE_READ_ALL", "PAYROLL_READ"]
+    permissions: ["ATTENDANCE_READ_ALL"]
   },
-  { labelKey: "payroll", to: "/admin/payroll", icon: Wallet, permissions: ["PAYROLL_READ"] },
-  { labelKey: "reviews", to: "/admin/reviews", icon: Star, roles: adminOnly },
   { labelKey: "users", to: "/admin/users", icon: UserRound, roles: adminOnly },
   { labelKey: "departments", to: "/admin/departments", icon: FileText, roles: adminOnly },
   { labelKey: "positions", to: "/admin/positions", icon: BadgeCheck, roles: adminOnly },

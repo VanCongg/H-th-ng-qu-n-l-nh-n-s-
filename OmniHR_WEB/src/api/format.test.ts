@@ -6,8 +6,6 @@ import {
   formatTeamName,
   formatDays,
   formatMinutes,
-  formatMoney,
-  formatMonthYear,
   monthOptions,
   statusColor,
   yearOptions
@@ -86,12 +84,7 @@ describe("statusColor", () => {
   });
 });
 
-describe("payroll formatting", () => {
-  it("formats money as whole VND and keeps missing values as a dash", () => {
-    expect(formatMoney(null)).toBe("-");
-    expect(formatMoney(22_000_000).replace(/\D/g, "")).toBe("22000000");
-  });
-
+describe("timesheet formatting", () => {
   it("formats minutes as hours and minutes", () => {
     expect(formatMinutes(0)).toBe("0");
     expect(formatMinutes(45)).toBe("45m");
@@ -104,7 +97,6 @@ describe("payroll formatting", () => {
   });
 
   it("builds month and year labels and options", () => {
-    expect(formatMonthYear({ month: 9, year: 2026 })).toBe("09/2026");
     expect(monthOptions("Tháng")[0]).toEqual({ value: "1", label: "Tháng 1" });
     expect(yearOptions(2026).map((option) => option.value)).toEqual([
       "2024",

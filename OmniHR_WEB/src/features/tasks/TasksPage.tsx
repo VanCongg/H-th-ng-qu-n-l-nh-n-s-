@@ -2,6 +2,7 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Collapse,
   Divider,
   Group,
   Modal,
@@ -24,6 +25,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Edit,
   Eye,
   History,
@@ -1219,7 +1221,6 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
                     <Badge color={statusColor(aiSuggestion.status)}>
                       {te(aiSuggestion.status)}
                     </Badge>
-                    <Badge variant="light">{aiSuggestion.algorithmVersion}</Badge>
                   </Group>
                 </Group>
                 {aiSuggestion.items.map((item) => {
@@ -1258,11 +1259,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
                               {tx("Availability")}: {item.availabilityScore}
                             </Badge>
                           </Group>
-                          {item.reason ? (
-                            <Text size="sm" c="dimmed" lineClamp={2}>
-                              {item.reason}
-                            </Text>
-                          ) : null}
+                          {item.reason ? <AiReason reason={item.reason} /> : null}
                           {item.warnings?.length ? (
                             <Group gap={4}>
                               {item.warnings.map((warning) => (
@@ -1417,6 +1414,45 @@ function uniqueTasksById(tasks: Task[]) {
   const unique = new Map<number, Task>();
   tasks.forEach((task) => unique.set(task.id, task));
   return Array.from(unique.values());
+}
+
+/**
+ * The scoring reason is a full sentence. Clamping it to two lines cut it
+ * mid-word, so it stays collapsed until the manager asks for it.
+ */
+function AiReason({ reason }: { reason: string }) {
+  const { tx } = useTranslation();
+  const [opened, setOpened] = useState(false);
+
+  return (
+    <Stack gap={4}>
+      <Group
+        gap={4}
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpened((open) => !open)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpened((open) => !open);
+          }
+        }}
+        style={{ cursor: "pointer", width: "fit-content" }}
+      >
+        <ActionIcon size="sm" variant="subtle" color="gray" component="div">
+          {opened ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </ActionIcon>
+        <Text size="xs" c="dimmed" fw={600}>
+          {tx("Why this candidate")}
+        </Text>
+      </Group>
+      <Collapse in={opened}>
+        <Text size="sm" c="dimmed">
+          {reason}
+        </Text>
+      </Collapse>
+    </Stack>
+  );
 }
 
 function taskChildCount(task: Task) {

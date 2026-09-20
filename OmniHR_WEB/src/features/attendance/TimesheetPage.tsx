@@ -166,11 +166,6 @@ export function TimesheetPage() {
             render: (item) => formatDays(item.timesheet.unpaidLeaveDays)
           },
           {
-            key: "payableDays",
-            label: "Payable days",
-            render: (item) => <Text fw={800}>{formatDays(item.timesheet.payableDays)}</Text>
-          },
-          {
             key: "late",
             label: "Late",
             render: (item) => minutesCell(item.timesheet.lateMinutes, "yellow.8")

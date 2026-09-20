@@ -70,10 +70,6 @@ export function RootRedirect() {
     return <Navigate to="/app/dashboard" replace />;
   }
 
-  if (user.roles.includes("ACCOUNTANT")) {
-    return <Navigate to="/admin/payroll" replace />;
-  }
-
   return <Navigate to="/employee-web-notice" replace />;
 }
 
@@ -87,13 +83,13 @@ export function RequirePermission({ permissions }: { permissions: string[] }) {
   return <Outlet />;
 }
 
-/** Admins land on the dashboard; accountants only have the payroll area. */
+/** Admins land on the dashboard; accountants only have the attendance area. */
 export function AdminIndexRedirect() {
   const user = useAuthStore((state) => state.user);
 
   return (
     <Navigate
-      to={user?.roles.includes("ADMIN") ? "/admin/dashboard" : "/admin/payroll"}
+      to={user?.roles.includes("ADMIN") ? "/admin/dashboard" : "/admin/timesheets"}
       replace
     />
   );
@@ -103,7 +99,6 @@ function isEmployeeOnly(roles: RoleName[]) {
   return (
     roles.includes("EMPLOYEE") &&
     !roles.includes("ADMIN") &&
-    !roles.includes("MANAGER") &&
-    !roles.includes("ACCOUNTANT")
+    !roles.includes("MANAGER")
   );
 }

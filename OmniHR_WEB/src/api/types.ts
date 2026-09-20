@@ -5,7 +5,7 @@ export type ApiEnvelope<T> = {
   errorCode?: string;
 };
 
-export type RoleName = "ADMIN" | "MANAGER" | "EMPLOYEE" | "ACCOUNTANT";
+export type RoleName = "ADMIN" | "MANAGER" | "EMPLOYEE";
 
 export type AuthUser = {
   id: number;
@@ -145,53 +145,12 @@ export type LeaveRequest = {
   createdAt: string;
 };
 
-export type ReviewCycleStatus = "OPEN" | "CLOSED";
-
-export type ReviewCycle = {
-  id: number;
-  name: string;
-  startDate: string;
-  endDate: string;
-  status: ReviewCycleStatus;
-};
-
-export type PerformanceReviewStatus =
-  | "PENDING_SELF"
-  | "SELF_SUBMITTED"
-  | "MANAGER_REVIEWED"
-  | "FINALIZED";
-
-export type PerformanceReview = {
-  id: number;
-  cycleId: number;
-  employeeId: number;
-  reviewerUserId?: number | null;
-  selfRating?: number | null;
-  selfComment?: string | null;
-  managerRating?: number | null;
-  managerComment?: string | null;
-  finalRating?: number | null;
-  status: PerformanceReviewStatus;
-  submittedAt?: string | null;
-  reviewedAt?: string | null;
-  finalizedAt?: string | null;
-  employee: {
-    id: number;
-    fullName: string;
-    employeeCode: string;
-    department?: Pick<Department, "id" | "name"> | null;
-  };
-  cycle: ReviewCycle;
-  reviewer?: { id: number; username: string; email: string } | null;
-};
-
 export type NotificationType =
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"
   | "TASK_ASSIGNED"
   | "TASK_STATUS_CHANGED"
-  | "ATTENDANCE_ADJUSTED"
-  | "REVIEW_FINALIZED";
+  | "ATTENDANCE_ADJUSTED";
 
 export type Notification = {
   id: number;
@@ -406,7 +365,6 @@ export type AiTaskSuggestionItem = {
   skillScore: number;
   workloadScore: number;
   availabilityScore: number;
-  performanceScore?: number | null;
   reason?: string | null;
   eligible?: boolean;
   warnings?: string[];
@@ -486,7 +444,6 @@ export type EmployeeTimesheet = {
   attendanceDays: number;
   paidLeaveDays: number;
   unpaidLeaveDays: number;
-  payableDays: number;
   lateMinutes: number;
   earlyLeaveMinutes: number;
   overtimeMinutes: number;
@@ -498,67 +455,6 @@ export type EmployeeTimesheet = {
 export type TimesheetRow = {
   employee: EmployeeRef;
   timesheet: EmployeeTimesheet;
-};
-
-export type EmployeeCompensation = {
-  id: number;
-  employeeId: number;
-  baseSalary: number;
-  allowance: number;
-  insuranceSalary?: number | null;
-  updatedAt: string;
-};
-
-export type CompensationRow = EmployeeRef & {
-  compensation?: EmployeeCompensation | null;
-};
-
-export type PayrollPeriodStatus = "DRAFT" | "FINALIZED";
-
-export type PayrollPeriodSummary = {
-  id: number;
-  year: number;
-  month: number;
-  status: PayrollPeriodStatus;
-  calculatedAt?: string | null;
-  finalizedAt?: string | null;
-  createdAt: string;
-  _count: { payslips: number };
-};
-
-export type Payslip = {
-  id: number;
-  periodId: number;
-  employeeId: number;
-  employee: EmployeeRef;
-  baseSalary: number;
-  allowance: number;
-  insuranceSalary: number;
-  standardWorkDays: number;
-  attendanceDays: number;
-  paidLeaveDays: number;
-  payableDays: number;
-  lateMinutes: number;
-  earlyLeaveMinutes: number;
-  overtimeMinutes: number;
-  missingCheckOuts: number;
-  grossSalary: number;
-  overtimePay: number;
-  attendanceDeduction: number;
-  insuranceDeduction: number;
-  netSalary: number;
-  emailedAt?: string | null;
-  emailError?: string | null;
-};
-
-export type PayrollPeriod = Omit<PayrollPeriodSummary, "_count"> & {
-  payslips: Payslip[];
-};
-
-export type SendPayslipsResult = {
-  sent: number;
-  failed: number;
-  failures: Array<{ employeeId: number; error: string }>;
 };
 
 export type LeaveBalanceStatus = "AVAILABLE" | "LOW" | "EXHAUSTED";

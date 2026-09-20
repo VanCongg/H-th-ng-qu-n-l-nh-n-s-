@@ -29,8 +29,6 @@ type SettingsFormValues = {
   timezoneOffsetMinutes: number;
   attendanceEarlyCheckInMinutes: number;
   attendanceGraceMinutes: number;
-  overtimeRatePercent: number;
-  insuranceRatePercent: number;
   seniorityLeaveEveryYears: number;
   annualLeaveCarryOverMaxDays: number;
   morningShiftStart: string;
@@ -60,8 +58,6 @@ const initialValues: SettingsFormValues = {
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
   attendanceGraceMinutes: 0,
-  overtimeRatePercent: 150,
-  insuranceRatePercent: 10.5,
   seniorityLeaveEveryYears: 5,
   annualLeaveCarryOverMaxDays: 5,
   morningShiftStart: "08:00",
@@ -198,24 +194,6 @@ export function SystemSettingsPage() {
                 {...form.getInputProps("attendanceGraceMinutes")}
               />
               <NumberInput
-                label={tx("Overtime rate")}
-                min={100}
-                max={400}
-                suffix="%"
-                required
-                {...form.getInputProps("overtimeRatePercent")}
-              />
-              <NumberInput
-                label={tx("Insurance rate")}
-                description={tx("Employee share of BHXH, BHYT and BHTN")}
-                min={0}
-                max={50}
-                decimalScale={2}
-                suffix="%"
-                required
-                {...form.getInputProps("insuranceRatePercent")}
-              />
-              <NumberInput
                 label={tx("Seniority leave step")}
                 description={tx(
                   "One extra annual leave day per this many full years of service (0 turns it off)"
@@ -297,14 +275,6 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
     attendanceGraceMinutes: numberValue(
       settings.attendanceGraceMinutes,
       initialValues.attendanceGraceMinutes
-    ),
-    overtimeRatePercent: numberValue(
-      settings.overtimeRatePercent,
-      initialValues.overtimeRatePercent
-    ),
-    insuranceRatePercent: numberValue(
-      settings.insuranceRatePercent,
-      initialValues.insuranceRatePercent
     ),
     seniorityLeaveEveryYears: numberValue(
       settings.seniorityLeaveEveryYears,
