@@ -1258,6 +1258,12 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
                             <Badge variant="outline">
                               {tx("Availability")}: {item.availabilityScore}
                             </Badge>
+                            {item.historyScore === null ||
+                            item.historyScore === undefined ? null : (
+                              <Badge variant="outline">
+                                {tx("Track record")}: {item.historyScore}
+                              </Badge>
+                            )}
                           </Group>
                           {item.reason ? <AiReason reason={item.reason} /> : null}
                           {item.warnings?.length ? (

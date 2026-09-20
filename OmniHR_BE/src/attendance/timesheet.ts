@@ -39,7 +39,6 @@ export type EmployeeTimesheet = {
   attendanceDays: number;
   paidLeaveDays: number;
   unpaidLeaveDays: number;
-  payableDays: number;
   lateMinutes: number;
   earlyLeaveMinutes: number;
   overtimeMinutes: number;
@@ -162,7 +161,6 @@ export function computeTimesheet(
     attendanceDays: 0,
     paidLeaveDays: 0,
     unpaidLeaveDays: 0,
-    payableDays: 0,
     lateMinutes: 0,
     earlyLeaveMinutes: 0,
     overtimeMinutes: 0,
@@ -248,7 +246,6 @@ export function computeTimesheet(
     }
   }
 
-  timesheet.payableDays = timesheet.attendanceDays + timesheet.paidLeaveDays;
   return timesheet;
 }
 

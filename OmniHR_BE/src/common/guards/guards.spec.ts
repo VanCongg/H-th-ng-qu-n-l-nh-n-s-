@@ -40,13 +40,13 @@ describe("PermissionsGuard", () => {
   });
 
   it("treats several declared permissions as OR, not AND", () => {
-    // Routes such as GET /review-cycles rely on this: holding any one of the
+    // Routes such as GET /attendance/timesheets rely on this: holding any one of the
     // listed permissions is enough.
     const guard = new PermissionsGuard(
-      reflectorReturning(["REVIEW_MANAGE", "REVIEW_READ_TEAM"])
+      reflectorReturning(["ATTENDANCE_READ_ALL", "ATTENDANCE_READ_TEAM"])
     );
 
-    expect(guard.canActivate(contextWithUser({ permissions: ["REVIEW_READ_TEAM"] }))).toBe(
+    expect(guard.canActivate(contextWithUser({ permissions: ["ATTENDANCE_READ_TEAM"] }))).toBe(
       true
     );
   });
@@ -54,7 +54,7 @@ describe("PermissionsGuard", () => {
   it("does not infer permissions from the ADMIN role", () => {
     // The backend guard checks granted permissions only - unlike the web
     // client's hasPermission, which short-circuits for ADMIN.
-    const guard = new PermissionsGuard(reflectorReturning(["REVIEW_MANAGE"]));
+    const guard = new PermissionsGuard(reflectorReturning(["ATTENDANCE_READ_ALL"]));
 
     expect(() =>
       guard.canActivate(contextWithUser({ roles: ["ADMIN"], permissions: [] }))

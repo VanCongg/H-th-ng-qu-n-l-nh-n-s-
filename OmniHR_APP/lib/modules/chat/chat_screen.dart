@@ -16,8 +16,6 @@ const _quickReplies = [
   'Tháng này có ai sinh nhật?',
   'Manager của tôi là ai?',
   'Tháng này tôi đi muộn mấy lần?',
-  'Lương tháng trước của tôi bao nhiêu?',
-  'Kết quả đánh giá gần nhất của tôi?',
   'Tôi đang tham gia dự án nào?',
   'Team tôi gồm những ai?',
   'Tháng này tôi hoàn thành bao nhiêu task?',

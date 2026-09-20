@@ -22,17 +22,13 @@ import { EmployeesModule } from "./employees/employees.module";
 import { LeaveBalancesModule } from "./leave-balances/leave-balances.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
-import { MailModule } from "./mail/mail.module";
 import { NotificationsModule } from "./notifications/notifications.module";
-import { PayrollModule } from "./payroll/payroll.module";
-import { PerformanceReviewsModule } from "./performance-reviews/performance-reviews.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { PositionsModule } from "./positions/positions.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { RedisModule } from "./redis/redis.module";
 import { RedisService } from "./redis/redis.service";
-import { ReviewCyclesModule } from "./review-cycles/review-cycles.module";
 import { RolesModule } from "./roles/roles.module";
 import { SkillsModule } from "./skills/skills.module";
 import { TaskAssignmentsModule } from "./task-assignments/task-assignments.module";
@@ -102,18 +98,16 @@ function rejectInsecureProductionConfig(
         AI_SERVICE_URL: Joi.string().default("http://localhost:8000"),
         AI_INTERNAL_TOKEN: Joi.string().min(32).required(),
         AI_TIMEOUT_MS: Joi.number().default(30000),
+        AI_SUGGESTION_EXPLANATIONS: Joi.string()
+          .valid("true", "false")
+          .default("true"),
+        AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: Joi.number().default(8000),
         CHATBOT_RATE_LIMIT_TTL_SECONDS: Joi.number().default(60),
         CHATBOT_RATE_LIMIT_MAX: Joi.number().default(20),
         CHATBOT_RATE_LIMIT_PER_MINUTE: Joi.number().default(20),
         CHATBOT_HISTORY_LIMIT: Joi.number().default(12),
         CHATBOT_MAX_MESSAGE_LENGTH: Joi.number().default(1000),
         CHATBOT_PENDING_ACTION_TTL_MINUTES: Joi.number().default(30),
-        SMTP_HOST: Joi.string().allow("").default(""),
-        SMTP_PORT: Joi.number().default(587),
-        SMTP_SECURE: Joi.boolean().default(false),
-        SMTP_USER: Joi.string().allow("").default(""),
-        SMTP_PASS: Joi.string().allow("").default(""),
-        SMTP_FROM: Joi.string().default("OmniHR <no-reply@omnihr.local>"),
       })
         .custom(rejectInsecureProductionConfig, "production security guard")
         .messages({
@@ -155,16 +149,12 @@ function rejectInsecureProductionConfig(
     SkillsModule,
     EmployeeSkillsModule,
     TeamsModule,
-    MailModule,
-    PayrollModule,
     TasksModule,
     TaskAssignmentsModule,
     TaskWorkloadModule,
     AiTaskSuggestionsModule,
     ChatbotModule,
     NotificationsModule,
-    ReviewCyclesModule,
-    PerformanceReviewsModule,
   ],
   providers: [
     {

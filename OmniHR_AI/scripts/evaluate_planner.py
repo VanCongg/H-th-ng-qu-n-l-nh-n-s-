@@ -45,9 +45,9 @@ ALL_TOOLS = [
     "create_leave_request_draft", "cancel_my_pending_leave_request", "get_my_tasks",
     "get_my_upcoming_tasks", "get_employee_birthdays", "get_who_is_on_leave_today",
     "get_upcoming_leaves", "get_team_attendance_summary", "get_team_task_summary",
-    "get_department_headcount", "get_my_attendance_summary", "get_my_payslip",
-    "get_my_performance_reviews", "get_my_projects", "get_my_skills", "get_my_team_members",
-    "get_my_task_stats",
+    "get_department_headcount", "get_my_attendance_summary",
+    "get_my_projects", "get_my_skills", "get_my_team_members",
+    "get_my_task_stats", "update_task_status_draft",
 ]
 # A manager-level user, so every tool is available and a miss is the planner's fault.
 PERMISSIONS = [

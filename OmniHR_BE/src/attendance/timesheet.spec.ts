@@ -136,7 +136,6 @@ describe("computeTimesheet", () => {
 
     expect(result.paidLeaveDays).toBe(3);
     expect(result.unpaidLeaveDays).toBe(1);
-    expect(result.payableDays).toBe(3);
   });
 
   it("does not double count a day that is both attended and on paid leave", () => {
@@ -147,6 +146,5 @@ describe("computeTimesheet", () => {
 
     expect(result.attendanceDays).toBe(0.5);
     expect(result.paidLeaveDays).toBe(0.5);
-    expect(result.payableDays).toBe(1);
   });
 });

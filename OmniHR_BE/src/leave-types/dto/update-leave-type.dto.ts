@@ -16,7 +16,7 @@ export class UpdateLeaveTypeDto {
   @Min(0)
   annualAllowance?: number | null;
 
-  /** Whether an approved leave of this type counts as a paid work day in payroll. */
+  /** Whether an approved leave of this type counts as a paid work day. */
   @IsOptional()
   @IsBoolean()
   isPaid?: boolean;

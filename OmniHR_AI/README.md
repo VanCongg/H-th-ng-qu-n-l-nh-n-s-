@@ -144,7 +144,7 @@ Three message sets, each with a different job:
 | fixtures | `app/tests/fixtures/intent_cases.json` | The rule-based planner was written against it; regression check only. |
 | dev | `app/eval/planner_holdout.json` (82) | Used to tune the prompt and fallback rules, so its scores are optimistic. |
 | test | `app/eval/planner_test.json` (80) | Committed before tuning and never tuned on. Report this one. |
-| dev2 | `app/eval/planner_v2_dev.json` (50) | Seven personal-data questions (monthly attendance, payslip, reviews, projects, skills, team, task stats), forbidden variants and regressions. |
+| dev2 | `app/eval/planner_v2_dev.json` (50) | Personal-data questions (monthly attendance, projects, skills, team, task stats), out-of-scope pay/review questions, forbidden variants and regressions. |
 | test2 | `app/eval/planner_v2_test.json` (50) | Written with dev2, before the tools existed; score once. |
 
 ```bash

@@ -132,3 +132,24 @@ class PlannerSchemaTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_task_status_draft_is_a_write_tool_with_a_narrow_argument_list():
+    """
+    The tool exists in NestJS and in the rule-based planner; leaving it out of
+    the schema made it unreachable in hybrid mode, which is what ships.
+    """
+    from app.schemas.planner import (
+        TOOL_ARGUMENT_ALLOWLISTS,
+        WRITE_TOOLS,
+        PlannerIntent,
+        PlannerToolName,
+    )
+
+    assert PlannerToolName.UPDATE_TASK_STATUS_DRAFT in WRITE_TOOLS
+    assert PlannerIntent.UPDATE_TASK_STATUS_DRAFT
+    assert TOOL_ARGUMENT_ALLOWLISTS[PlannerToolName.UPDATE_TASK_STATUS_DRAFT] == {
+        "status",
+        "taskId",
+        "taskTitle",
+    }

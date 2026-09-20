@@ -4,11 +4,7 @@
 
 ## Bảo hiểm
 
-Nhân viên chính thức được tham gia bảo hiểm xã hội, bảo hiểm y tế và bảo hiểm thất nghiệp theo quy định nhà nước. Phần bảo hiểm người lao động đóng là 10,5 phần trăm (10,5%) mức lương đóng bảo hiểm, gồm BHXH 8%, BHYT 1,5% và BHTN 1%, và được trừ trực tiếp trên phiếu lương hằng tháng. Công ty hỗ trợ thêm gói bảo hiểm sức khỏe tự nguyện sau khi hoàn thành thử việc.
-
-## Lương và phiếu lương
-
-Lương được tính theo tháng từ bảng công: lương cơ bản chia theo số ngày công thực tế so với số ngày công chuẩn, cộng phụ cấp và tiền làm thêm giờ, trừ tiền đi trễ về sớm và bảo hiểm. Sau khi kỳ lương được chốt, phiếu lương được gửi qua email công ty của từng nhân viên.
+Nhân viên chính thức được tham gia bảo hiểm xã hội, bảo hiểm y tế và bảo hiểm thất nghiệp theo quy định nhà nước. Phần bảo hiểm người lao động đóng là 10,5 phần trăm (10,5%) mức lương đóng bảo hiểm, gồm BHXH 8%, BHYT 1,5% và BHTN 1%, và được trừ trực tiếp vào lương hằng tháng. Công ty hỗ trợ thêm gói bảo hiểm sức khỏe tự nguyện sau khi hoàn thành thử việc.
 
 ## Thưởng lễ Tết
 

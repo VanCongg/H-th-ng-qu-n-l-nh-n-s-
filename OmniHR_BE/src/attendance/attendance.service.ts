@@ -438,7 +438,7 @@ export class AttendanceService {
   ): AttendanceMetadata {
     const shift = this.resolveCheckInShift(recordedAt, settings);
     const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
-    // Check-in is allowed at any time; the recorded time is what payroll reads.
+    // Check-in is allowed at any time; the recorded time is what the timesheet reads.
     // Outside every shift window there is no shift to be on time or late for.
     return {
       shift: shift?.shift ?? null,

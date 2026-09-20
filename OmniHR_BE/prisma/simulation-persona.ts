@@ -19,7 +19,7 @@ export type Persona = {
 };
 
 /** Stable per employee: the same person is always the same kind of worker. */
-export function buildPersona(code: string, level: CareerLevel, pastRating: number | null): Persona {
+export function buildPersona(code: string, level: CareerLevel): Persona {
   const talent = hash01(`talent:${code}`);
   const levelBonus: Record<CareerLevel, number> = {
     INTERN: -0.1,
@@ -29,8 +29,7 @@ export function buildPersona(code: string, level: CareerLevel, pastRating: numbe
     SENIOR: 0.06,
     LEAD: 0.08
   };
-  const base = pastRating === null ? talent : 0.35 * ((pastRating - 1) / 4) + 0.65 * talent;
-  const ability = clamp(0.03 + base * 0.97 + levelBonus[level], 0.05, 0.97);
+  const ability = clamp(0.03 + talent * 0.97 + levelBonus[level], 0.05, 0.97);
   const discipline = clamp(0.5 * ability + 0.5 * hash01(`discipline:${code}`), 0, 1);
   return {
     ability,

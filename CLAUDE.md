@@ -13,7 +13,7 @@ OmniHR is an HR management system split into four independently versioned servic
 | `OmniHR_APP` | Employee mobile app | Flutter |
 | `OmniHR_AI` | HRGenie chatbot planner service (internal only, never called by clients directly) | FastAPI (Python) |
 
-**Chatbot architecture**: the mobile app calls NestJS only. NestJS calls `OmniHR_AI` internally (`POST /internal/chat/plan` with `X-Internal-Service-Token`) to get a plan; NestJS is the only service that checks permissions and writes data. The AI service never writes data directly — it returns `type/toolCalls/needConfirmation` and NestJS executes/confirms actions.
+**Chatbot architecture**: the mobile app calls NestJS only. NestJS calls `OmniHR_AI` internally (`POST /internal/chat/plan`, and `POST /internal/suggestions/explain` for assignee-suggestion wording, both with `X-Internal-Service-Token`) to get a plan; NestJS is the only service that checks permissions and writes data. The AI service never writes data directly — it returns `type/toolCalls/needConfirmation` and NestJS executes/confirms actions.
 
 ## Commands
 
@@ -31,6 +31,12 @@ npm run prisma:generate      # regen prisma client after schema.prisma changes
 npm run prisma:migrate       # create + apply a new migration (dev)
 npm run prisma:deploy        # apply migrations (prod/CI)
 npm run prisma:seed          # seed base data (roles, admin, departments...)
+SEED_AS_OF=2026-01-31 npm run prisma:seed   # anchor the seeded timeline in the past
+npm run eval:suggestions     # replay past assignments and score the ranking (read-only)
+npm run eval:tune-weights    # fit the ranking weights on that history; --apply writes them
+npm run eval:ml-baseline     # compare the shipped ranking against logistic-regression baselines
+npm run eval:diagnostics     # is the measurement sound? leakage, negative control, cold start
+npm run eval:tune-constants  # random-search the history/capacity constants on three time slices
 ```
 
 ### Web (`OmniHR_WEB`)
@@ -78,7 +84,7 @@ docker compose exec api npm run prisma:seed
 ```
 Run via `docker compose`, not by starting the built `omnihr_be-api` image standalone — a standalone container lacks the env vars compose injects (fails with `DATABASE_URL is required`). For plain `npm run start:dev`, `.env` should point `DATABASE_URL` at `localhost`; compose overrides this to the `postgres` service host.
 
-CI (`.github/workflows/ci.yml`) runs, per service in its own job/working directory: `OmniHR_BE` → `prisma generate` + `lint` + `test` + `build`; `OmniHR_WEB` → `lint` + `test` + `build`; `OmniHR_AI` → `pytest`. Same on every push/PR to `main`/`develop`. `OmniHR_APP` (Flutter) is not in CI — run `flutter analyze`/`flutter test` locally before considering mobile work done.
+CI (`.github/workflows/ci.yml`) runs, per service in its own job/working directory: `OmniHR_BE` → `prisma generate` + `lint` + `test` + `build`; `OmniHR_WEB` → `lint` + `test` + `build`; `OmniHR_AI` → `pytest`; `OmniHR_APP` → `dart format --set-exit-if-changed` + `flutter analyze` + `flutter test` on a pinned Flutter version. Same on every push/PR to `main`/`develop`. Unformatted Dart fails the build, so run `dart format lib test` before pushing mobile work.
 
 ## Cross-cutting conventions
 
@@ -90,7 +96,7 @@ CI (`.github/workflows/ci.yml`) runs, per service in its own job/working directo
 
 ## Backend architecture (`OmniHR_BE`)
 
-- One NestJS module per domain under `src/<domain>/` (e.g. `employees`, `tasks`, `chatbot`, `review-cycles`), each with `*.module.ts`, `*.controller.ts`, `*.service.ts`, `dto/`. New domains follow this same module shape and get registered in `src/app.module.ts`.
+- One NestJS module per domain under `src/<domain>/` (e.g. `employees`, `tasks`, `chatbot`, `attendance`), each with `*.module.ts`, `*.controller.ts`, `*.service.ts`, `dto/`. New domains follow this same module shape and get registered in `src/app.module.ts`.
 - `src/prisma/` wraps the Prisma client as a Nest module/service; `prisma/schema.prisma` is the single source of truth for the DB model — always run `prisma:generate` after editing it, and add a migration via `prisma:migrate`.
 - AuthZ is layered as global guards, applied in this order in `app.module.ts`: `ThrottlerGuard` → `JwtAuthGuard` → `RolesGuard` → `PermissionsGuard`. Use `@Roles(...)` / `@Permissions(...)` decorators (`src/common/decorators/`) on controllers/handlers to restrict access; `@Public()` opts a route out of JWT auth. `PermissionsGuard` checks `user.permissions` (loaded via `UserRole` → `RolePermission` → `Permission`), not just role name.
 - `src/redis/` is a global module wrapping one optional ioredis connection, serving two jobs. (1) Rate limits that must agree across API instances: `ThrottlerGuard` (via `RedisThrottlerStorage` in `src/common/throttler/`) and the chatbot per-user limit in `chatbot.service.ts`. (2) `CacheService` — cache-aside reads via `cache.wrap(key, ttl, loader)`, used by `AuthService.hydrateAuthUser` (runs on every authenticated request) and `SystemSettingsService.getSettings`.
@@ -98,11 +104,13 @@ CI (`.github/workflows/ci.yml`) runs, per service in its own job/working directo
 - Cache keys and TTLs live in `src/redis/cache-keys.ts` — add new ones there, never inline. `wrap` never stores `null`, so a "not found" is always re-checked. Every write that changes a cached value must invalidate it: a user's roles/status/password drop `cacheKeys.authUser(id)` (see `users.service.ts`, `employees.service.ts`, `auth.service.ts`), and a change to a role's permissions evicts *every* holder via `RolesService.invalidateRoleHolders`. The TTL is a backstop for a missed path, not the mechanism. Unit tests use `createFakeCache()` from `src/redis/cache.service.fake.ts`.
 - Config is validated up front via Joi in `app.module.ts` (`ConfigModule.forRoot`); in production it additionally rejects known-insecure default secrets (`rejectInsecureProductionConfig`) — don't remove or weaken this check.
 - Errors go through `ApiError` (`src/common/api-error.ts`) and are normalized by `HttpExceptionFilter`; successful responses are wrapped by `ResponseInterceptor` into `{ success, message, data }` (matches `ApiEnvelope<T>` in `OmniHR_WEB/src/api/types.ts`). Follow this pattern instead of throwing raw NestJS exceptions or returning bare payloads — the interceptor only leaves a payload untouched if it already has `success`/`message` keys.
+- Simulated history: the seed fills its anchor month (`SEED_AS_OF`, default today) and `prisma/simulate-day.ts` plays the days forward from there. `--until` is clamped to today - **a dataset must never contain a date that has not happened yet**, and `clampToToday` is unit tested for that.
+- `src/ai-task-suggestions/` ranks assignees with a weighted multi-criteria score (skill / workload / leave availability / track record on finished tasks), not a learned model. Two things sit **outside** the weighted score on purpose: hard tiers (missing a required skill, or approved leave over more than `LEAVE_BLOCK_THRESHOLD` of the task window) push a candidate below everyone else regardless of points, and fair-share rebalancing subtracts points after ranking from whoever already took more than the team's recent average. Weights decide who is better; tiers decide who is possible; rebalancing decides who has had enough for now. The pure scoring lives in `suggestion-scoring.ts` and is shared with `prisma/evaluate-suggestions.ts` and `prisma/tune-weights.ts`, so the offline evaluation measures exactly what the API ranks with. The weights are **not** constants: they come from system settings (`aiWeightSkill` / `aiWeightWorkload` / `aiWeightAvailability` / `aiWeightHistory`), are fitted on past assignments by the tuner, and every generated suggestion snapshots the weights that produced it. Run the tuner against a simulated database (`DATABASE_URL=...omnihr_eval`), never production; it refuses to write weights fitted on too few decisions unless forced.
 - `src/chatbot/` is the HRGenie gateway: `chatbot.controller.ts` exposes `/chatbot/*` to the mobile app, `chatbot-ai-client.service.ts` calls the internal AI service, `chatbot-tools.service.ts` validates/executes the tool calls the planner returns, `chatbot-history.service.ts` manages conversation persistence. Pending actions that need confirmation are created here and confirmed/cancelled via `/chatbot/actions/:actionId/confirm|cancel`.
 
 ## Web architecture (`OmniHR_WEB`)
 
-- `src/features/<domain>/` — one folder per business domain, mirrors backend modules (`employees`, `tasks`, `leave-requests`, `review-cycles`, `performance-reviews`, ...). Put domain screens/hooks/components there rather than in shared `components/`.
+- `src/features/<domain>/` — one folder per business domain, mirrors backend modules (`employees`, `tasks`, `leave-requests`, `projects`, `skills`, ...). Put domain screens/hooks/components there rather than in shared `components/`.
 - `src/api/` — single axios client (`axios.ts`), `endpoints.ts` (all HTTP calls), `types.ts` (shared API types mirroring backend DTOs). Add new endpoints/types here rather than inlining fetch calls in features.
 - `src/store/` — Zustand stores; `auth.ts` holds the session (`accessToken`/`refreshToken`/`user`) persisted to `localStorage`, and exposes `hasRole`/`hasPermission` used by `PermissionGate`.
 - `src/components/PermissionGate` — the client-side authorization gate; wrap UI needing a role/permission check in it instead of duplicating `authStore` checks (it mirrors the backend's `RolesGuard`/`PermissionsGuard` split — role and permission are checked independently).
@@ -111,8 +119,9 @@ CI (`.github/workflows/ci.yml`) runs, per service in its own job/working directo
 
 ## AI service architecture (`OmniHR_AI`)
 
-- `app/api/` — FastAPI routers (`chat.py` internal planning endpoint, `health.py`, `rag.py`); `app/main.py` just wires routers into the `FastAPI()` app.
-- `app/services/` — `rule_based_planner_service.py` (deterministic MVP planner, default), `llm_planner_service.py` (LLM-backed), `tool_planner_service.py` (shared tool-call orchestration), `rag_service.py`, `text_normalize.py`.
+- `app/api/` — FastAPI routers (`chat.py` internal planning endpoint, `explain.py` suggestion wording, `health.py`, `rag.py`); `app/main.py` just wires routers into the `FastAPI()` app.
+- `app/services/` — `rule_based_planner_service.py` (deterministic MVP planner, default), `llm_planner_service.py` (LLM-backed), `tool_planner_service.py` (shared tool-call orchestration), `suggestion_explainer_service.py` (writes the assignee-suggestion reasons), `rag_service.py`, `text_normalize.py`.
+- `POST /internal/suggestions/explain` rewrites the reason shown under each AI assignee suggestion. It is wording only: NestJS has already ranked, scored and stored the candidates, so an empty answer (no LLM key, timeout, invalid JSON, an employee id the request never mentioned) simply leaves the template sentence in place. Turn it off with `AI_SUGGESTION_EXPLANATIONS=false` on the NestJS side.
 - `app/llm/` — provider abstraction (`base.py`, `factory.py`, `openai_compatible.py`); add new providers here behind the same interface rather than branching inside services.
 - Planner mode (`AI_PLANNER_MODE`): `rule_based` (deterministic only), `llm` (LLM + config-driven fallback), `hybrid` (prefer LLM, fall back to rule-based on timeout/invalid JSON/schema errors/unavailable tools/low confidence). The response contract exposed to NestJS (`type`/`toolCalls`/`needConfirmation`) stays identical regardless of mode — map new planner internals back to this contract, don't change it.
 - Regression fixtures for intent classification live at `app/tests/fixtures/intent_cases.json`; the intent test uses a failing fake LLM client to verify hybrid fallback without burning LLM quota — follow that pattern for new planner tests instead of calling a real LLM.

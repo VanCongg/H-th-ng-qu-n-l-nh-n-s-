@@ -213,6 +213,42 @@ Color statusColor(String status) {
   }
 }
 
+/// Colour and icon for a `NotificationType` coming from the backend, kept
+/// beside [statusColor] so every list in the app tints the same event the
+/// same way.
+Color notificationColor(String type) {
+  switch (type.toUpperCase()) {
+    case 'LEAVE_APPROVED':
+      return const Color(0xFF16A34A);
+    case 'LEAVE_REJECTED':
+      return dangerColor;
+    case 'TASK_ASSIGNED':
+    case 'TASK_STATUS_CHANGED':
+      return brandColor;
+    case 'ATTENDANCE_ADJUSTED':
+      return accentColor;
+    default:
+      return const Color(0xFF64748B);
+  }
+}
+
+IconData notificationIcon(String type) {
+  switch (type.toUpperCase()) {
+    case 'LEAVE_APPROVED':
+      return Icons.event_available_rounded;
+    case 'LEAVE_REJECTED':
+      return Icons.event_busy_rounded;
+    case 'TASK_ASSIGNED':
+      return Icons.assignment_ind_rounded;
+    case 'TASK_STATUS_CHANGED':
+      return Icons.autorenew_rounded;
+    case 'ATTENDANCE_ADJUSTED':
+      return Icons.access_time_rounded;
+    default:
+      return Icons.notifications_rounded;
+  }
+}
+
 /// Icon counterpart of [statusColor] and [friendlyStatus], so a status can be
 /// shown as a coloured icon while the words stay in tooltips and semantics.
 IconData statusIcon(String status) {

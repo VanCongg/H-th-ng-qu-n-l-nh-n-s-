@@ -4,7 +4,6 @@ import {
   AiTaskSuggestionStatus,
   EmployeeStatus,
   LeaveRequestStatus,
-  PerformanceReviewStatus,
   Prisma,
   TaskAssignmentType,
   TaskSkillImportance,
@@ -17,25 +16,37 @@ import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { pagination, toDateOnly } from "../common/utils";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  SystemSettingsService
+} from "../common/services/system-settings.service";
 import { TaskWorkloadService, WorkloadSummary } from "../task-workload/task-workload.service";
 import { AiTaskSuggestionQueryDto } from "./dto/ai-task-suggestion-query.dto";
 import { CancelAiTaskSuggestionDto } from "./dto/cancel-ai-task-suggestion.dto";
 import { GenerateAiTaskSuggestionDto } from "./dto/generate-ai-task-suggestion.dto";
 import { SelectAiTaskSuggestionDto } from "./dto/select-ai-task-suggestion.dto";
+import { SuggestionExplainerClient } from "./suggestion-explainer.client";
 import {
-  PERFORMANCE_REVIEW_WINDOW,
-  PERFORMANCE_WEIGHT,
-  SCORE_WEIGHTS as scoreWeights,
+  DEFAULT_HISTORY_TUNING,
+  FinishedTask,
+  HistorySignal,
+  ScoreWeights,
   SkillAssessment,
   assessSkills,
   availabilityScoreFor,
   combineScores,
+  FAIR_SHARE_WINDOW_DAYS,
+  LEAVE_BLOCK_THRESHOLD,
   compareCandidates,
-  performanceFromRatings,
-  skillImportanceWeights
+  fairShares,
+  historyPrior,
+  historySignal,
+  rawHistoryScore,
+  skillImportanceWeights,
+  usableHistory,
+  usableWeights
 } from "./suggestion-scoring";
 
-const AI_TASK_ALGORITHM_VERSION = "rule-based-v4";
+const AI_TASK_ALGORITHM_VERSION = "mcdm-v5";
 const AI_SUGGESTION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const suggestionInclude = {
@@ -60,7 +71,6 @@ type GenerateOptions = {
   includeAvailability: boolean;
   includeSelf: boolean;
   includePendingLeave: boolean;
-  includePerformance: boolean;
 };
 
 type TaskWithRequiredSkills = Prisma.TaskGetPayload<{
@@ -92,22 +102,23 @@ type AvailabilityAssessment = {
   warnings: string[];
 };
 
-type PerformanceAssessment = {
-  // null when the employee has no finalized review yet, which excludes the
-  // signal from their score instead of scoring them zero.
-  score: number | null;
-  averageRating: number | null;
-  reviewCount: number;
-};
-
 type ScoredCandidate = {
   employeeId: number;
   eligible: boolean;
+  /** Away for most of the task window on approved leave: ranked after the rest. */
+  leaveBlocked: boolean;
   score: number;
   skillScore: number;
   workloadScore: number;
   availabilityScore: number;
-  performanceScore: number | null;
+  /** Shrunk towards the peer prior, so a new hire is never simply dropped. */
+  historyScore: number | null;
+  /** n/(n+k) - how much of that score is the candidate's own record. */
+  historyConfidence: number;
+  historySampleSize: number;
+  /** Recent assignments relative to the team average; 1 is exactly average. */
+  fairShare: number;
+  fairSharePenalty: number;
   reason: string;
   warnings: string[];
   matchedSkills: string[];
@@ -125,7 +136,9 @@ export class AiTaskSuggestionsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly accessControl: AccessControlService,
-    private readonly workloadService: TaskWorkloadService
+    private readonly workloadService: TaskWorkloadService,
+    private readonly systemSettings: SystemSettingsService,
+    private readonly explainer: SuggestionExplainerClient
   ) {}
 
   async generate(
@@ -160,7 +173,7 @@ export class AiTaskSuggestionsService {
       );
     }
 
-    const [employees, workloads, performances] = await Promise.all([
+    const [employees, workloads, histories] = await Promise.all([
       this.prisma.employee.findMany({
         where: currentEmployeeWhere({
           id: { in: candidateIds },
@@ -173,9 +186,13 @@ export class AiTaskSuggestionsService {
         }
       }),
       this.workloadService.summariesForEmployees(candidateIds),
-      options.includePerformance
-        ? this.performanceAssessments(candidateIds)
-        : Promise.resolve(new Map<number, PerformanceAssessment>())
+      this.historyScores(
+        await this.prisma.employee.findMany({
+          where: { id: { in: candidateIds } },
+          select: { id: true, careerLevel: true }
+        }),
+        new Date()
+      )
     ]);
 
     if (!employees.length) {
@@ -186,6 +203,7 @@ export class AiTaskSuggestionsService {
       );
     }
 
+    const weights = await this.scoreWeights();
     const scored = await Promise.all(
       employees.map(async (employee) => {
         const workload = workloads.get(employee.id) ?? this.emptyWorkload(employee.id);
@@ -200,26 +218,15 @@ export class AiTaskSuggestionsService {
           : this.availabilityNotUsed(options.includePendingLeave);
         const workloadScore = workload.workloadScore;
         const availabilityScore = options.includeAvailability ? availability.score : 100;
-        const performance = performances.get(employee.id) ?? {
-          score: null,
-          averageRating: null,
-          reviewCount: 0
-        };
+        const history = histories.get(employee.id);
+        const historyScore = history?.score ?? null;
         const score = combineScores([
+          { value: skill.score, weight: weights.skill },
+          { value: workloadScore, weight: weights.workload },
+          { value: historyScore, weight: weights.history },
           ...(options.includeAvailability
-            ? [
-                { value: skill.score, weight: scoreWeights.withAvailability.skill },
-                { value: workloadScore, weight: scoreWeights.withAvailability.workload },
-                {
-                  value: availabilityScore,
-                  weight: scoreWeights.withAvailability.availability
-                }
-              ]
-            : [
-                { value: skill.score, weight: scoreWeights.withoutAvailability.skill },
-                { value: workloadScore, weight: scoreWeights.withoutAvailability.workload }
-              ]),
-          { value: performance.score, weight: PERFORMANCE_WEIGHT }
+            ? [{ value: availabilityScore, weight: weights.availability }]
+            : [])
         ]);
         const warnings = this.uniqueWarnings([
           ...skill.warnings,
@@ -230,18 +237,25 @@ export class AiTaskSuggestionsService {
         return {
           employeeId: employee.id,
           eligible: skill.eligible,
+          leaveBlocked:
+            options.includeAvailability &&
+            availability.taskWorkDays > 0 &&
+            availability.approvedOverlapWorkDays / availability.taskWorkDays >
+              LEAVE_BLOCK_THRESHOLD,
           score: this.round(score),
           skillScore: this.round(skill.score),
           workloadScore: this.round(workloadScore),
           availabilityScore: this.round(availabilityScore),
-          performanceScore:
-            performance.score === null ? null : this.round(performance.score),
+          historyScore: historyScore === null ? null : this.round(historyScore),
+          historyConfidence: history?.confidence ?? 0,
+          historySampleSize: history?.sampleSize ?? 0,
+          fairShare: 1,
+          fairSharePenalty: 0,
           reason: this.reason(
             employee,
             skill,
             workload,
             availability,
-            performance,
             options
           ),
           warnings,
@@ -255,10 +269,15 @@ export class AiTaskSuggestionsService {
       })
     );
 
-    const items = scored
+    const rebalanced = this.applyFairShare(
+      scored,
+      await this.recentAssignmentCounts(candidateIds)
+    );
+    const ranked = rebalanced
       .sort(compareCandidates)
       .slice(0, options.limit)
       .map((item, index) => ({ ...item, rank: index + 1 }));
+    const items = await this.withWrittenReasons(task, ranked, employees);
 
     if (!items.length) {
       throw new ApiError(
@@ -279,7 +298,8 @@ export class AiTaskSuggestionsService {
           options,
           candidateIds,
           items,
-          generatedAt
+          generatedAt,
+          weights
         ),
         items: {
           create: items.map((item) => ({
@@ -289,7 +309,7 @@ export class AiTaskSuggestionsService {
             skillScore: item.skillScore,
             workloadScore: item.workloadScore,
             availabilityScore: item.availabilityScore,
-            performanceScore: item.performanceScore,
+            historyScore: item.historyScore,
             reason: item.reason
           }))
         }
@@ -567,7 +587,7 @@ export class AiTaskSuggestionsService {
           workloadScore: item.workloadScore === null ? null : Number(item.workloadScore),
           availabilityScore:
             item.availabilityScore === null ? null : Number(item.availabilityScore),
-          performanceScore: item.performanceScore ? Number(item.performanceScore) : null,
+          historyScore: item.historyScore === null ? null : Number(item.historyScore),
           reason: item.reason,
           eligible: typeof details.eligible === "boolean" ? details.eligible : true,
           warnings: this.stringArray(details.warnings),
@@ -590,8 +610,7 @@ export class AiTaskSuggestionsService {
       limit: dto.limit ?? 5,
       includeAvailability: dto.includeAvailability ?? true,
       includeSelf: dto.includeSelf ?? false,
-      includePendingLeave: dto.includePendingLeave ?? true,
-      includePerformance: dto.includePerformance ?? true
+      includePendingLeave: dto.includePendingLeave ?? true
     };
   }
 
@@ -845,45 +864,11 @@ export class AiTaskSuggestionsService {
     return candidateIds.filter((candidateId) => teamCandidateIds.has(candidateId));
   }
 
-  /**
-   * Averages each employee's most recent finalized review ratings and maps the
-   * 1-5 scale onto the 0-100 scale the other signals use, so "meets
-   * expectations" (3) lands at the midpoint.
-   */
-  private async performanceAssessments(employeeIds: number[]) {
-    const reviews = await this.prisma.performanceReview.findMany({
-      where: {
-        employeeId: { in: employeeIds },
-        status: PerformanceReviewStatus.FINALIZED,
-        finalRating: { not: null }
-      },
-      select: { employeeId: true, finalRating: true, finalizedAt: true },
-      orderBy: { finalizedAt: "desc" }
-    });
-
-    const ratingsByEmployee = new Map<number, number[]>();
-    for (const review of reviews) {
-      const ratings = ratingsByEmployee.get(review.employeeId) ?? [];
-      if (ratings.length < PERFORMANCE_REVIEW_WINDOW) {
-        ratings.push(review.finalRating as number);
-        ratingsByEmployee.set(review.employeeId, ratings);
-      }
-    }
-
-    const assessments = new Map<number, PerformanceAssessment>();
-    for (const employeeId of employeeIds) {
-      assessments.set(employeeId, performanceFromRatings(ratingsByEmployee.get(employeeId) ?? []));
-    }
-
-    return assessments;
-  }
-
   private reason(
     employee: Pick<EmployeeWithSkills, "fullName">,
     skill: SkillAssessment,
     workload: WorkloadSummary,
     availability: AvailabilityAssessment,
-    performance: PerformanceAssessment,
     options: GenerateOptions
   ) {
     const skillText = this.skillReason(skill);
@@ -892,17 +877,7 @@ export class AiTaskSuggestionsService {
       ? this.availabilityReason(availability)
       : "không dùng lịch nghỉ trong lần chấm điểm này";
     const parts = [skillText, workloadText, availabilityText];
-    if (options.includePerformance) {
-      parts.push(this.performanceReason(performance));
-    }
     return `${employee.fullName}: ${parts.join("; ")}.`;
-  }
-
-  private performanceReason(performance: PerformanceAssessment) {
-    if (performance.averageRating === null) {
-      return "chưa có đánh giá hiệu suất nào được chốt nên không tính điểm này";
-    }
-    return `điểm đánh giá trung bình ${performance.averageRating.toFixed(1)}/5 qua ${performance.reviewCount} kỳ gần nhất`;
   }
 
   private skillReason(skill: SkillAssessment) {
@@ -985,12 +960,193 @@ export class AiTaskSuggestionsService {
     };
   }
 
+  /**
+   * Replaces the template sentence with one the AI service wrote, when it
+   * answers in time. The ranking, the scores and the snapshot are already
+   * decided here: a slow or missing LLM costs wording, never correctness.
+   */
+  private async withWrittenReasons<T extends ScoredCandidate & { rank: number }>(
+    task: TaskWithRequiredSkills,
+    items: T[],
+    employees: EmployeeWithSkills[]
+  ): Promise<T[]> {
+    if (!this.explainer.enabled || !items.length) {
+      return items;
+    }
+
+    const byId = new Map(employees.map((employee) => [employee.id, employee]));
+    const written = await this.explainer.explain(
+      task.title,
+      task.requiredSkills.map((required) => required.skill.code),
+      items.map((item) => ({
+        employeeId: item.employeeId,
+        fullName: byId.get(item.employeeId)?.fullName ?? "",
+        score: item.score,
+        skillScore: item.skillScore,
+        workloadScore: item.workloadScore,
+        availabilityScore: item.availabilityScore,
+        eligible: item.eligible,
+        matchedSkills: item.matchedSkills,
+        missingRequiredSkills: item.missingRequiredSkills,
+        missingImportantSkills: item.skillBreakdown
+          .filter(
+            (skill) =>
+              skill.importance === TaskSkillImportance.IMPORTANT &&
+              skill.actualProficiency === null
+          )
+          .map((skill) => skill.code),
+        activeTaskCount: item.workload.activeTaskCount,
+        availableHours: item.workload.availableHours,
+        warnings: item.warnings
+      }))
+    );
+
+    if (!written.size) {
+      return items;
+    }
+
+    return items.map((item) => {
+      const reason = written.get(item.employeeId);
+      return reason ? { ...item, reason } : item;
+    });
+  }
+
+  /**
+   * Assignments each candidate has picked up in the fair-share window. Counts
+   * every assignment, not just the ones this feature suggested: the point is
+   * how loaded the person already is, whoever decided it.
+   */
+  private async recentAssignmentCounts(employeeIds: number[]) {
+    const since = new Date(Date.now() - FAIR_SHARE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+    const rows = await this.prisma.taskAssignment.groupBy({
+      by: ["assigneeId"],
+      where: { assigneeId: { in: employeeIds }, assignedAt: { gte: since } },
+      _count: { _all: true }
+    });
+
+    const counts = new Map<number, number>(employeeIds.map((id) => [id, 0]));
+    for (const row of rows) {
+      counts.set(row.assigneeId, row._count._all);
+    }
+    return counts;
+  }
+
+  /**
+   * Post-processing, deliberately after scoring: the ranking answers "who fits
+   * this task", this answers "who has had enough for now". Keeping them apart
+   * is what lets the UI show the two reasons separately.
+   */
+  private applyFairShare<T extends ScoredCandidate>(
+    candidates: T[],
+    recentCounts: Map<number, number>
+  ): T[] {
+    const shares = fairShares(recentCounts);
+    return candidates.map((candidate) => {
+      const share = shares.get(candidate.employeeId);
+      if (!share) {
+        return candidate;
+      }
+      return {
+        ...candidate,
+        score: this.round(Math.max(0, candidate.score - share.penalty)),
+        fairShare: this.round(share.share),
+        fairSharePenalty: this.round(share.penalty)
+      };
+    });
+  }
+
+  /**
+   * Track record per candidate, from their finished tasks. Read in one query
+   * for the whole shortlist: a suggestion is generated on demand while a
+   * manager waits, so one round trip per candidate is not acceptable.
+   */
+  private async historyScores(
+    employees: Array<{ id: number; careerLevel: string | null }>,
+    asOf: Date
+  ) {
+    const employeeIds = employees.map((employee) => employee.id);
+    const finished = await this.prisma.task.findMany({
+      where: {
+        deletedAt: null,
+        parentTaskId: { not: null },
+        assigneeId: { in: employeeIds },
+        status: TaskStatus.DONE,
+        completedAt: { not: null }
+      },
+      select: {
+        assigneeId: true,
+        dueDate: true,
+        completedAt: true,
+        estimatedHours: true,
+        actualHours: true
+      }
+    });
+
+    const byEmployee = new Map<number, FinishedTask[]>();
+    for (const task of finished) {
+      const rows = byEmployee.get(task.assigneeId!) ?? [];
+      rows.push({
+        dueDate: task.dueDate,
+        completedAt: task.completedAt!,
+        estimatedHours: task.estimatedHours,
+        actualHours: task.actualHours
+      });
+      byEmployee.set(task.assigneeId!, rows);
+    }
+
+    // Own (un-shrunk) score first: it is both the candidate's number and the
+    // raw material for the peer prior they get compared against.
+    const tuning = DEFAULT_HISTORY_TUNING;
+    const own = new Map<number, number | null>();
+    for (const employee of employees) {
+      const usable = usableHistory(
+        byEmployee.get(employee.id) ?? [],
+        asOf,
+        tuning.lagDays
+      );
+      own.set(employee.id, rawHistoryScore(usable, tuning.onTimeShare));
+    }
+
+    const allScores = employees.map((employee) => own.get(employee.id) ?? null);
+    const signals = new Map<number, HistorySignal>();
+    for (const employee of employees) {
+      const peers = employees
+        .filter((peer) => peer.careerLevel === employee.careerLevel)
+        .map((peer) => own.get(peer.id) ?? null);
+      signals.set(
+        employee.id,
+        historySignal(
+          byEmployee.get(employee.id) ?? [],
+          asOf,
+          historyPrior(peers, allScores),
+          tuning
+        )
+      );
+    }
+    return signals;
+  }
+
+  /**
+   * Weights live in system settings so prisma/tune-weights.ts can fit them on
+   * past assignments and have the API pick the result up without a deploy.
+   */
+  private async scoreWeights(): Promise<ScoreWeights> {
+    const settings = await this.systemSettings.getSettings();
+    return usableWeights({
+      skill: settings.aiWeightSkill,
+      workload: settings.aiWeightWorkload,
+      availability: settings.aiWeightAvailability,
+      history: settings.aiWeightHistory
+    });
+  }
+
   private buildInputSnapshot(
     task: TaskWithRequiredSkills,
     options: GenerateOptions,
     candidateIds: number[],
     items: Array<ScoredCandidate & { rank: number }>,
-    generatedAt: Date
+    generatedAt: Date,
+    weights: ScoreWeights
   ) {
     return {
       algorithmVersion: AI_TASK_ALGORITHM_VERSION,
@@ -999,12 +1155,9 @@ export class AiTaskSuggestionsService {
       taskFingerprint: this.taskFingerprint(task),
       task: this.taskFingerprintPayload(task),
       options,
-      weights: {
-        ...(options.includeAvailability
-          ? scoreWeights.withAvailability
-          : scoreWeights.withoutAvailability),
-        ...(options.includePerformance ? { performance: PERFORMANCE_WEIGHT } : {})
-      },
+      weights: options.includeAvailability
+        ? weights
+        : { skill: weights.skill, workload: weights.workload, history: weights.history },
       candidateIds,
       requiredSkills: this.requiredSkillSnapshot(task),
       items: items.map((item) => ({
@@ -1014,7 +1167,12 @@ export class AiTaskSuggestionsService {
         skillScore: item.skillScore,
         workloadScore: item.workloadScore,
         availabilityScore: item.availabilityScore,
-        performanceScore: item.performanceScore,
+        historyScore: item.historyScore,
+        historyConfidence: item.historyConfidence,
+        historySampleSize: item.historySampleSize,
+        leaveBlocked: item.leaveBlocked,
+        fairShare: item.fairShare,
+        fairSharePenalty: item.fairSharePenalty,
         warnings: item.warnings,
         eligible: item.eligible,
         matchedSkills: item.matchedSkills,

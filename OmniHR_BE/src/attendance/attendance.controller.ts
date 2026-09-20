@@ -64,7 +64,7 @@ export class AttendanceController {
     return this.attendanceService.findAll(query);
   }
 
-  @Permissions("ATTENDANCE_READ_ALL", "PAYROLL_READ")
+  @Permissions("ATTENDANCE_READ_ALL")
   @Get("timesheets")
   findTimesheets(@Query() query: TimesheetQueryDto) {
     return this.timesheetService.list(query);

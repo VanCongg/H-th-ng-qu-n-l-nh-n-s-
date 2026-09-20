@@ -3,7 +3,7 @@
  *
  * For every subtask a lead assigned (TaskAssignment MANUAL) the script rebuilds
  * each team member's situation *at that moment* - open work, known leave,
- * finalized reviews, finished tasks - scores them with the same functions the
+ * finished tasks - scores them with the same functions the
  * API uses (src/ai-task-suggestions/suggestion-scoring.ts) and compares the
  * ranking with two things the API never sees:
  *   - the simulator's hidden ability of each person (ground truth), and
@@ -18,39 +18,70 @@ import * as path from "path";
 import {
   LeaveRequestStatus,
   NotificationType,
-  PerformanceReviewStatus,
   PrismaClient,
   TaskAssignmentType,
   TaskStatus
 } from "@prisma/client";
 import {
-  PERFORMANCE_WEIGHT,
-  SCORE_WEIGHTS,
+  DEFAULT_HISTORY_TUNING,
+  DEFAULT_SCORE_WEIGHTS,
+  HistoryTuning,
+  WORKLOAD_CAPACITY_HOURS_PER_WEEK,
   assessSkills,
   availabilityScoreFor,
+  LEAVE_BLOCK_THRESHOLD,
   combineScores,
   compareCandidates,
-  performanceFromRatings,
+  historyPrior,
+  historySignal,
+  rawHistoryScore,
+  usableHistory,
   workloadScoreFor
 } from "../src/ai-task-suggestions/suggestion-scoring";
 import { buildPersona } from "./simulation-persona";
 
-const prisma = new PrismaClient();
+export const prisma = new PrismaClient();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TZ_OFFSET_MS = 7 * 60 * 60 * 1000;
 /** Finished tasks a person needs before their track record is trusted. */
 const HISTORY_MIN_TASKS = 3;
+/** Ordinal, so a linear model can read seniority off one column. */
+const CAREER_LEVEL_INDEX: Record<string, number> = {
+  INTERN: 0,
+  FRESHER: 1,
+  JUNIOR: 2,
+  MIDDLE: 3,
+  SENIOR: 4,
+  LEAD: 5
+};
 const HISTORY_WEIGHT = 0.2;
 
-type Candidate = {
+export type Candidate = {
   employeeId: number;
   ability: number;
   skillScore: number;
   eligible: boolean;
   workloadScore: number;
   availabilityScore: number;
-  reviewScore: number | null;
+  /** Share of the task's workdays the candidate already has approved leave on. */
+  approvedOverlapRatio: number;
+  /** Away for most of that window: ranked after everyone who will be there. */
+  leaveBlocked: boolean;
+  /** Lagged and shrunk towards the peer prior - what the model sees. */
   historyScore: number | null;
+  historyConfidence: number;
+  historySampleSize: number;
+  /**
+   * Full record with no lag and no shrinkage. Never fed to any model: it
+   * exists so prisma/diagnostics.ts can measure how much of the observed
+   * signal is really just the simulator's hidden ability leaking back.
+   */
+  historyClean: number | null;
+  /** Signals the weighted model does not use; the ML baselines do. */
+  doneCount: number;
+  projectFamiliarity: number;
+  seniorityYears: number;
+  careerLevelIndex: number;
 };
 
 type Variant = {
@@ -59,22 +90,11 @@ type Variant = {
   score: (candidate: Candidate) => number;
 };
 
-const W = SCORE_WEIGHTS.withAvailability;
+const W = DEFAULT_SCORE_WEIGHTS;
 const VARIANTS: Variant[] = [
   {
     key: "v4",
-    label: "v4 hiện tại (kỹ năng + khối lượng + lịch nghỉ + điểm đánh giá)",
-    score: (c) =>
-      combineScores([
-        { value: c.skillScore, weight: W.skill },
-        { value: c.workloadScore, weight: W.workload },
-        { value: c.availabilityScore, weight: W.availability },
-        { value: c.reviewScore, weight: PERFORMANCE_WEIGHT }
-      ])
-  },
-  {
-    key: "v4-no-perf",
-    label: "v4 bỏ điểm đánh giá",
+    label: "v4 hiện tại (kỹ năng + khối lượng + lịch nghỉ)",
     score: (c) =>
       combineScores([
         { value: c.skillScore, weight: W.skill },
@@ -89,7 +109,7 @@ const VARIANTS: Variant[] = [
   },
   {
     key: "v5",
-    label: "v5 thử nghiệm (thay điểm đánh giá bằng lịch sử task)",
+    label: "v5 thử nghiệm (thêm lịch sử task)",
     score: (c) =>
       combineScores([
         { value: c.skillScore, weight: W.skill },
@@ -100,19 +120,47 @@ const VARIANTS: Variant[] = [
   }
 ];
 
-type Outcome = { resolved: boolean; onTime: boolean; hoursRatio: number | null; reworks: number };
+export type Outcome = {
+  resolved: boolean;
+  onTime: boolean;
+  hoursRatio: number | null;
+  reworks: number;
+};
 
-type Decision = {
+export type Decision = {
   taskId: number;
+  /** Estimated size of the task being handed out. */
+  taskEstimatedHours: number;
   assigneeId: number;
+  /** Used by the tuner to split history into a fit and a held-out period. */
+  assignedAt: Date;
   candidates: Candidate[];
   outcome: Outcome;
 };
 
-async function main() {
-  const from = parseFrom(process.argv.slice(2));
-  const data = await loadData();
-  const evalEnd = data.lastSimulatedDate;
+/**
+ * Every manual assignment replayed as a decision: the candidates a lead
+ * could have picked from, scored with what was known at that moment, plus
+ * how the task actually went. Shared with prisma/tune-weights.ts.
+ */
+/** Everything the replay lets a tuning run vary. */
+export type ReplayTuning = {
+  history: HistoryTuning;
+  /** Weekly capacity behind the workload score. */
+  capacityHours: number;
+};
+
+export const DEFAULT_REPLAY_TUNING: ReplayTuning = {
+  history: DEFAULT_HISTORY_TUNING,
+  capacityHours: WORKLOAD_CAPACITY_HOURS_PER_WEEK
+};
+
+export function buildDecisions(
+  data: Data,
+  from: Date,
+  evalEnd: Date,
+  tuning: ReplayTuning = DEFAULT_REPLAY_TUNING
+) {
   const decisions: Decision[] = [];
 
   for (const assignment of data.assignments) {
@@ -138,11 +186,27 @@ async function main() {
 
     decisions.push({
       taskId: task.id,
+      taskEstimatedHours: Number(task.estimatedHours ?? 0),
       assigneeId: assignment.assigneeId,
-      candidates: memberIds.map((id) => scoreCandidate(data, task, id, at)),
+      assignedAt: at,
+      candidates: withPeerPrior(
+        data,
+        memberIds.map((id) => scoreCandidate(data, task, id, at, tuning)),
+        at,
+        tuning
+      ),
       outcome: outcomeOf(data, task, evalEnd)
     });
   }
+
+  return decisions;
+}
+
+async function main() {
+  const from = parseFrom(process.argv.slice(2));
+  const data = await loadData();
+  const evalEnd = data.lastSimulatedDate;
+  const decisions = buildDecisions(data, from, evalEnd);
 
   const report = buildReport(decisions, from, evalEnd);
   const outDir = path.join(__dirname, "..", "eval_results");
@@ -152,7 +216,7 @@ async function main() {
   console.info(`Saved to ${path.join(outDir, "suggestions-eval.md")}`);
 }
 
-function parseFrom(args: string[]) {
+export function parseFrom(args: string[]) {
   const index = args.indexOf("--from");
   const value = index >= 0 ? args[index + 1] : "2026-09-17";
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -166,8 +230,8 @@ function parseFrom(args: string[]) {
 // Data
 // ---------------------------------------------------------------------------
 
-async function loadData() {
-  const [stateRow, employees, members, tasks, assignments, leaves, reviews, reworkNotes] =
+export async function loadData() {
+  const [stateRow, employees, members, tasks, assignments, leaves, reworkNotes] =
     await Promise.all([
       prisma.systemSetting.findUnique({ where: { key: "simulation" } }),
       prisma.employee.findMany({
@@ -187,6 +251,7 @@ async function loadData() {
         select: {
           id: true,
           teamId: true,
+          projectId: true,
           assigneeId: true,
           status: true,
           startDate: true,
@@ -221,10 +286,6 @@ async function loadData() {
           updatedAt: true
         }
       }),
-      prisma.performanceReview.findMany({
-        where: { status: PerformanceReviewStatus.FINALIZED, finalRating: { not: null } },
-        select: { employeeId: true, cycleId: true, finalRating: true, finalizedAt: true }
-      }),
       prisma.notification.findMany({
         where: { type: NotificationType.TASK_STATUS_CHANGED, title: "Task returned for rework" },
         select: { entityId: true }
@@ -234,31 +295,17 @@ async function loadData() {
   if (!stateRow) {
     throw new Error("No simulation state found: run this against a simulated database.");
   }
-  const state = stateRow.value as { lastDate: string; baselineCycleIds?: number[] };
-  const baseline = new Set(state.baselineCycleIds ?? []);
+  const state = stateRow.value as { lastDate: string };
 
   // Hidden ability, computed exactly as the simulator does.
-  const baselineRatings = new Map<number, number[]>();
-  for (const review of reviews) {
-    if (baseline.has(review.cycleId)) {
-      baselineRatings.set(review.employeeId, [
-        ...(baselineRatings.get(review.employeeId) ?? []),
-        review.finalRating!
-      ]);
-    }
-  }
   const employeeMap = new Map(
-    employees.map((employee) => {
-      const ratings = baselineRatings.get(employee.id);
-      const pastRating = ratings ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null;
-      return [
-        employee.id,
-        {
-          ...employee,
-          ability: buildPersona(employee.employeeCode, employee.careerLevel, pastRating).ability
-        }
-      ];
-    })
+    employees.map((employee) => [
+      employee.id,
+      {
+        ...employee,
+        ability: buildPersona(employee.employeeCode, employee.careerLevel).ability
+      }
+    ])
   );
 
   const teamMembers = new Map<number, number[]>();
@@ -301,10 +348,6 @@ async function loadData() {
     }
   }
 
-  const reviewsByEmployee = new Map<number, typeof reviews>();
-  for (const review of reviews) {
-    reviewsByEmployee.set(review.employeeId, [...(reviewsByEmployee.get(review.employeeId) ?? []), review]);
-  }
   const leavesByEmployee = new Map<number, typeof leaves>();
   for (const leave of leaves) {
     leavesByEmployee.set(leave.employeeId, [...(leavesByEmployee.get(leave.employeeId) ?? []), leave]);
@@ -323,21 +366,26 @@ async function loadData() {
     assignments,
     holdings,
     reworks,
-    reviewsByEmployee,
     leavesByEmployee,
     doneByEmployee,
     lastSimulatedDate: new Date(`${state.lastDate}T00:00:00.000Z`)
   };
 }
 
-type Data = Awaited<ReturnType<typeof loadData>>;
+export type Data = Awaited<ReturnType<typeof loadData>>;
 type TaskRow = NonNullable<ReturnType<Data["tasks"]["get"]>>;
 
 // ---------------------------------------------------------------------------
 // Replaying one candidate at assignment time
 // ---------------------------------------------------------------------------
 
-function scoreCandidate(data: Data, task: TaskRow, employeeId: number, at: Date): Candidate {
+function scoreCandidate(
+  data: Data,
+  task: TaskRow,
+  employeeId: number,
+  at: Date,
+  tuning: ReplayTuning
+): Candidate & { historyOwn: number | null; historyOwnSampleSize: number } {
   const employee = data.employees.get(employeeId)!;
   const skill = assessSkills(task.requiredSkills, employee.employeeSkills, at);
 
@@ -359,33 +407,52 @@ function scoreCandidate(data: Data, task: TaskRow, employeeId: number, at: Date)
     }
   }
 
+  const availability = availabilityAt(data, employeeId, task, at);
+  const finished = (data.doneByEmployee.get(employeeId) ?? []).filter(
+    (done) => done.completedAt! < at
+  );
+  const familiarity = task.projectId
+    ? finished.filter((done) => done.projectId === task.projectId).length
+    : 0;
+
   return {
     employeeId,
     ability: employee.ability,
     skillScore: skill.score,
     eligible: skill.eligible,
-    workloadScore: workloadScoreFor(hours, overdue),
-    availabilityScore: availabilityAt(data, employeeId, task, at),
-    reviewScore: performanceFromRatings(
-      (data.reviewsByEmployee.get(employeeId) ?? [])
-        .filter((review) => review.finalizedAt && review.finalizedAt <= at)
-        .sort((a, b) => b.finalizedAt!.getTime() - a.finalizedAt!.getTime())
-        .map((review) => review.finalRating!)
-    ).score,
-    historyScore: historyAt(data, employeeId, at)
+    workloadScore: workloadScoreFor(hours, overdue, tuning.capacityHours),
+    availabilityScore: availability.score,
+    approvedOverlapRatio: availability.approvedOverlapRatio,
+    leaveBlocked: availability.approvedOverlapRatio > LEAVE_BLOCK_THRESHOLD,
+    historyScore: null,
+    historyConfidence: 0,
+    historySampleSize: 0,
+    historyClean: historyAt(data, employeeId, at, 0),
+    historyOwn: historyAt(data, employeeId, at, tuning.history.lagDays),
+    historyOwnSampleSize: usableHistory(
+      finishedTasks(data, employeeId, at),
+      at,
+      tuning.history.lagDays
+    ).length,
+    doneCount: finished.length,
+    projectFamiliarity: familiarity,
+    seniorityYears: employee.hireDate
+      ? Math.max(0, (at.getTime() - employee.hireDate.getTime()) / (365 * DAY_MS))
+      : 0,
+    careerLevelIndex: CAREER_LEVEL_INDEX[employee.careerLevel] ?? 0
   };
 }
 
 /** Leave overlap with the task window, using only what was known at `at`. */
 function availabilityAt(data: Data, employeeId: number, task: TaskRow, at: Date) {
   if (!task.startDate && !task.dueDate) {
-    return 100;
+    return { score: 100, approvedOverlapRatio: 0 };
   }
   const from = utcDate(task.startDate ?? task.dueDate!);
   const to = utcDate(task.dueDate ?? task.startDate!);
   const taskDays = workdayKeys(from, to);
   if (!taskDays.length) {
-    return 100;
+    return { score: 100, approvedOverlapRatio: 0 };
   }
   const approved = new Set<string>();
   const pending = new Set<string>();
@@ -405,20 +472,64 @@ function availabilityAt(data: Data, employeeId: number, task: TaskRow, at: Date)
     }
   }
   const pendingOnly = Array.from(pending).filter((key) => !approved.has(key)).length;
-  return availabilityScoreFor(taskDays.length, approved.size, pendingOnly);
+  return {
+    score: availabilityScoreFor(taskDays.length, approved.size, pendingOnly),
+    // Reported separately: an approved day off during the task window is a
+    // business rule the on-time label cannot see.
+    approvedOverlapRatio: approved.size / taskDays.length
+  };
 }
 
 /** Candidate v5 signal: on-time rate and hours efficiency of tasks already finished. */
-function historyAt(data: Data, employeeId: number, at: Date) {
-  const done = (data.doneByEmployee.get(employeeId) ?? []).filter((task) => task.completedAt! < at);
-  if (done.length < HISTORY_MIN_TASKS) {
-    return null;
-  }
-  const onTime = done.filter((task) => isOnTime(task.completedAt!, task.dueDate)).length / done.length;
-  const estimated = done.reduce((sum, task) => sum + Number(task.estimatedHours ?? 0), 0);
-  const actual = done.reduce((sum, task) => sum + Number(task.actualHours ?? 0), 0);
-  const efficiency = actual > 0 ? Math.min(1, estimated / actual) : 1;
-  return 100 * (0.6 * onTime + 0.4 * efficiency);
+/**
+ * Fills in the shrunk track record once the whole shortlist is known: the
+ * prior a candidate is pulled towards is the median of the peers they are
+ * actually being compared against, exactly as the API computes it.
+ */
+function withPeerPrior(
+  data: Data,
+  candidates: Array<Candidate & { historyOwn: number | null; historyOwnSampleSize: number }>,
+  at: Date,
+  tuning: ReplayTuning
+): Candidate[] {
+  const everyone = candidates.map((candidate) => candidate.historyOwn);
+
+  return candidates.map((candidate) => {
+    const level = data.employees.get(candidate.employeeId)?.careerLevel;
+    const peers = candidates
+      .filter((peer) => data.employees.get(peer.employeeId)?.careerLevel === level)
+      .map((peer) => peer.historyOwn);
+    const signal = historySignal(
+      finishedTasks(data, candidate.employeeId, at),
+      at,
+      historyPrior(peers, everyone),
+      tuning.history
+    );
+    return {
+      ...candidate,
+      historyScore: signal.score,
+      historyConfidence: signal.confidence,
+      historySampleSize: signal.sampleSize
+    };
+  });
+}
+
+/** Tasks this person had already finished at `at`, in the production shape. */
+function finishedTasks(data: Data, employeeId: number, at: Date) {
+  return (data.doneByEmployee.get(employeeId) ?? [])
+    .filter((task) => task.completedAt! < at)
+    .map((task) => ({
+      dueDate: task.dueDate,
+      completedAt: task.completedAt!,
+      estimatedHours: task.estimatedHours,
+      actualHours: task.actualHours
+    }));
+}
+
+/** Un-shrunk track record at `at`, using the same formula the API uses. */
+function historyAt(data: Data, employeeId: number, at: Date, lagDays: number) {
+  const usable = usableHistory(finishedTasks(data, employeeId, at), at, lagDays);
+  return rawHistoryScore(usable, DEFAULT_HISTORY_TUNING.onTimeShare);
 }
 
 function outcomeOf(data: Data, task: TaskRow, evalEnd: Date): Outcome {
@@ -540,15 +651,11 @@ function buildReport(decisions: Decision[], from: Date, evalEnd: Date) {
   const withHistory = mean(
     decisions.map((d) => d.candidates.filter((c) => c.historyScore !== null).length / d.candidates.length)
   );
-  const withReview = mean(
-    decisions.map((d) => d.candidates.filter((c) => c.reviewScore !== null).length / d.candidates.length)
-  );
   lines.push(
     "## Ghi chú",
     "",
-    `- Ứng viên có điểm đánh giá đã chốt tại thời điểm giao: ${pct(withReview)}; có đủ ${HISTORY_MIN_TASKS} task đã xong để tính lịch sử: ${pct(withHistory)}.`,
+    `- Ứng viên có đủ ${HISTORY_MIN_TASKS} task đã xong để tính lịch sử: ${pct(withHistory)}.`,
     "- v4 cố ý cân nhắc khối lượng việc và lịch nghỉ, nên không nhắm chọn người giỏi nhất tuyệt đối; bảng 1 chỉ đo riêng khả năng nhận ra năng lực.",
-    "- Năng lực ẩn được tạo một phần (35%) từ điểm đánh giá kỳ gốc (6 tháng đầu năm), và chính điểm đó cũng nằm trong tín hiệu hiệu suất của v4; phần v4 hơn \"v4 bỏ điểm đánh giá\" vì vậy có thể bị thổi phồng một phần. Kết quả thực tế (bảng 2) không chịu ảnh hưởng này.",
     "- Dữ liệu là mô phỏng: kết quả kiểm chứng thuật toán bắt được tín hiệu trong kịch bản giả lập, không thay cho đánh giá trên dữ liệu công ty thật.",
     ""
   );
@@ -561,7 +668,7 @@ function rank(candidates: Candidate[], variant: Variant) {
     .sort((left, right) => compareCandidates(left, right) || left.employeeId - right.employeeId);
 }
 
-function spearman(xs: number[], ys: number[]) {
+export function spearman(xs: number[], ys: number[]) {
   const rx = ranks(xs);
   const ry = ranks(ys);
   const mx = mean(rx);
@@ -628,18 +735,20 @@ function iso(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function mean(values: number[]) {
+export function mean(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
-function pct(value: number) {
+export function pct(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-main()
-  .then(async () => prisma.$disconnect())
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+if (require.main === module) {
+  main()
+    .then(async () => prisma.$disconnect())
+    .catch(async (error) => {
+      console.error(error);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

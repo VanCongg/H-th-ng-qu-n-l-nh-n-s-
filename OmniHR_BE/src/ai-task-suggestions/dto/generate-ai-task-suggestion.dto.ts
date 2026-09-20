@@ -23,9 +23,4 @@ export class GenerateAiTaskSuggestionDto {
   @Type(() => Boolean)
   @IsBoolean()
   includePendingLeave?: boolean = true;
-
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  includePerformance?: boolean = true;
 }

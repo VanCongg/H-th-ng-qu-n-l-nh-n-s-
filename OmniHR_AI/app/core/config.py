@@ -52,6 +52,8 @@ class Settings:
     llm_max_output_tokens: int = _int_env("LLM_MAX_OUTPUT_TOKENS", 800)
     llm_fallback_to_rule_based: bool = _bool_env("LLM_FALLBACK_TO_RULE_BASED", True)
     llm_confidence_threshold: float = _float_env("LLM_CONFIDENCE_THRESHOLD", 0.6)
+    # A reason is shown in a table cell, so a rambling sentence is a UI bug.
+    suggestion_reason_max_chars: int = _int_env("SUGGESTION_REASON_MAX_CHARS", 220)
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "mock")
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "none")
     # Falls back to the LLM credentials when unset, since most providers serve

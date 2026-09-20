@@ -7,11 +7,9 @@ import {
   LeaveRequestStatus,
   ManagerType,
   NotificationType,
-  PerformanceReviewStatus,
   Prisma,
   PrismaClient,
   ProjectStatus,
-  ReviewCycleStatus,
   SkillProficiency,
   TaskAssignmentType,
   TaskPriority,
@@ -38,7 +36,7 @@ const prisma = new PrismaClient();
 // Access control
 // ---------------------------------------------------------------------------
 
-const roles = ["ADMIN", "MANAGER", "EMPLOYEE", "ACCOUNTANT"] as const;
+const roles = ["ADMIN", "MANAGER", "EMPLOYEE"] as const;
 type RoleName = (typeof roles)[number];
 
 const permissions = [
@@ -118,15 +116,7 @@ const permissions = [
   "EMPLOYEE_SKILL_DELETE",
   "AI_TASK_SUGGEST",
   "AI_TASK_SELECT",
-  "TASK_ASSIGNMENT_READ",
-  "REVIEW_READ_SELF",
-  "REVIEW_SUBMIT_SELF",
-  "REVIEW_READ_TEAM",
-  "REVIEW_SUBMIT_MANAGER",
-  "REVIEW_READ_ALL",
-  "REVIEW_MANAGE",
-  "PAYROLL_READ",
-  "PAYROLL_MANAGE"
+  "TASK_ASSIGNMENT_READ"
 ] as const;
 
 const employeePermissions = [
@@ -146,9 +136,7 @@ const employeePermissions = [
   "EMPLOYEE_SKILL_READ",
   "EMPLOYEE_SKILL_CREATE",
   "EMPLOYEE_SKILL_UPDATE",
-  "EMPLOYEE_SKILL_DELETE",
-  "REVIEW_READ_SELF",
-  "REVIEW_SUBMIT_SELF"
+  "EMPLOYEE_SKILL_DELETE"
 ] as const;
 
 const managerExtraPermissions = [
@@ -169,24 +157,13 @@ const managerExtraPermissions = [
   "TASK_ASSIGN",
   "AI_TASK_SUGGEST",
   "AI_TASK_SELECT",
-  "TASK_ASSIGNMENT_READ",
-  "REVIEW_READ_TEAM",
-  "REVIEW_SUBMIT_MANAGER"
-] as const;
-
-const accountantExtraPermissions = [
-  "EMPLOYEE_READ_ALL",
-  "ATTENDANCE_READ_ALL",
-  "DEPARTMENT_READ",
-  "PAYROLL_READ",
-  "PAYROLL_MANAGE"
+  "TASK_ASSIGNMENT_READ"
 ] as const;
 
 const rolePermissions: Record<RoleName, readonly string[]> = {
   ADMIN: permissions,
   MANAGER: unique([...employeePermissions, ...managerExtraPermissions]),
-  EMPLOYEE: employeePermissions,
-  ACCOUNTANT: unique([...employeePermissions, ...accountantExtraPermissions])
+  EMPLOYEE: employeePermissions
 };
 
 // ---------------------------------------------------------------------------
@@ -194,7 +171,7 @@ const rolePermissions: Record<RoleName, readonly string[]> = {
 // ---------------------------------------------------------------------------
 
 // [code, name, annualAllowance, isPaid]. Maternity leave is paid by social
-// insurance rather than the company, so it is not a paid day in payroll.
+// insurance rather than the company, so it does not count as a paid work day.
 const leaveTypes = [
   ["ANNUAL_LEAVE", "Nghỉ phép năm", 12, true],
   ["SICK_LEAVE", "Nghỉ ốm", 30, true],
@@ -697,10 +674,6 @@ const organization: DepartmentSeed[] = [
   }
 ];
 
-/** Payroll is run by Finance together with the C&B team in HR. */
-const accountantDepartments: DepartmentCode[] = ["FIN"];
-const accountantTeams = ["HR-CB"];
-
 // ---------------------------------------------------------------------------
 // Projects and tasks (dates are workday offsets from today)
 // ---------------------------------------------------------------------------
@@ -1079,8 +1052,32 @@ const leaveRequests: LeaveSeed[] = [
 const TZ_OFFSET_MINUTES = 420;
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
-const NOW = new Date();
+/**
+ * The whole seeded timeline hangs off this date: attendance, leave, task and
+ * login dates are all offsets from it. `SEED_AS_OF=YYYY-MM-DD` moves the
+ * anchor into the past so prisma/simulate-day.ts can then play the history
+ * forward from there to today, which is what fills a dataset with months of
+ * day-by-day activity instead of one snapshot. It is never allowed to sit in
+ * the future: a seeded database must not contain a day that has not happened.
+ */
+const NOW = seedAnchor();
 const TODAY = companyToday(NOW);
+
+function seedAnchor() {
+  const now = new Date();
+  const raw = process.env.SEED_AS_OF;
+  if (!raw) {
+    return now;
+  }
+  const asOf = new Date(`${raw}T12:00:00.000Z`);
+  if (Number.isNaN(asOf.getTime())) {
+    throw new Error("SEED_AS_OF expects a date in YYYY-MM-DD format");
+  }
+  if (asOf > now) {
+    throw new Error("SEED_AS_OF cannot be in the future");
+  }
+  return asOf;
+}
 const TEAMS_FORMED_ON = dateOnly("2025-01-06");
 const OFFICE = { latitude: 21.0227, longitude: 105.8466 };
 const SHIFTS = [
@@ -1121,6 +1118,25 @@ function dateOnly(value: string) {
 
 function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * DAY_MS);
+}
+
+/**
+ * First day of the anchor's own month. The seed covers that month; everything
+ * between it and today is the simulator's job.
+ */
+function firstOfAnchorMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+/** Every workday in [start, end], oldest first. */
+function workdaysBetween(start: Date, end: Date) {
+  const days: Date[] = [];
+  for (let day = start; day <= end; day = addDays(day, 1)) {
+    if (isWorkday(day)) {
+      days.push(day);
+    }
+  }
+  return days;
 }
 
 function isWorkday(date: Date) {
@@ -1238,38 +1254,6 @@ function proficiencyFor(level: CareerLevel, index: number): SkillProficiency {
   }
 }
 
-const baseSalaryByLevel: Record<CareerLevel, number> = {
-  INTERN: 5_500_000,
-  FRESHER: 9_000_000,
-  JUNIOR: 14_000_000,
-  MIDDLE: 22_000_000,
-  SENIOR: 32_000_000,
-  LEAD: 42_000_000
-};
-
-const salaryFactorByDepartment: Record<DepartmentCode, number> = {
-  IT: 1,
-  FIN: 0.9,
-  HR: 0.85,
-  SALES: 0.8,
-  OPS: 0.75
-};
-
-const reviewComments: Record<number, string> = {
-  5: "Hoàn thành xuất sắc mục tiêu, chủ động hỗ trợ đồng nghiệp và đề xuất cải tiến quy trình.",
-  4: "Hoàn thành tốt các đầu việc được giao, đúng hạn và chất lượng ổn định.",
-  3: "Đáp ứng yêu cầu công việc; cần chủ động hơn trong việc cập nhật tiến độ.",
-  2: "Một số đầu việc trễ hạn; cần cải thiện kỹ năng lập kế hoạch và phối hợp.",
-  1: "Chưa đạt yêu cầu; cần kế hoạch cải thiện hiệu suất cụ thể trong kỳ tới."
-};
-
-const selfComments: Record<number, string> = {
-  5: "Tôi đã vượt các mục tiêu chính của kỳ và mong muốn đảm nhận thêm các dự án thử thách hơn.",
-  4: "Tôi hoàn thành đầy đủ các mục tiêu đã cam kết và đã cải thiện kỹ năng chuyên môn.",
-  3: "Tôi hoàn thành phần lớn công việc; kỳ tới tôi sẽ tập trung quản lý thời gian tốt hơn.",
-  2: "Tôi còn trễ hạn một số việc và cần thêm hỗ trợ để cải thiện.",
-  1: "Kỳ này tôi chưa đạt kỳ vọng và cần kế hoạch cải thiện rõ ràng."
-};
 
 // ---------------------------------------------------------------------------
 // Seeding
@@ -1323,11 +1307,9 @@ async function main() {
   const employees = await seedEmployees(passwordHash, roleIds, admin.id, departmentIds, positionByCode);
   const teamIds = await seedTeamsAndManagers(employees, departmentIds);
   await seedEmployeeSkills(employees, positionByCode, skillIds);
-  await seedCompensation(employees, admin.id);
   const taskCount = await seedProjectsAndTasks(employees, departmentIds, teamIds, skillIds);
   const approvedLeaveDays = await seedLeaveRequests(employees, leaveTypeByCode, admin.id);
   const attendanceCount = await seedAttendance(employees, approvedLeaveDays);
-  const reviewCount = await seedPerformanceReviews(employees, admin.id);
 
   await prisma.auditLog.create({
     data: {
@@ -1341,16 +1323,14 @@ async function main() {
         projects: projects.length,
         tasks: taskCount,
         leaveRequests: leaveRequests.length,
-        attendanceRecords: attendanceCount,
-        performanceReviews: reviewCount
+        attendanceRecords: attendanceCount
       }
     }
   });
 
   printSummary(admin.username, employees, {
     tasks: taskCount,
-    attendanceCount,
-    reviewCount
+    attendanceCount
   });
 }
 
@@ -1499,9 +1479,6 @@ async function seedEmployees(
     if (position.isManager) {
       roleNames.push("MANAGER");
     }
-    if (accountantDepartments.includes(department) || (team && accountantTeams.includes(team))) {
-      roleNames.push("ACCOUNTANT");
-    }
 
     sequence += 1;
     const terminatedOn = seed.terminatedOn ? dateOnly(seed.terminatedOn) : null;
@@ -1648,23 +1625,6 @@ async function seedEmployeeSkills(
   }
   await prisma.employeeSkill.createMany({ data: rows });
 }
-
-async function seedCompensation(employees: Map<string, SeededEmployee>, adminUserId: number) {
-  await prisma.employeeCompensation.createMany({
-    data: Array.from(employees.values()).map((employee) => {
-      const base =
-        baseSalaryByLevel[employee.person.level] * salaryFactorByDepartment[employee.department] +
-        (employee.isHead ? 10_000_000 : 0);
-      return {
-        employeeId: employee.id,
-        baseSalary: Math.round(base / 500_000) * 500_000,
-        allowance: employee.isHead ? 5_000_000 : employee.isLead ? 3_000_000 : 1_500_000,
-        updatedByUserId: adminUserId
-      };
-    })
-  });
-}
-
 async function seedProjectsAndTasks(
   employees: Map<string, SeededEmployee>,
   departmentIds: Record<DepartmentCode, number>,
@@ -1910,17 +1870,19 @@ async function seedLeaveRequests(
 }
 
 /**
- * Check-in/out for the last 22 workdays (never today, so the mobile check-in
- * can be tried right away). Shift and status follow AttendanceService: the
- * shift comes from the check-in time, LATE after the shift start, EARLY_OUT
- * when checking out before the check-in shift ends.
+ * Check-in/out for every workday of the anchor month up to the day before the
+ * anchor (never the anchor day itself, so the mobile check-in can be tried
+ * right away on a freshly seeded database).
+ * Shift and status follow AttendanceService: the shift comes from the
+ * check-in time, LATE after the shift start, EARLY_OUT when checking out
+ * before the check-in shift ends.
  */
 async function seedAttendance(
   employees: Map<string, SeededEmployee>,
   approvedLeaveDays: Map<number, Set<number>>
 ) {
   const rows: Prisma.AttendanceRecordCreateManyInput[] = [];
-  const days = Array.from({ length: 22 }, (_, index) => workday(-(22 - index)));
+  const days = workdaysBetween(firstOfAnchorMonth(TODAY), workday(-1));
 
   for (const employee of employees.values()) {
     const hireDate = dateOnly(employee.person.hireDate);
@@ -1991,117 +1953,10 @@ async function seedAttendance(
   await prisma.attendanceRecord.createMany({ data: rows });
   return rows.length;
 }
-
-/**
- * A finalized review cycle for the previous half-year (feeds the performance
- * signal of AI task suggestions) and an open cycle for the current quarter
- * with reviews at every stage.
- */
-async function seedPerformanceReviews(employees: Map<string, SeededEmployee>, adminUserId: number) {
-  const year = TODAY.getUTCFullYear();
-  const month = TODAY.getUTCMonth() + 1;
-  const closed =
-    month >= 7
-      ? { name: `Đánh giá hiệu suất 6 tháng đầu năm ${year}`, start: dateOnly(`${year}-01-01`), end: dateOnly(`${year}-06-30`) }
-      : { name: `Đánh giá hiệu suất 6 tháng cuối năm ${year - 1}`, start: dateOnly(`${year - 1}-07-01`), end: dateOnly(`${year - 1}-12-31`) };
-  const quarter = Math.floor((month - 1) / 3) + 1;
-  const open = {
-    name: `Đánh giá hiệu suất quý ${["I", "II", "III", "IV"][quarter - 1]}/${year}`,
-    start: new Date(Date.UTC(year, (quarter - 1) * 3, 1)),
-    end: new Date(Date.UTC(year, quarter * 3, 0))
-  };
-
-  const closedCycle = await prisma.reviewCycle.create({
-    data: { name: closed.name, startDate: closed.start, endDate: closed.end, status: ReviewCycleStatus.CLOSED }
-  });
-  const openCycle = await prisma.reviewCycle.create({
-    data: { name: open.name, startDate: open.start, endDate: open.end, status: ReviewCycleStatus.OPEN }
-  });
-
-  const reviewerOf = (employee: SeededEmployee) =>
-    employee.managerCode ? employees.get(employee.managerCode)!.userId : adminUserId;
-  const levelBonus: Partial<Record<CareerLevel, number>> = { SENIOR: 0.25, LEAD: 0.35 };
-  let count = 0;
-
-  for (const employee of employees.values()) {
-    const performance = 2.6 + random() * 2 + (levelBonus[employee.person.level] ?? 0);
-    const managerRating = Math.min(5, Math.max(1, Math.round(performance)));
-    const selfRating = Math.min(5, managerRating + (random() < 0.4 ? 1 : 0));
-    const hireDate = dateOnly(employee.person.hireDate);
-
-    // Only people employed for most of the closed period were reviewed in it.
-    if (hireDate <= addDays(closed.end, -90)) {
-      const submittedAt = notAfterNow(at(addDays(closed.end, 7), hm("10:00")));
-      const reviewedAt = notAfterNow(at(addDays(closed.end, 14), hm("15:00")));
-      const finalizedAt = notAfterNow(at(addDays(closed.end, 21), hm("09:00")));
-      const review = await prisma.performanceReview.create({
-        data: {
-          cycleId: closedCycle.id,
-          employeeId: employee.id,
-          reviewerUserId: reviewerOf(employee),
-          selfRating,
-          selfComment: selfComments[selfRating],
-          managerRating,
-          managerComment: reviewComments[managerRating],
-          finalRating: managerRating,
-          status: PerformanceReviewStatus.FINALIZED,
-          submittedAt,
-          reviewedAt,
-          finalizedAt
-        }
-      });
-      await prisma.notification.create({
-        data: {
-          userId: employee.userId,
-          type: NotificationType.REVIEW_FINALIZED,
-          title: "Performance review finalized",
-          message: `Your performance review for "${closed.name}" has been finalized.`,
-          entityType: "PerformanceReview",
-          entityId: review.id,
-          isRead: true,
-          createdAt: finalizedAt
-        }
-      });
-      count += 1;
-    }
-
-    if (employee.terminatedOn || hireDate > TODAY) {
-      continue;
-    }
-    const stage = count % 20;
-    const status =
-      stage < 12
-        ? PerformanceReviewStatus.PENDING_SELF
-        : stage < 17
-          ? PerformanceReviewStatus.SELF_SUBMITTED
-          : PerformanceReviewStatus.MANAGER_REVIEWED;
-    const submittedAt =
-      status === PerformanceReviewStatus.PENDING_SELF ? null : notAfterNow(at(workday(-randomInt(2, 6)), hm("11:00")));
-    const reviewed = status === PerformanceReviewStatus.MANAGER_REVIEWED;
-    await prisma.performanceReview.create({
-      data: {
-        cycleId: openCycle.id,
-        employeeId: employee.id,
-        reviewerUserId: reviewed ? reviewerOf(employee) : null,
-        selfRating: submittedAt ? selfRating : null,
-        selfComment: submittedAt ? selfComments[selfRating] : null,
-        managerRating: reviewed ? managerRating : null,
-        managerComment: reviewed ? reviewComments[managerRating] : null,
-        status,
-        submittedAt,
-        reviewedAt: reviewed && submittedAt ? notAfterNow(addDays(submittedAt, 1)) : null
-      }
-    });
-    count += 1;
-  }
-
-  return count;
-}
-
 function printSummary(
   adminUsername: string,
   employees: Map<string, SeededEmployee>,
-  counts: { tasks: number; attendanceCount: number; reviewCount: number }
+  counts: { tasks: number; attendanceCount: number }
 ) {
   const describe = (code: string, label: string) => {
     const employee = employees.get(code)!;
@@ -2111,7 +1966,7 @@ function printSummary(
   console.info("\nSeed completed.");
   console.info(
     `Departments: ${departments.length}, employees: ${employees.size}, projects: ${projects.length}, ` +
-      `tasks: ${counts.tasks}, attendance records: ${counts.attendanceCount}, reviews: ${counts.reviewCount}`
+      `tasks: ${counts.tasks}, attendance records: ${counts.attendanceCount}`
   );
   console.table([
     { account: adminUsername, who: "Quản trị hệ thống", roles: "ADMIN" },

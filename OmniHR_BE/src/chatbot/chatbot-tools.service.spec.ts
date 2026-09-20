@@ -10,6 +10,7 @@ import { SystemSettingsService } from "../common/services/system-settings.servic
 import { AuthUser } from "../common/types";
 import { LeaveRequestsService } from "../leave-requests/leave-requests.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { TasksService } from "../tasks/tasks.service";
 import { TimesheetService } from "../attendance/timesheet.service";
 import { ChatbotToolsService } from "./chatbot-tools.service";
 
@@ -54,9 +55,6 @@ describe("ChatbotToolsService", () => {
         findMany: jest.fn(),
         count: jest.fn(),
       },
-      payslip: {
-        findFirst: jest.fn(),
-      },
       teamMember: {
         findMany: jest.fn(),
       },
@@ -71,6 +69,7 @@ describe("ChatbotToolsService", () => {
     };
     const systemSettings = { getSettings: jest.fn() };
     const leaveRequests = { create: jest.fn(), cancel: jest.fn() };
+    const tasks = { updateStatus: jest.fn() };
     const timesheets = { forEmployees: jest.fn() };
 
     return {
@@ -81,6 +80,7 @@ describe("ChatbotToolsService", () => {
         systemSettings as unknown as SystemSettingsService,
         leaveRequests as unknown as LeaveRequestsService,
         {} as LeaveBalancesService,
+        tasks as unknown as TasksService,
         timesheets as unknown as TimesheetService,
       ),
       prisma,
@@ -88,6 +88,7 @@ describe("ChatbotToolsService", () => {
       accessControl,
       systemSettings,
       leaveRequests,
+      tasks,
       timesheets,
     };
   }
@@ -102,7 +103,6 @@ describe("ChatbotToolsService", () => {
       "EMPLOYEE_READ_SELF",
       "ATTENDANCE_READ_SELF",
       "TASK_READ_SELF",
-      "REVIEW_READ_SELF",
     ],
   };
 
@@ -124,42 +124,17 @@ describe("ChatbotToolsService", () => {
       expect(names(selfUser.permissions)).toEqual(
         expect.arrayContaining([
           "get_my_attendance_summary",
-          "get_my_payslip",
-          "get_my_performance_reviews",
           "get_my_projects",
           "get_my_skills",
           "get_my_team_members",
           "get_my_task_stats",
         ]),
       );
-      expect(names(["LEAVE_READ_SELF"])).not.toContain("get_my_payslip");
       expect(
         service
           .availableTools({ ...selfUser, employeeId: undefined })
           .map((tool) => tool.name),
       ).not.toContain("get_my_attendance_summary");
-    });
-
-    it("reads only finalized payslips of the caller, last year for a later month", async () => {
-      const { service, prisma, systemSettings } = createService();
-      systemSettings.getSettings.mockResolvedValue(settings);
-      prisma.payslip.findFirst.mockResolvedValue(null);
-
-      const result = await service.executeTool(
-        7,
-        { id: "c", toolName: "get_my_payslip", arguments: { month: 12 } },
-        selfUser,
-      );
-
-      expect(result.data).toEqual({ found: false, year: 2025, month: 12 });
-      expect(prisma.payslip.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            employeeId: 10,
-            period: { status: "FINALIZED", year: 2025, month: 12 },
-          },
-        }),
-      );
     });
 
     it("counts late days, early leaves and absences in the month", async () => {
@@ -289,6 +264,153 @@ describe("ChatbotToolsService", () => {
         overdueOpenCount: 1,
         actualHours: 16.5,
       });
+    });
+  });
+
+  describe("update_task_status_draft", () => {
+    const taskUser: AuthUser = {
+      ...user,
+      permissions: ["TASK_READ_SELF", "TASK_UPDATE_STATUS"],
+    };
+
+    it("offers the tool only to employees who can update a status", () => {
+      const { service } = createService();
+      const names = (auth: AuthUser) =>
+        service.availableTools(auth).map((tool) => tool.name);
+
+      expect(names(taskUser)).toContain("update_task_status_draft");
+      expect(names(user)).not.toContain("update_task_status_draft");
+    });
+
+    it("prepares a pending action instead of updating the task", async () => {
+      const { service, prisma, audit, tasks } = createService();
+      const expiresAt = new Date("2026-07-01T10:30:00.000Z");
+
+      prisma.task.findMany.mockResolvedValue([
+        {
+          id: 42,
+          parentTaskId: 40,
+          title: "Viết tài liệu API",
+          status: "TODO",
+          project: { name: "HRGenie" },
+        },
+      ]);
+      prisma.chatbotPendingAction.create.mockResolvedValue({
+        id: 77,
+        expiresAt,
+      });
+
+      const result = await service.executeTool(
+        7,
+        {
+          id: "call_1",
+          toolName: "update_task_status_draft",
+          arguments: { taskTitle: "tài liệu API", status: "IN_PROGRESS" },
+        },
+        taskUser,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.pendingAction).toEqual(
+        expect.objectContaining({
+          actionId: 77,
+          type: ChatbotActionType.UPDATE_TASK_STATUS,
+          summary: expect.objectContaining({
+            taskId: 42,
+            currentStatus: "TODO",
+            status: "IN_PROGRESS",
+          }),
+        }),
+      );
+      expect(tasks.updateStatus).not.toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "CHATBOT_CREATE_PENDING_ACTION" }),
+      );
+    });
+
+    it("asks again when the keyword matches more than one task", async () => {
+      const { service, prisma } = createService();
+      prisma.task.findMany.mockResolvedValue([
+        { id: 42, parentTaskId: 40, title: "Viết tài liệu API", status: "TODO" },
+        { id: 43, parentTaskId: 40, title: "Viết tài liệu DB", status: "TODO" },
+      ]);
+
+      const result = await service.executeTool(
+        7,
+        {
+          id: "call_1",
+          toolName: "update_task_status_draft",
+          arguments: { taskTitle: "viết tài liệu", status: "DONE" },
+        },
+        taskUser,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe("CHATBOT_TASK_AMBIGUOUS");
+    });
+
+    it("refuses a team-level task because its status is derived", async () => {
+      const { service, prisma } = createService();
+      prisma.task.findMany.mockResolvedValue([
+        { id: 40, parentTaskId: null, title: "Tài liệu hệ thống", status: "TODO" },
+      ]);
+
+      const result = await service.executeTool(
+        7,
+        {
+          id: "call_1",
+          toolName: "update_task_status_draft",
+          arguments: { taskId: 40, status: "DONE" },
+        },
+        taskUser,
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe("ROOT_TASK_STATUS_IS_DERIVED");
+    });
+
+    it("updates the task only after the user confirms", async () => {
+      const { service, prisma, tasks } = createService();
+      const action = {
+        id: 77,
+        conversationId: 7,
+        userId: 1,
+        actionType: ChatbotActionType.UPDATE_TASK_STATUS,
+        status: ChatbotActionStatus.PENDING,
+        payload: {
+          taskId: 42,
+          taskTitle: "Viết tài liệu API",
+          currentStatus: "TODO",
+          status: "DONE",
+          note: "Cập nhật từ HRGenie",
+        },
+        expiresAt: new Date(Date.now() + 60_000),
+      };
+
+      prisma.chatbotPendingAction.findFirst.mockResolvedValue(action);
+      prisma.chatbotPendingAction.updateMany.mockResolvedValue({ count: 1 });
+      prisma.chatbotPendingAction.update.mockResolvedValueOnce({
+        ...action,
+        status: ChatbotActionStatus.EXECUTED,
+      });
+      tasks.updateStatus.mockResolvedValue({
+        id: 42,
+        title: "Viết tài liệu API",
+        status: "DONE",
+      });
+
+      await expect(service.confirmAction(77, taskUser)).resolves.toEqual({
+        conversationId: 7,
+        reply: expect.stringContaining("hoàn thành"),
+        data: { taskId: 42, status: "DONE" },
+      });
+
+      expect(tasks.updateStatus).toHaveBeenCalledWith(
+        42,
+        { status: "DONE", note: "Cập nhật từ HRGenie" },
+        taskUser,
+        undefined,
+      );
     });
   });
 

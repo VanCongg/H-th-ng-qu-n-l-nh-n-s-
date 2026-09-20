@@ -30,6 +30,10 @@ type SettingsFormValues = {
   attendanceEarlyCheckInMinutes: number;
   attendanceGraceMinutes: number;
   seniorityLeaveEveryYears: number;
+  aiWeightSkill: number;
+  aiWeightWorkload: number;
+  aiWeightAvailability: number;
+  aiWeightHistory: number;
   annualLeaveCarryOverMaxDays: number;
   morningShiftStart: string;
   morningShiftEnd: string;
@@ -59,6 +63,10 @@ const initialValues: SettingsFormValues = {
   attendanceEarlyCheckInMinutes: 60,
   attendanceGraceMinutes: 0,
   seniorityLeaveEveryYears: 5,
+  aiWeightSkill: 0.1,
+  aiWeightWorkload: 0.15,
+  aiWeightAvailability: 0.1,
+  aiWeightHistory: 0.65,
   annualLeaveCarryOverMaxDays: 5,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
@@ -215,6 +223,45 @@ export function SystemSettingsPage() {
                 required
                 {...form.getInputProps("annualLeaveCarryOverMaxDays")}
               />
+              <NumberInput
+                label={tx("AI weight: skill")}
+                description={tx(
+                  "Fitted on past assignments by the weight tuning script; the scorer renormalises them"
+                )}
+                min={0}
+                max={1}
+                step={0.05}
+                decimalScale={2}
+                required
+                {...form.getInputProps("aiWeightSkill")}
+              />
+              <NumberInput
+                label={tx("AI weight: workload")}
+                min={0}
+                max={1}
+                step={0.05}
+                decimalScale={2}
+                required
+                {...form.getInputProps("aiWeightWorkload")}
+              />
+              <NumberInput
+                label={tx("AI weight: leave availability")}
+                min={0}
+                max={1}
+                step={0.05}
+                decimalScale={2}
+                required
+                {...form.getInputProps("aiWeightAvailability")}
+              />
+              <NumberInput
+                label={tx("AI weight: track record")}
+                min={0}
+                max={1}
+                step={0.05}
+                decimalScale={2}
+                required
+                {...form.getInputProps("aiWeightHistory")}
+              />
               <Switch
                 label={tx("Require attendance location")}
                 {...form.getInputProps("requireAttendanceLocation", {
@@ -275,6 +322,19 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
     attendanceGraceMinutes: numberValue(
       settings.attendanceGraceMinutes,
       initialValues.attendanceGraceMinutes
+    ),
+    aiWeightSkill: numberValue(settings.aiWeightSkill, initialValues.aiWeightSkill),
+    aiWeightWorkload: numberValue(
+      settings.aiWeightWorkload,
+      initialValues.aiWeightWorkload
+    ),
+    aiWeightAvailability: numberValue(
+      settings.aiWeightAvailability,
+      initialValues.aiWeightAvailability
+    ),
+    aiWeightHistory: numberValue(
+      settings.aiWeightHistory,
+      initialValues.aiWeightHistory
     ),
     seniorityLeaveEveryYears: numberValue(
       settings.seniorityLeaveEveryYears,

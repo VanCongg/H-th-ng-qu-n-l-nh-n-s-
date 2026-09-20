@@ -20,7 +20,7 @@ const AI_FALLBACK_REPLY =
   "HRGenie hiện chưa phản hồi được. Bạn vui lòng thử lại sau hoặc thao tác trực tiếp trên app.";
 // Results the user may see but the external LLM must not: they are stored
 // flagged as sensitive and left out of the history sent to the planner.
-const SENSITIVE_TOOLS = new Set(["get_my_payslip"]);
+const SENSITIVE_TOOLS = new Set<string>();
 // Same sliding window as the in-process fallback below, but shared by every
 // API instance. Trimming, counting and adding have to be one atomic step or
 // two concurrent messages can both slip past a full bucket.
@@ -255,10 +255,46 @@ export class ChatbotService {
     };
   }
 
+  /**
+   * Tool failures bubble up the shared English validation copy, while the rest
+   * of the chat is Vietnamese - so known error codes get a Vietnamese reply.
+   */
+  private toolFailureReply(failed: ToolExecutionResult) {
+    const known: Record<string, string> = {
+      LEAVE_REQUEST_OVERLAP:
+        "Khoảng nghỉ này trùng với một đơn đang chờ duyệt hoặc đã được duyệt của bạn. Bạn kiểm tra lại ngày nghỉ giúp mình nhé.",
+      LEAVE_REQUEST_INVALID_DAYS:
+        "Khoảng nghỉ bạn chọn không có ngày làm việc nào. Bạn chọn lại ngày trong tuần làm việc giúp mình nhé.",
+      LEAVE_TYPE_NOT_FOUND:
+        "Mình không tìm thấy loại nghỉ phép này. Bạn thử nói rõ loại nghỉ (ví dụ: nghỉ phép năm) nhé.",
+      EMPLOYEE_NOT_FOUND:
+        "Tài khoản của bạn chưa được gắn với hồ sơ nhân viên nên mình chưa thực hiện được thao tác này.",
+      VALIDATION_ERROR:
+        "Thông tin bạn cung cấp chưa hợp lệ. Bạn thử nói lại rõ hơn giúp mình nhé.",
+      CHATBOT_ACTION_NOT_FOUND: "Mình không tìm thấy thao tác cần xác nhận.",
+      CHATBOT_ACTION_NOT_PENDING:
+        "Thao tác này đã được xử lý trước đó rồi.",
+      CHATBOT_ACTION_EXPIRED:
+        "Yêu cầu xác nhận đã hết hạn. Bạn thực hiện lại từ đầu giúp mình nhé.",
+      CHATBOT_ACTION_UNSUPPORTED: "Mình chưa hỗ trợ thao tác này.",
+      ROOT_TASK_STATUS_IS_DERIVED:
+        "Công việc cấp nhóm nhận trạng thái từ các công việc con, nên bạn cập nhật công việc con giúp mình nhé.",
+      CHATBOT_DATE_RANGE_TOO_WIDE:
+        "Khoảng thời gian bạn hỏi quá dài. Bạn thu hẹp lại giúp mình nhé.",
+      FORBIDDEN: "Bạn không có quyền thực hiện thao tác này.",
+      CHATBOT_TOOL_FORBIDDEN: "Bạn không có quyền thực hiện thao tác này."
+    };
+
+    const mapped = failed.errorCode ? known[failed.errorCode] : undefined;
+    return (
+      mapped || failed.message || "Tôi chưa thực hiện được thao tác này."
+    );
+  }
+
   private renderToolReply(results: ToolExecutionResult[], fallback: string) {
     const failed = results.find((result) => !result.success);
     if (failed) {
-      return failed.message || "Tôi chưa thực hiện được thao tác này.";
+      return this.toolFailureReply(failed);
     }
 
     const first = results[0];
@@ -298,10 +334,6 @@ export class ChatbotService {
         return this.headcountReply(first.data);
       case "get_my_attendance_summary":
         return this.attendanceMonthReply(first.data);
-      case "get_my_payslip":
-        return this.payslipReply(first.data);
-      case "get_my_performance_reviews":
-        return this.reviewsReply(first.data);
       case "get_my_projects":
         return this.projectsReply(first.data);
       case "get_my_skills":
@@ -315,8 +347,30 @@ export class ChatbotService {
     }
   }
 
+  private taskStatusLabel(status: unknown) {
+    const labels: Record<string, string> = {
+      TODO: "chưa làm",
+      IN_PROGRESS: "đang làm",
+      IN_REVIEW: "chờ duyệt",
+      DONE: "hoàn thành",
+      CANCELLED: "đã hủy",
+    };
+    const key = typeof status === "string" ? status : "";
+    return labels[key] ?? (key || "-");
+  }
+
   private pendingActionReply(action: PendingActionView) {
     const summary = action.summary;
+    if (action.type === ChatbotActionType.UPDATE_TASK_STATUS) {
+      return [
+        "Tôi đã chuẩn bị cập nhật công việc sau:",
+        `- Công việc: ${summary.taskTitle ?? "-"}`,
+        `- Dự án: ${summary.projectName ?? "-"}`,
+        `- Trạng thái: ${this.taskStatusLabel(summary.currentStatus)} -> ${this.taskStatusLabel(summary.status)}`,
+        "Bạn xác nhận cập nhật nhé?",
+      ].join("\n");
+    }
+
     if (action.type === ChatbotActionType.CANCEL_LEAVE_REQUEST) {
       return [
         "Tôi đã tìm thấy đơn nghỉ đang chờ duyệt để hủy:",
@@ -559,49 +613,6 @@ export class ChatbotService {
     return lines.join("\n");
   }
 
-  private payslipReply(data: unknown) {
-    const payslip = this.record(data);
-    if (!payslip.found) {
-      return payslip.month
-        ? `Chưa có phiếu lương đã chốt cho tháng ${payslip.month}/${payslip.year}. Phiếu lương chỉ xem được sau khi phòng nhân sự chốt kỳ lương.`
-        : "Bạn chưa có phiếu lương nào đã chốt.";
-    }
-    return [
-      `Phiếu lương tháng ${payslip.month}/${payslip.year} của bạn:`,
-      `- Lương cơ bản: ${this.formatMoney(payslip.baseSalary)}, phụ cấp: ${this.formatMoney(payslip.allowance)}`,
-      `- Ngày công tính lương: ${payslip.payableDays}/${payslip.standardWorkDays}`,
-      `- Lương theo ngày công: ${this.formatMoney(payslip.grossSalary)}`,
-      `- Tăng ca: ${payslip.overtimeMinutes ?? 0} phút = ${this.formatMoney(payslip.overtimePay)}`,
-      `- Trừ đi muộn/về sớm (${payslip.lateAndEarlyMinutes ?? 0} phút): ${this.formatMoney(payslip.attendanceDeduction)}`,
-      `- Trừ bảo hiểm: ${this.formatMoney(payslip.insuranceDeduction)}`,
-      `- Thực lĩnh: ${this.formatMoney(payslip.netSalary)}`,
-    ].join("\n");
-  }
-
-  private reviewsReply(data: unknown) {
-    const items = this.items(data);
-    if (!items.length) {
-      return "Bạn chưa có kỳ đánh giá nào.";
-    }
-    const stepLabels: Record<string, string> = {
-      PENDING_SELF: "chờ bạn tự đánh giá",
-      SELF_SUBMITTED: "đã tự đánh giá, chờ quản lý chấm",
-      MANAGER_REVIEWED: "quản lý đã chấm, chờ chốt",
-      FINALIZED: "đã chốt",
-    };
-    const rating = (value: unknown) =>
-      value === null || value === undefined ? "-" : `${String(value)}/5`;
-    const lines = items.slice(0, 4).map((item) => {
-      const step = stepLabels[String(item.status)] ?? String(item.status);
-      return `- ${String(item.cycleName)}: ${step}; tự chấm ${rating(item.selfRating)}, quản lý ${rating(item.managerRating)}, điểm cuối ${rating(item.finalRating)}`;
-    });
-    const comment = items.find((item) => item.managerComment)?.managerComment;
-    if (comment) {
-      lines.push(`Nhận xét gần nhất của quản lý: "${String(comment)}"`);
-    }
-    return `Kết quả đánh giá của bạn:\n${lines.join("\n")}`;
-  }
-
   private projectsReply(data: unknown) {
     const payload = this.record(data);
     const items = this.items(data);
@@ -690,12 +701,6 @@ export class ChatbotService {
     };
     const key = String(status ?? "");
     return labels[key] ?? (key || "-");
-  }
-
-  private formatMoney(value: unknown) {
-    const amount = Number(value ?? 0);
-    const safe = Number.isFinite(amount) ? amount : 0;
-    return `${new Intl.NumberFormat("vi-VN").format(safe)} đ`;
   }
 
   private leaveLines(items: Array<Record<string, unknown>>) {

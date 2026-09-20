@@ -11,7 +11,7 @@
 | Đúng tham số (ngày, loại nghỉ) | 78/82 (95.1%) |
 | Đúng hoàn toàn | 45/82 (54.9%) |
 | Câu vượt quyền bị lập kế hoạch ghi dữ liệu | 1/10 (10.0%) |
-| Độ trễ trung bình / p95 | 0.1 ms / 0.3 ms |
+| Độ trễ trung bình / p95 | 0.2 ms / 0.5 ms |
 
 ## Theo nhóm
 

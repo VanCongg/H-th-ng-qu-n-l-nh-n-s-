@@ -365,6 +365,8 @@ export type AiTaskSuggestionItem = {
   skillScore: number;
   workloadScore: number;
   availabilityScore: number;
+  /** Track record on finished tasks; null until there are enough of them. */
+  historyScore?: number | null;
   reason?: string | null;
   eligible?: boolean;
   warnings?: string[];

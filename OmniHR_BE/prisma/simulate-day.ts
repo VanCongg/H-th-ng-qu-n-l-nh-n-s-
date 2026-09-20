@@ -11,9 +11,6 @@
  *   teams running out of work, and a few quick jobs;
  *   leads assign subtasks, people log hours, submit for review, get sent back
  *   for rework, and finish on time or late;
- * - reviews: quarterly cycles open, self reviews trickle in near the end, and
- *   cycles close with ratings computed from the quarter's real task and
- *   attendance data (which feeds the AI assignee performance signal).
  *
  * Every employee has a stable hidden persona (ability, discipline), so the
  * same people keep doing well or badly. Progress is stored in the `simulation`
@@ -32,11 +29,9 @@ import {
   LeaveRequestStatus,
   ManagerType,
   NotificationType,
-  PerformanceReviewStatus,
   Prisma,
   PrismaClient,
   ProjectStatus,
-  ReviewCycleStatus,
   SkillProficiency,
   TaskAssignmentType,
   TaskPriority,
@@ -541,21 +536,6 @@ const ASSIGN_NOTES = [
   "Phân công trong buổi họp nhóm đầu tuần",
   "Nhờ hỗ trợ vì đang ít việc"
 ];
-const REVIEW_COMMENTS: Record<number, string> = {
-  5: "Hoàn thành xuất sắc mục tiêu, chủ động hỗ trợ đồng nghiệp và đề xuất cải tiến quy trình.",
-  4: "Hoàn thành tốt các đầu việc được giao, đúng hạn và chất lượng ổn định.",
-  3: "Đáp ứng yêu cầu công việc; cần chủ động hơn trong việc cập nhật tiến độ.",
-  2: "Một số đầu việc trễ hạn; cần cải thiện kỹ năng lập kế hoạch và phối hợp.",
-  1: "Chưa đạt yêu cầu; cần kế hoạch cải thiện hiệu suất cụ thể trong kỳ tới."
-};
-const SELF_COMMENTS: Record<number, string> = {
-  5: "Tôi đã vượt các mục tiêu chính của kỳ và mong muốn đảm nhận thêm các dự án thử thách hơn.",
-  4: "Tôi hoàn thành đầy đủ các mục tiêu đã cam kết và đã cải thiện kỹ năng chuyên môn.",
-  3: "Tôi hoàn thành phần lớn công việc; kỳ tới tôi sẽ tập trung quản lý thời gian tốt hơn.",
-  2: "Tôi còn trễ hạn một số việc và cần thêm hỗ trợ để cải thiện.",
-  1: "Kỳ này tôi chưa đạt kỳ vọng và cần kế hoạch cải thiện rõ ràng."
-};
-
 // ---------------------------------------------------------------------------
 // Simulation context and state
 // ---------------------------------------------------------------------------
@@ -593,8 +573,6 @@ type SimulationState = {
   sequence: number;
   /** Extra hours a task still needs after failing review, by task id. */
   rework: Record<string, number>;
-  /** Review cycles closed before the simulator started; they seed the personas. */
-  baselineCycleIds: number[];
 };
 
 type Totals = {
@@ -619,10 +597,6 @@ type Totals = {
   completedLate: number;
   reworks: number;
   cancelled: number;
-  selfReviews: number;
-  reviewsFinalized: number;
-  cyclesOpened: string[];
-  cyclesClosed: string[];
 };
 
 async function main() {
@@ -667,15 +641,30 @@ async function main() {
   await printPerformers(context, dateOnly(state.lastDate));
 }
 
-function parseArgs(args: string[]) {
+/**
+ * The simulator fills in history; it must never invent a future. `--until` is
+ * therefore clamped to today, so no dataset can end up containing attendance,
+ * tasks or leave for a date that has not happened yet.
+ */
+export function clampToToday(until: Date, today: Date) {
+  return until > today ? today : until;
+}
+
+function parseArgs(args: string[], today = companyToday(new Date())) {
   let until: Date | null = null;
   let maxDays = MAX_DAYS_PER_RUN;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (arg === "--until") {
-      until = dateOnly(args[++index] ?? "");
-      if (Number.isNaN(until.getTime())) {
+      const requested = dateOnly(args[++index] ?? "");
+      if (Number.isNaN(requested.getTime())) {
         throw new Error("--until expects a date in YYYY-MM-DD format");
+      }
+      until = clampToToday(requested, today);
+      if (until < requested) {
+        console.warn(
+          `--until ${iso(requested)} nằm ở tương lai; đã giới hạn lại ở hôm nay (${iso(until)}).`
+        );
       }
     } else if (arg === "--max-days") {
       maxDays = Number(args[++index]);
@@ -696,21 +685,16 @@ async function loadState(): Promise<SimulationState> {
     return {
       lastDate: value.lastDate ?? iso(addDays(companyToday(new Date()), -1)),
       sequence: value.sequence ?? 0,
-      rework: value.rework ?? {},
-      baselineCycleIds: value.baselineCycleIds ?? []
+      rework: value.rework ?? {}
     };
   }
 
   // First run: continue right after the seeded attendance history.
-  const [latestAttendance, closedCycles] = await Promise.all([
-    prisma.attendanceRecord.aggregate({ _max: { workDate: true } }),
-    prisma.reviewCycle.findMany({ where: { status: ReviewCycleStatus.CLOSED }, select: { id: true } })
-  ]);
+  const latestAttendance = await prisma.attendanceRecord.aggregate({ _max: { workDate: true } });
   return {
     lastDate: iso(latestAttendance._max.workDate ?? addDays(companyToday(new Date()), -2)),
     sequence: 0,
-    rework: {},
-    baselineCycleIds: closedCycles.map((cycle) => cycle.id)
+    rework: {}
   };
 }
 
@@ -724,7 +708,7 @@ async function saveState(client: Tx, state: SimulationState) {
 }
 
 async function loadContext(state: SimulationState, readBefore: Date): Promise<Context> {
-  const [employees, teams, departments, skills, leaveTypes, admin, managers, baselineReviews] = await Promise.all([
+  const [employees, teams, departments, skills, leaveTypes, admin, managers] = await Promise.all([
     prisma.employee.findMany({
       where: { deletedAt: null, status: EmployeeStatus.ACTIVE },
       select: {
@@ -762,20 +746,12 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
     prisma.employeeManager.findMany({
       where: { isActive: true, managerType: ManagerType.DIRECT },
       select: { employeeId: true, manager: { select: { userId: true, status: true } } }
-    }),
-    prisma.performanceReview.findMany({
-      where: { cycleId: { in: state.baselineCycleIds }, finalRating: { not: null } },
-      select: { employeeId: true, finalRating: true }
     })
   ]);
   if (!admin) {
     throw new Error("No ADMIN user found — run the seed first.");
   }
 
-  const ratings = new Map<number, number[]>();
-  for (const review of baselineReviews) {
-    ratings.set(review.employeeId, [...(ratings.get(review.employeeId) ?? []), review.finalRating!]);
-  }
   const departmentList = departments.map((item) => ({ id: item.id, code: item.code, headId: item.managerId }));
   const userIdByEmployee = new Map(employees.map((item) => [item.id, item.userId]));
 
@@ -803,7 +779,6 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
     const department = departmentList.find((item) => item.id === employee.departmentId);
     const headUserId =
       department?.headId && department.headId !== employee.id ? userIdByEmployee.get(department.headId) ?? null : null;
-    const pastRatings = ratings.get(employee.id);
 
     context.employees.set(employee.id, {
       id: employee.id,
@@ -816,11 +791,7 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
       isLead: teams.some((team) => team.leadId === employee.id),
       managerUserId: directManager?.manager.userId ?? headUserId,
       skills: new Map(employee.employeeSkills.map((skill) => [skill.skillId, skill.proficiency])),
-      persona: buildPersona(
-        employee.employeeCode,
-        employee.careerLevel,
-        pastRatings ? pastRatings.reduce((sum, rating) => sum + rating, 0) / pastRatings.length : null
-      )
+      persona: buildPersona(employee.employeeCode, employee.careerLevel)
     });
   }
 
@@ -850,10 +821,6 @@ function createTotals(): Totals {
     completedLate: 0,
     reworks: 0,
     cancelled: 0,
-    selfReviews: 0,
-    reviewsFinalized: 0,
-    cyclesOpened: [],
-    cyclesClosed: []
   };
 }
 
@@ -864,7 +831,6 @@ function createTotals(): Totals {
 async function simulateDay(tx: Tx, ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   random = createRandom(hashString(`omnihr-simulation:${iso(day)}`));
 
-  await rollReviewCycles(tx, ctx, day, totals);
   const onLeave = await settleLeaveRequests(tx, ctx, day, totals);
   await fileLeaveRequests(tx, ctx, day, onLeave, totals);
   const presence = await recordAttendance(tx, ctx, day, onLeave, totals);
@@ -1667,7 +1633,15 @@ async function progressTasks(
       continue;
     }
     const reviewedAt = at(day, randomInt(hm("10:00"), hm("17:15")));
-    if (chance(employee.persona.passRate)) {
+    if (
+      chance(
+        clamp(
+          employee.persona.passRate * (2 - taskDifficulty(task.id)) * dayShock(day),
+          0.15,
+          0.97
+        )
+      )
+    ) {
       await tx.task.update({ where: { id: task.id }, data: { status: DONE, completedAt: reviewedAt } });
       delete state.rework[task.id];
       task.status = DONE;
@@ -1716,8 +1690,12 @@ async function progressTasks(
       continue;
     }
     const { persona } = employee;
-    let focus = Math.min(hoursAtWork, (2.5 + persona.ability * 3.5) * randomBetween(0.75, 1.2));
-    if (chance((1 - persona.ability) * 0.2)) {
+    let focus = Math.min(
+      hoursAtWork,
+      (2.5 + persona.ability * 3.5) * randomBetween(0.7, 1.3) * dayShock(day)
+    );
+    // Everyone loses a day sometimes, not only the weaker half.
+    if (chance(0.08 + (1 - persona.ability) * 0.18)) {
       focus *= 0.3; // distracted, stuck, or pulled into meetings all day
     }
     focus = roundHalf(focus);
@@ -1751,10 +1729,41 @@ async function progressTasks(
   }
 }
 
+/**
+ * How hard a task turns out to be, independent of who takes it: requirements
+ * churn, a dependency that is not ready, an estimate that was optimistic.
+ *
+ * The spread is deliberately wide. With a narrow one, how a task ends is
+ * almost entirely the assignee's hidden ability, the track-record signal
+ * becomes a near-perfect readout of that ability, and every evaluation built
+ * on this data measures the simulator talking to itself.
+ */
+function taskDifficulty(taskId: number) {
+  // Centred just above 1 so the team still meets most deadlines: a world where
+  // three quarters of tasks run late is as unrealistic as one with no noise,
+  // and it starves the evaluation of on-time examples.
+  return 0.7 + hash01(`difficulty:${taskId}`) * 0.7;
+}
+
+/**
+ * A shock the whole team shares on a given day - an incident, a release
+ * week, half the office in a workshop. Nobody's record should look bad just
+ * for having been assigned work that week.
+ */
+function dayShock(day: Date) {
+  return 0.85 + hash01(`shock:${iso(day)}`) * 0.3;
+}
+
 /** Hours this person needs to finish a task: slower people need more, rework adds on. */
-function hoursNeeded(taskId: number, estimatedHours: number, persona: Persona, state: SimulationState) {
-  const complexity = 0.85 + hash01(`complexity:${taskId}`) * 0.35;
-  return roundHalf((estimatedHours / persona.speed) * complexity + (state.rework[taskId] ?? 0));
+function hoursNeeded(
+  taskId: number,
+  estimatedHours: number,
+  persona: Persona,
+  state: SimulationState
+) {
+  return roundHalf(
+    (estimatedHours / persona.speed) * taskDifficulty(taskId) + (state.rework[taskId] ?? 0)
+  );
 }
 
 /** Mirrors TasksService.syncParentStatus, dating completion from the subtasks. */
@@ -1829,186 +1838,6 @@ async function syncProjects(tx: Tx, day: Date, totals: Totals) {
   }
 }
 
-// --- Performance reviews --------------------------------------------------------
-
-async function rollReviewCycles(tx: Tx, ctx: Context, day: Date, totals: Totals) {
-  const ended = await tx.reviewCycle.findMany({
-    where: { status: ReviewCycleStatus.OPEN, endDate: { lt: day } },
-    orderBy: { endDate: "asc" }
-  });
-  for (const cycle of ended) {
-    await finalizeCycle(tx, ctx, cycle, day, totals);
-  }
-
-  const current = await tx.reviewCycle.findFirst({
-    where: { startDate: { lte: day }, endDate: { gte: day } },
-    orderBy: { startDate: "desc" }
-  });
-  if (!current) {
-    const quarter = Math.floor(day.getUTCMonth() / 3);
-    const year = day.getUTCFullYear();
-    const name = `Đánh giá hiệu suất quý ${["I", "II", "III", "IV"][quarter]}/${year}`;
-    const cycle = await tx.reviewCycle.create({
-      data: {
-        name,
-        startDate: new Date(Date.UTC(year, quarter * 3, 1)),
-        endDate: new Date(Date.UTC(year, quarter * 3 + 3, 0)),
-        status: ReviewCycleStatus.OPEN,
-        createdAt: at(day, hm("08:30"))
-      }
-    });
-    await tx.performanceReview.createMany({
-      data: [...ctx.employees.values()]
-        .filter((employee) => !(employee.hireDate && employee.hireDate > day))
-        .map((employee) => ({ cycleId: cycle.id, employeeId: employee.id, createdAt: at(day, hm("08:30")) }))
-    });
-    totals.cyclesOpened.push(name);
-    return;
-  }
-
-  // Self reviews trickle in over the last two weeks; stronger people submit earlier.
-  if (current.status === ReviewCycleStatus.OPEN && workdaysBetween(day, current.endDate) <= 8) {
-    const pending = await tx.performanceReview.findMany({
-      where: { cycleId: current.id, status: PerformanceReviewStatus.PENDING_SELF }
-    });
-    for (const review of pending) {
-      const employee = ctx.employees.get(review.employeeId);
-      if (!employee || !chance(0.08 + employee.persona.ability * 0.2)) {
-        continue;
-      }
-      const selfRating = clamp(Math.round(1.5 + employee.persona.ability * 3.5 + random() * 0.8), 1, 5);
-      await tx.performanceReview.update({
-        where: { id: review.id },
-        data: {
-          status: PerformanceReviewStatus.SELF_SUBMITTED,
-          selfRating,
-          selfComment: SELF_COMMENTS[selfRating],
-          submittedAt: at(day, randomInt(hm("09:00"), hm("17:00")))
-        }
-      });
-      totals.selfReviews += 1;
-    }
-  }
-}
-
-/** Closes a cycle with ratings earned from the cycle's actual tasks and attendance. */
-async function finalizeCycle(
-  tx: Tx,
-  ctx: Context,
-  cycle: { id: number; name: string; startDate: Date; endDate: Date },
-  day: Date,
-  totals: Totals
-) {
-  const reviews = await tx.performanceReview.findMany({ where: { cycleId: cycle.id } });
-  const reviewed = new Set(reviews.map((review) => review.employeeId));
-  for (const employee of ctx.employees.values()) {
-    if (reviewed.has(employee.id) || (employee.hireDate && employee.hireDate > cycle.endDate)) {
-      continue;
-    }
-    reviews.push(
-      await tx.performanceReview.create({
-        data: { cycleId: cycle.id, employeeId: employee.id, createdAt: at(cycle.startDate, hm("09:00")) }
-      })
-    );
-  }
-
-  for (const review of reviews) {
-    const employee = ctx.employees.get(review.employeeId);
-    if (!employee || review.status === PerformanceReviewStatus.FINALIZED) {
-      continue;
-    }
-
-    const metrics = await cycleMetrics(tx, employee.id, cycle);
-    const punctuality = 1 - Math.min(1, metrics.lateRate * 3);
-    const backlog = 1 - Math.min(1, metrics.overdueOpen / 3);
-    const score =
-      metrics.done >= 2
-        ? 0.5 * (metrics.onTime / metrics.done) + 0.2 * metrics.efficiency + 0.15 * punctuality + 0.15 * backlog
-        : 0.55 * employee.persona.ability + 0.25 * punctuality + 0.2 * backlog;
-    const managerRating = clamp(
-      Math.round(1 + 4 * clamp((score - 0.35) / 0.6, 0, 1) + randomBetween(-0.3, 0.3)),
-      1,
-      5
-    );
-    const selfRating = review.selfRating ?? clamp(managerRating + (chance(0.45) ? 1 : 0), 1, 5);
-    const finalizedAt = at(day, randomInt(hm("16:00"), hm("17:00")));
-
-    await tx.performanceReview.update({
-      where: { id: review.id },
-      data: {
-        reviewerUserId: employee.managerUserId ?? ctx.adminUserId,
-        selfRating,
-        selfComment: review.selfComment ?? SELF_COMMENTS[selfRating],
-        managerRating,
-        managerComment:
-          `${REVIEW_COMMENTS[managerRating]} Trong kỳ hoàn thành ${metrics.done} đầu việc ` +
-          `(${metrics.onTime} đúng hạn), còn ${metrics.overdueOpen} việc quá hạn; ` +
-          `đi muộn ${metrics.late}/${metrics.checkIns} buổi.`,
-        finalRating: managerRating,
-        status: PerformanceReviewStatus.FINALIZED,
-        submittedAt: review.submittedAt ?? at(day, randomInt(hm("08:30"), hm("10:00"))),
-        reviewedAt: at(day, randomInt(hm("13:30"), hm("15:30"))),
-        finalizedAt
-      }
-    });
-    await notify(tx, ctx, employee.userId, {
-      type: NotificationType.REVIEW_FINALIZED,
-      title: "Performance review finalized",
-      message: `Your performance review for "${cycle.name}" has been finalized.`,
-      entityType: "PerformanceReview",
-      entityId: review.id,
-      createdAt: finalizedAt
-    });
-    totals.reviewsFinalized += 1;
-  }
-
-  await tx.reviewCycle.update({ where: { id: cycle.id }, data: { status: ReviewCycleStatus.CLOSED } });
-  totals.cyclesClosed.push(cycle.name);
-}
-
-async function cycleMetrics(tx: Tx, employeeId: number, cycle: { startDate: Date; endDate: Date }) {
-  const done = await tx.task.findMany({
-    where: {
-      deletedAt: null,
-      parentTaskId: { not: null },
-      assigneeId: employeeId,
-      status: DONE,
-      completedAt: { gte: at(cycle.startDate, 0), lt: at(addDays(cycle.endDate, 1), 0) }
-    },
-    select: { dueDate: true, completedAt: true, estimatedHours: true, actualHours: true }
-  });
-  const overdueOpen = await tx.task.count({
-    where: {
-      deletedAt: null,
-      parentTaskId: { not: null },
-      assigneeId: employeeId,
-      status: { in: OPEN_TASK_STATUSES },
-      dueDate: { lt: cycle.endDate }
-    }
-  });
-  const checkIns = await tx.attendanceRecord.findMany({
-    where: {
-      employeeId,
-      recordType: AttendanceRecordType.CHECK_IN,
-      isAdjustment: false,
-      workDate: { gte: cycle.startDate, lte: cycle.endDate }
-    },
-    select: { attendanceStatus: true }
-  });
-
-  const estimated = done.reduce((sum, task) => sum + Number(task.estimatedHours ?? 0), 0);
-  const actual = done.reduce((sum, task) => sum + Number(task.actualHours ?? 0), 0);
-  const late = checkIns.filter((record) => record.attendanceStatus === AttendanceStatus.LATE).length;
-  return {
-    done: done.length,
-    onTime: done.filter((task) => !task.dueDate || companyToday(task.completedAt!) <= task.dueDate).length,
-    efficiency: actual > 0 ? Math.min(1, estimated / actual) : 1,
-    overdueOpen,
-    late,
-    checkIns: checkIns.length,
-    lateRate: checkIns.length ? late / checkIns.length : 0
-  };
-}
 
 // --- Shared helpers ---------------------------------------------------------------
 
@@ -2230,12 +2059,6 @@ function printSummary(totals: Totals, state: SimulationState) {
     `- Nghỉ phép: ${totals.sickLeaves} nghỉ ốm, ${totals.leaveFiled} đơn mới chờ duyệt, ` +
       `${totals.leaveApproved} duyệt, ${totals.leaveRejected} từ chối, ${totals.leaveCancelled} hủy`
   );
-  if (totals.selfReviews || totals.reviewsFinalized || totals.cyclesOpened.length) {
-    console.info(
-      `- Đánh giá: ${totals.selfReviews} tự đánh giá, ${totals.reviewsFinalized} phiếu chốt; ` +
-        `mở kỳ: ${list(totals.cyclesOpened)}; đóng kỳ: ${list(totals.cyclesClosed)}`
-    );
-  }
 }
 
 async function printPerformers(ctx: Context, through: Date) {
@@ -2283,12 +2106,16 @@ async function printPerformers(ctx: Context, through: Date) {
   console.table([...rows.slice(0, 5), ...rows.slice(-5)]);
 }
 
-main()
-  .then(async () => {
-    await prisma.$disconnect();
-  })
-  .catch(async (error) => {
-    console.error(error);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+// Only simulate when this file is the entry point, so the date guards above
+// can be unit tested without writing a day of history first.
+if (require.main === module) {
+  main()
+    .then(async () => {
+      await prisma.$disconnect();
+    })
+    .catch(async (error) => {
+      console.error(error);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

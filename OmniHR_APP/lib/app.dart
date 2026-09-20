@@ -9,19 +9,57 @@ import 'modules/onboarding/onboarding_screen.dart';
 import 'modules/shell/home_shell.dart';
 import 'shared/widgets/widgets.dart';
 
-class OmniHrApp extends StatelessWidget {
+class OmniHrApp extends StatefulWidget {
   const OmniHrApp({super.key, required this.session});
 
   final AppSession session;
 
   @override
+  State<OmniHrApp> createState() => _OmniHrAppState();
+}
+
+class _OmniHrAppState extends State<OmniHrApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late bool _wasLoggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    // Read eagerly: a lazy `late` initialiser would first run inside the
+    // listener, after the session had already gone, and miss the change.
+    _wasLoggedIn = widget.session.isLoggedIn;
+    widget.session.addListener(_onSessionChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  /// `home` swaps to the login screen on its own, but anything the user had
+  /// pushed on top (a sub screen, a dialog, a bottom sheet) would stay there
+  /// showing errors it can never recover from. Losing the session therefore
+  /// unwinds the navigator back to the root route.
+  void _onSessionChanged() {
+    final loggedIn = widget.session.isLoggedIn;
+    if (_wasLoggedIn && !loggedIn) {
+      _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    }
+    _wasLoggedIn = loggedIn;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
+
     return AnimatedBuilder(
       animation: session,
       builder: (context, _) {
         return MaterialApp(
           title: 'OmniHR',
           debugShowCheckedModeBanner: false,
+          navigatorKey: _navigatorKey,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
           themeMode: session.themeMode,

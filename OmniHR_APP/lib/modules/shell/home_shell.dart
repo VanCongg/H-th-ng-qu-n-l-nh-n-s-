@@ -6,6 +6,7 @@ import '../../core/utils.dart';
 import '../../shared/widgets/widgets.dart';
 import '../chat/chat_screen.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 
 class HomeShell extends StatelessWidget {
@@ -46,6 +47,8 @@ class HomeShell extends StatelessWidget {
                     title: tx('Trang chủ'),
                     subtitle: tx('Tổng quan công việc hôm nay'),
                     actions: [
+                      _NotificationBellButton(session: session),
+                      const SizedBox(width: 6),
                       _ProfileAvatarButton(
                         session: session,
                         onTap: () => _openProfile(context),
@@ -60,6 +63,105 @@ class HomeShell extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationBellButton extends StatefulWidget {
+  const _NotificationBellButton({required this.session});
+
+  final AppSession session;
+
+  @override
+  State<_NotificationBellButton> createState() =>
+      _NotificationBellButtonState();
+}
+
+class _NotificationBellButtonState extends State<_NotificationBellButton> {
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUnread();
+  }
+
+  Future<void> _loadUnread() async {
+    try {
+      final data = await widget.session.api.get('/notifications/unread-count');
+      if (mounted) setState(() => _unread = intOf(data));
+    } catch (_) {
+      // A badge is not worth an error on the home screen.
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SubScreen(
+          title: tx('Thông báo'),
+          child: NotificationsScreen(session: widget.session),
+        ),
+      ),
+    );
+    await _loadUnread();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = _unread > 99 ? '99+' : '$_unread';
+
+    return Semantics(
+      label: tx('Thông báo'),
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: _openNotifications,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.notifications_none_rounded,
+                  size: 24,
+                  color: brandColor,
+                ),
+                if (_unread > 0)
+                  Positioned(
+                    top: 4,
+                    right: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      decoration: BoxDecoration(
+                        color: dangerColor,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: surfaceColor, width: 1.5),
+                      ),
+                      child: Text(
+                        badge,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -437,7 +437,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -634,7 +634,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -832,7 +832,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.0,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -980,7 +980,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_EMPLOYEE_BIRTHDAYS"
     ],
@@ -1458,7 +1458,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.0,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1482,7 +1482,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.0,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1506,7 +1506,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.0,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1554,7 +1554,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "UNKNOWN"
     ],
@@ -1650,7 +1650,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1674,7 +1674,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1746,7 +1746,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.4,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1759,6 +1759,258 @@
   {
     "category": "fixture",
     "message": "Bảo mật thông tin công ty thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đánh dấu task Viết tài liệu API hoàn thành",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.9,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cập nhật trạng thái task 42 sang đang làm",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "IN_PROGRESS",
+      "taskId": 42
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Task #35 xong rồi",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskId": 35
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Chuyển task 12 sang chờ duyệt",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "IN_REVIEW",
+      "taskId": 12
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đánh dấu task hoàn thành",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cập nhật trạng thái task",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Chính sách nghỉ phép của công ty thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.5,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Nội quy công ty thế nào?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Chính sách của công ty",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Quy định về làm việc từ xa",
     "intent": "GET_HR_POLICY_INFO",
     "tool": null,
     "arguments": {},

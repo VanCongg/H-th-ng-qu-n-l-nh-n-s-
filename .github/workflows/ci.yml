@@ -61,3 +61,23 @@ jobs:
           cache-dependency-path: OmniHR_AI/requirements.txt
       - run: pip install -r requirements.txt
       - run: pytest
+
+  mobile:
+    name: Mobile (Flutter)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: OmniHR_APP
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          # Pinned to the version the app is developed against; `channel:
+          # stable` alone would silently move the toolchain under the app.
+          flutter-version: "3.38.5"
+          channel: "stable"
+          cache: true
+      - run: flutter pub get
+      - run: dart format --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test

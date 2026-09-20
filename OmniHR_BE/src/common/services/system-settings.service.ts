@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
+import { DEFAULT_SCORE_WEIGHTS } from "../../ai-task-suggestions/suggestion-scoring";
 import { PrismaService } from "../../prisma/prisma.service";
 import { cacheKeys, SYSTEM_SETTINGS_TTL_SECONDS } from "../../redis/cache-keys";
 import { CacheService } from "../../redis/cache.service";
@@ -21,13 +22,19 @@ export type SystemSettings = {
   attendanceEarlyCheckInMinutes: number;
   /** Late arrival / early leave up to this many minutes is not deducted. */
   attendanceGraceMinutes: number;
-  overtimeRatePercent: number;
-  /** Employee share of mandatory insurance (BHXH 8% + BHYT 1.5% + BHTN 1%). */
-  insuranceRatePercent: number;
   /** One extra annual leave day per this many full years of service (0 = off). */
   seniorityLeaveEveryYears: number;
   /** Unused annual leave days that roll into the next year (0 = off). */
   annualLeaveCarryOverMaxDays: number;
+  /**
+   * Weights of the AI assignee ranking. They are fitted on past assignments
+   * by prisma/tune-weights.ts rather than hand-picked, and need not sum to 1:
+   * the scorer renormalises the signals a candidate actually has.
+   */
+  aiWeightSkill: number;
+  aiWeightWorkload: number;
+  aiWeightAvailability: number;
+  aiWeightHistory: number;
   morningShiftStart: string;
   morningShiftEnd: string;
   afternoonShiftStart: string;
@@ -47,10 +54,12 @@ export const defaultSystemSettings: SystemSettings = {
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
   attendanceGraceMinutes: 0,
-  overtimeRatePercent: 150,
-  insuranceRatePercent: 10.5,
   seniorityLeaveEveryYears: 5,
   annualLeaveCarryOverMaxDays: 5,
+  aiWeightSkill: DEFAULT_SCORE_WEIGHTS.skill,
+  aiWeightWorkload: DEFAULT_SCORE_WEIGHTS.workload,
+  aiWeightAvailability: DEFAULT_SCORE_WEIGHTS.availability,
+  aiWeightHistory: DEFAULT_SCORE_WEIGHTS.history,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
@@ -66,7 +75,7 @@ export class SystemSettingsService {
 
   /**
    * Read from Redis first. Two dozen call sites across attendance, leave,
-   * payroll and the chatbot hit this on nearly every request, for a row that
+   * attendance, leave and the chatbot hit this on nearly every request, for a row that
    * only the settings screen ever changes.
    */
   async getSettings(): Promise<SystemSettings> {
@@ -147,17 +156,29 @@ function normalizeSystemSettings(value: unknown): SystemSettings {
       120,
       defaultSystemSettings.attendanceGraceMinutes
     ),
-    overtimeRatePercent: normalizeIntegerInRange(
-      raw.overtimeRatePercent,
-      100,
-      400,
-      defaultSystemSettings.overtimeRatePercent
-    ),
-    insuranceRatePercent: normalizeNumberInRange(
-      raw.insuranceRatePercent,
+    aiWeightSkill: normalizeNumberInRange(
+      raw.aiWeightSkill,
       0,
-      50,
-      defaultSystemSettings.insuranceRatePercent
+      1,
+      defaultSystemSettings.aiWeightSkill
+    ),
+    aiWeightWorkload: normalizeNumberInRange(
+      raw.aiWeightWorkload,
+      0,
+      1,
+      defaultSystemSettings.aiWeightWorkload
+    ),
+    aiWeightAvailability: normalizeNumberInRange(
+      raw.aiWeightAvailability,
+      0,
+      1,
+      defaultSystemSettings.aiWeightAvailability
+    ),
+    aiWeightHistory: normalizeNumberInRange(
+      raw.aiWeightHistory,
+      0,
+      1,
+      defaultSystemSettings.aiWeightHistory
     ),
     seniorityLeaveEveryYears: normalizeIntegerInRange(
       raw.seniorityLeaveEveryYears,

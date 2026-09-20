@@ -71,8 +71,6 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
     'task not found': 'Không tìm thấy công việc.',
     'team-level task status is calculated from its subtasks':
         'Trạng thái công việc cấp nhóm được tính từ các công việc con.',
-    'a payroll period already exists for this month':
-        'Kỳ lương của tháng này đã tồn tại.',
     'a team-level task cannot be assigned to an employee':
         'Công việc cấp nhóm không thể giao cho một nhân viên.',
     'a team-level task requires a project and a team':
@@ -94,8 +92,6 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
     'assign a department manager after employees belong to this department':
         'Chỉ có thể chỉ định trưởng phòng khi phòng ban đã có nhân viên.',
     'attendance record not found': 'Không tìm thấy bản ghi chấm công.',
-    'calculate the payroll before finalizing it':
-        'Hãy tính lương trước khi chốt bảng lương.',
     'cannot generate ai suggestion for closed task':
         'Không thể tạo gợi ý AI cho công việc đã đóng.',
     'company email already exists': 'Email công ty đã tồn tại.',
@@ -150,8 +146,6 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
     'notification not found': 'Không tìm thấy thông báo.',
     'only a department head can create a project':
         'Chỉ trưởng phòng mới có thể tạo dự án.',
-    'only a finalized payroll can be emailed':
-        'Chỉ có thể gửi phiếu lương khi bảng lương đã chốt.',
     'only the department head can assign a team-level task':
         'Chỉ trưởng phòng mới có thể giao công việc cấp nhóm.',
     'only the department head can manage this project':
@@ -163,9 +157,7 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
     'parent task is closed or has an invalid scope':
         'Công việc cha đã đóng hoặc không hợp lệ.',
     'parent task not found': 'Không tìm thấy công việc cha.',
-    'payroll period not found': 'Không tìm thấy kỳ lương.',
     'pending action not found': 'Không tìm thấy thao tác đang chờ xác nhận.',
-    'performance review not found': 'Không tìm thấy đánh giá hiệu suất.',
     'permission denied': 'Bạn không có quyền thực hiện thao tác này.',
     'permission not found': 'Không tìm thấy quyền.',
     'position does not belong to selected department':
@@ -177,7 +169,6 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
     'project scope denied': 'Dự án nằm ngoài phạm vi quản lý của bạn.',
     'required skills are only defined on subtasks':
         'Kỹ năng yêu cầu chỉ được khai báo ở công việc con.',
-    'review cycle not found': 'Không tìm thấy kỳ đánh giá.',
     'role not found': 'Không tìm thấy vai trò.',
     'role permission not found': 'Không tìm thấy quyền của vai trò.',
     'selected ai suggestion cannot be cancelled':
@@ -219,16 +210,10 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
         'Công việc cấp nhóm vẫn còn công việc con đang thực hiện.',
     'technologies are defined on the team-level task':
         'Công nghệ được khai báo ở công việc cấp nhóm.',
-    'this payroll period is finalized and can no longer change':
-        'Kỳ lương đã chốt nên không thể thay đổi.',
     'unsupported chatbot action': 'Thao tác chatbot không được hỗ trợ.',
     'user role not found': 'Không tìm thấy vai trò của tài khoản.',
-    'you can only submit your own self-assessment':
-        'Bạn chỉ có thể gửi bản tự đánh giá của chính mình.',
     'you cannot approve or reject your own leave request':
         'Bạn không thể tự duyệt hoặc từ chối đơn nghỉ của mình.',
-    'you cannot submit a manager review for yourself':
-        'Bạn không thể tự chấm điểm quản lý cho chính mình.',
     'todate must be after or equal to fromdate':
         'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.',
   };
@@ -237,13 +222,6 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
   if (friendly != null) return tx(friendly);
 
   // Messages that embed a runtime value cannot be matched exactly.
-  if (RegExp(
-    r'^performance review must be in \w+ status$',
-  ).hasMatch(normalized)) {
-    return tx(
-      'Đánh giá hiệu suất chưa ở đúng trạng thái để thực hiện thao tác này.',
-    );
-  }
   if (RegExp(r'^\w+ is (required|invalid)$').hasMatch(normalized)) {
     return tx('Thông tin gửi lên không hợp lệ. Vui lòng thử lại.');
   }

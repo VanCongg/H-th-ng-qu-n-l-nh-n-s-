@@ -10,13 +10,19 @@ import { AccessControlService } from "../common/services/access-control.service"
 import { AuditService } from "../common/services/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TaskWorkloadService } from "../task-workload/task-workload.service";
+import { SystemSettingsService } from "../common/services/system-settings.service";
+import { SuggestionExplainerClient } from "./suggestion-explainer.client";
+import { DEFAULT_SCORE_WEIGHTS } from "./suggestion-scoring";
 import { AiTaskSuggestionsService } from "./ai-task-suggestions.service";
 
 describe("AiTaskSuggestionsService", () => {
   function createService() {
     const prisma = {
       task: {
-        findFirst: jest.fn()
+        findFirst: jest.fn(),
+        // Finished tasks behind the track-record signal; empty means every
+        // candidate is a new hire and that signal drops out of the score.
+        findMany: jest.fn().mockResolvedValue([])
       },
       employee: {
         findMany: jest.fn()
@@ -24,8 +30,10 @@ describe("AiTaskSuggestionsService", () => {
       leaveRequest: {
         findMany: jest.fn()
       },
-      performanceReview: {
-        findMany: jest.fn().mockResolvedValue([])
+      // Recent assignments behind the fair-share rebalancing; empty means the
+      // team is perfectly balanced and nobody is penalised.
+      taskAssignment: {
+        groupBy: jest.fn().mockResolvedValue([])
       },
       aiTaskSuggestion: {
         create: jest.fn(),
@@ -54,18 +62,35 @@ describe("AiTaskSuggestionsService", () => {
     const workloadService = {
       summariesForEmployees: jest.fn()
     };
+    // The fitted weights come from settings; the defaults keep the expected
+    // scores in this file readable.
+    // Off by default here: these tests assert the sentence the service writes
+    // itself, and the LLM wording is verified in the AI service tests.
+    const explainer = { enabled: false, explain: jest.fn() };
+    const systemSettings = {
+      getSettings: jest.fn().mockResolvedValue({
+        aiWeightSkill: DEFAULT_SCORE_WEIGHTS.skill,
+        aiWeightWorkload: DEFAULT_SCORE_WEIGHTS.workload,
+        aiWeightAvailability: DEFAULT_SCORE_WEIGHTS.availability,
+        aiWeightHistory: DEFAULT_SCORE_WEIGHTS.history
+      })
+    };
 
     return {
       service: new AiTaskSuggestionsService(
         prisma as unknown as PrismaService,
         audit as unknown as AuditService,
         accessControl as unknown as AccessControlService,
-        workloadService as unknown as TaskWorkloadService
+        workloadService as unknown as TaskWorkloadService,
+        systemSettings as unknown as SystemSettingsService,
+        explainer as unknown as SuggestionExplainerClient
       ),
       prisma,
       accessControl,
       audit,
-      workloadService
+      workloadService,
+      systemSettings,
+      explainer
     };
   }
 
@@ -90,7 +115,7 @@ describe("AiTaskSuggestionsService", () => {
       projectId: 3,
       departmentId: 2,
       teamId: null,
-      title: "Build payroll report",
+      title: "Build the monthly report",
       description: null,
       priority: TaskPriority.HIGH,
       status: TaskStatus.TODO,
@@ -249,7 +274,7 @@ describe("AiTaskSuggestionsService", () => {
     });
   });
 
-  it("generates v4 suggestions with pending leave warnings and workday availability score", async () => {
+  it("generates suggestions with pending leave warnings and workday availability score", async () => {
     const { service, prisma, accessControl, workloadService } = createService();
     const task = baseTask();
     const employee = baseEmployee();
@@ -314,7 +339,7 @@ describe("AiTaskSuggestionsService", () => {
     expect(prisma.aiTaskSuggestion.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          algorithmVersion: "rule-based-v4",
+          algorithmVersion: "mcdm-v5",
           inputSnapshot: expect.objectContaining({
             taskFingerprint: expect.any(String),
             expiresAt: expect.any(String),
@@ -336,10 +361,111 @@ describe("AiTaskSuggestionsService", () => {
         employeeCode: "E030",
         departmentName: "Engineering",
         positionName: "Backend Developer",
-        eligible: true,
-        performanceScore: null
+        eligible: true
       })
     );
+  });
+
+  it("scores with the weights fitted in system settings, not a constant", async () => {
+    const { service, prisma, accessControl, workloadService, systemSettings } =
+      createService();
+    // Skill 92 and workload 40 for this candidate: weighting workload alone
+    // has to land on 40, which no fixed weight vector would produce.
+    systemSettings.getSettings.mockResolvedValue({
+      aiWeightSkill: 0,
+      aiWeightWorkload: 1,
+      aiWeightAvailability: 0,
+      aiWeightHistory: 0
+    });
+    prisma.task.findFirst.mockResolvedValue(baseTask());
+    accessControl.candidateEmployeeIdsForTask.mockResolvedValue([actor.employeeId, 30]);
+    prisma.employee.findMany.mockResolvedValue([baseEmployee()]);
+    workloadService.summariesForEmployees.mockResolvedValue(
+      new Map([
+        [
+          30,
+          {
+            employeeId: 30,
+            activeTaskCount: 5,
+            totalEstimatedHours: 36,
+            overdueTaskCount: 0,
+            capacityHoursPerWeek: 40,
+            availableHours: 4,
+            workloadScore: 40
+          }
+        ]
+      ])
+    );
+    prisma.leaveRequest.findMany.mockResolvedValue([]);
+    prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
+      Promise.resolve(
+        suggestionResponse({
+          algorithmVersion: data.algorithmVersion,
+          inputSnapshot: data.inputSnapshot,
+          items: data.items.create.map((item: Record<string, unknown>) => ({
+            id: 500,
+            suggestionId: 50,
+            createdAt: date("2026-06-19"),
+            selected: false,
+            ...item,
+            employee: baseEmployee()
+          }))
+        })
+      )
+    );
+
+    const result = await service.generate(100, { includeAvailability: true }, actor);
+
+    expect(result.items[0].score).toBe(40);
+    expect(prisma.aiTaskSuggestion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          inputSnapshot: expect.objectContaining({
+            weights: { skill: 0, workload: 1, availability: 0, history: 0 }
+          })
+        })
+      })
+    );
+  });
+
+  it("uses the sentence the AI service wrote and keeps its own when it does not answer", async () => {
+    const { service, prisma, accessControl, workloadService, explainer } =
+      createService();
+    explainer.enabled = true;
+    explainer.explain.mockResolvedValue(
+      new Map([[30, "Khớp cả hai kỹ năng bắt buộc và còn 28h trống trong tuần."]])
+    );
+    prisma.task.findFirst.mockResolvedValue(baseTask());
+    accessControl.candidateEmployeeIdsForTask.mockResolvedValue([actor.employeeId, 30]);
+    prisma.employee.findMany.mockResolvedValue([baseEmployee()]);
+    workloadService.summariesForEmployees.mockResolvedValue(new Map());
+    prisma.leaveRequest.findMany.mockResolvedValue([]);
+    prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
+      Promise.resolve(
+        suggestionResponse({
+          algorithmVersion: data.algorithmVersion,
+          inputSnapshot: data.inputSnapshot,
+          items: data.items.create.map((item: Record<string, unknown>) => ({
+            id: 500,
+            suggestionId: 50,
+            createdAt: date("2026-06-19"),
+            selected: false,
+            ...item,
+            employee: baseEmployee()
+          }))
+        })
+      )
+    );
+
+    const written = await service.generate(100, {}, actor);
+    expect(written.items[0].reason).toBe(
+      "Khớp cả hai kỹ năng bắt buộc và còn 28h trống trong tuần."
+    );
+
+    // The AI service answering with nothing must leave the ranking untouched.
+    explainer.explain.mockResolvedValue(new Map());
+    const fallback = await service.generate(100, {}, actor);
+    expect(fallback.items[0].reason).toContain("Nguyen Van A");
   });
 
   it("expires stale suggestions when the task fingerprint changed before selection", async () => {
@@ -408,123 +534,5 @@ describe("AiTaskSuggestionsService", () => {
       expect.objectContaining({ action: "CANCEL_AI_TASK_SUGGESTION" })
     );
     expect(result.status).toBe(AiTaskSuggestionStatus.CANCELLED);
-  });
-
-  describe("performance signal", () => {
-    // skill 92 * 0.5 + workload 100 * 0.35 + availability 100 * 0.15 = 96.
-    const scoreWithoutPerformance = 96;
-
-    function arrangeGenerate(
-      service: ReturnType<typeof createService>,
-      reviews: Array<{ employeeId: number; finalRating: number; finalizedAt: Date }>
-    ) {
-      const { prisma, accessControl, workloadService } = service;
-      const employee = baseEmployee();
-
-      prisma.task.findFirst.mockResolvedValue(baseTask());
-      accessControl.candidateEmployeeIdsForTask.mockResolvedValue([30]);
-      prisma.employee.findMany.mockResolvedValue([employee]);
-      workloadService.summariesForEmployees.mockResolvedValue(
-        new Map([
-          [
-            30,
-            {
-              employeeId: 30,
-              activeTaskCount: 2,
-              totalEstimatedHours: 12,
-              overdueTaskCount: 0,
-              capacityHoursPerWeek: 40,
-              availableHours: 28,
-              workloadScore: 100
-            }
-          ]
-        ])
-      );
-      prisma.leaveRequest.findMany.mockResolvedValue([]);
-      prisma.performanceReview.findMany.mockResolvedValue(reviews);
-      prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
-        Promise.resolve(
-          suggestionResponse({
-            inputSnapshot: data.inputSnapshot,
-            items: data.items.create.map((item: Record<string, unknown>) => ({
-              id: 500,
-              suggestionId: 50,
-              createdAt: date("2026-06-19"),
-              selected: false,
-              ...item,
-              employee
-            }))
-          })
-        )
-      );
-    }
-
-    it("scores a candidate with no finalized review exactly as before the signal existed", async () => {
-      const service = createService();
-      arrangeGenerate(service, []);
-
-      const result = await service.service.generate(100, {}, actor);
-
-      expect(result.items[0].performanceScore).toBeNull();
-      expect(result.items[0].score).toBe(scoreWithoutPerformance);
-    });
-
-    it("raises the score of a strongly reviewed candidate", async () => {
-      const service = createService();
-      arrangeGenerate(service, [
-        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") }
-      ]);
-
-      const result = await service.service.generate(100, {}, actor);
-
-      // rating 5 maps to 100, folded in at weight 0.2: (96 + 100 * 0.2) / 1.2.
-      expect(result.items[0].performanceScore).toBe(100);
-      expect(result.items[0].score).toBeGreaterThan(scoreWithoutPerformance);
-      expect(result.items[0].score).toBe(96.67);
-    });
-
-    it("lowers the score of a weakly reviewed candidate", async () => {
-      const service = createService();
-      arrangeGenerate(service, [
-        { employeeId: 30, finalRating: 2, finalizedAt: date("2026-06-01") }
-      ]);
-
-      const result = await service.service.generate(100, {}, actor);
-
-      expect(result.items[0].performanceScore).toBe(25);
-      expect(result.items[0].score).toBeLessThan(scoreWithoutPerformance);
-    });
-
-    it("averages only the most recent cycles so old reviews stop counting", async () => {
-      const service = createService();
-      arrangeGenerate(service, [
-        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") },
-        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-03-01") },
-        { employeeId: 30, finalRating: 5, finalizedAt: date("2025-12-01") },
-        // Older than the 3-cycle window, so it must not drag the average down.
-        { employeeId: 30, finalRating: 1, finalizedAt: date("2025-09-01") }
-      ]);
-
-      const result = await service.service.generate(100, {}, actor);
-
-      expect(result.items[0].performanceScore).toBe(100);
-    });
-
-    it("skips the signal entirely when the caller opts out", async () => {
-      const service = createService();
-      arrangeGenerate(service, [
-        { employeeId: 30, finalRating: 5, finalizedAt: date("2026-06-01") }
-      ]);
-
-      const result = await service.service.generate(
-        100,
-        { includePerformance: false },
-        actor
-      );
-
-      expect(service.prisma.performanceReview.findMany).not.toHaveBeenCalled();
-      expect(result.items[0].performanceScore).toBeNull();
-      expect(result.items[0].score).toBe(scoreWithoutPerformance);
-    });
   });
 });

@@ -549,6 +549,17 @@ class AppNotification {
   final bool isRead;
   final String createdAt;
 
+  AppNotification copyWith({bool? isRead}) {
+    return AppNotification(
+      id: id,
+      type: type,
+      title: title,
+      message: message,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+    );
+  }
+
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: intOf(json['id']),
@@ -557,73 +568,6 @@ class AppNotification {
       message: textOf(json['message']),
       isRead: json['isRead'] == true,
       createdAt: textOf(json['createdAt']),
-    );
-  }
-}
-
-class ReviewCycle {
-  ReviewCycle({
-    required this.id,
-    required this.name,
-    required this.startDate,
-    required this.endDate,
-    required this.status,
-  });
-
-  final int id;
-  final String name;
-  final String startDate;
-  final String endDate;
-  final String status;
-
-  factory ReviewCycle.fromJson(Map<String, dynamic> json) {
-    return ReviewCycle(
-      id: intOf(json['id']),
-      name: textOf(json['name']),
-      startDate: textOf(json['startDate']),
-      endDate: textOf(json['endDate']),
-      status: textOf(json['status'], 'OPEN'),
-    );
-  }
-}
-
-class PerformanceReview {
-  PerformanceReview({
-    required this.id,
-    required this.cycle,
-    required this.status,
-    this.selfRating,
-    this.selfComment,
-    this.managerRating,
-    this.managerComment,
-    this.finalRating,
-  });
-
-  final int id;
-  final ReviewCycle cycle;
-  final String status;
-  final int? selfRating;
-  final String? selfComment;
-  final int? managerRating;
-  final String? managerComment;
-  final int? finalRating;
-
-  bool get needsSelfAssessment => status == 'PENDING_SELF';
-
-  factory PerformanceReview.fromJson(Map<String, dynamic> json) {
-    return PerformanceReview(
-      id: intOf(json['id']),
-      cycle: ReviewCycle.fromJson(mapOf(json['cycle'])),
-      status: textOf(json['status'], 'PENDING_SELF'),
-      selfRating: json['selfRating'] == null ? null : intOf(json['selfRating']),
-      selfComment: json['selfComment']?.toString(),
-      managerRating: json['managerRating'] == null
-          ? null
-          : intOf(json['managerRating']),
-      managerComment: json['managerComment']?.toString(),
-      finalRating: json['finalRating'] == null
-          ? null
-          : intOf(json['finalRating']),
     );
   }
 }

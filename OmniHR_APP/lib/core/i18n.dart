@@ -250,8 +250,6 @@ const Map<String, String> _enDictionary = {
   'Tháng này có ai sinh nhật?': 'Any birthdays this month?',
   'Manager của tôi là ai?': 'Who is my manager?',
   'Tháng này tôi đi muộn mấy lần?': 'How many times was I late this month?',
-  'Lương tháng trước của tôi bao nhiêu?': 'What was my pay last month?',
-  'Kết quả đánh giá gần nhất của tôi?': 'What was my latest review result?',
   'Tôi đang tham gia dự án nào?': 'Which projects am I on?',
   'Team tôi gồm những ai?': 'Who is on my team?',
   'Tháng này tôi hoàn thành bao nhiêu task?':
@@ -331,8 +329,6 @@ const Map<String, String> _enDictionary = {
   'Không lấy được vị trí hiện tại. Vui lòng bật GPS, cấp quyền vị trí và thử lại.':
       'Could not get your location. Turn on GPS, grant permission and try '
       'again.',
-  'Kỳ lương của tháng này đã tồn tại.':
-      'A payroll period already exists for this month.',
   'Công việc cấp nhóm không thể giao cho một nhân viên.':
       'A team-level task cannot be assigned to an employee.',
   'Công việc cấp nhóm cần có dự án và nhóm.':
@@ -354,8 +350,6 @@ const Map<String, String> _enDictionary = {
   'Chỉ có thể chỉ định trưởng phòng khi phòng ban đã có nhân viên.':
       'Assign a department manager after employees belong to this department.',
   'Không tìm thấy bản ghi chấm công.': 'Attendance record not found.',
-  'Hãy tính lương trước khi chốt bảng lương.':
-      'Calculate the payroll before finalizing it.',
   'Không thể tạo gợi ý AI cho công việc đã đóng.':
       'Cannot generate AI suggestion for closed task.',
   'Email công ty đã tồn tại.': 'Company email already exists.',
@@ -407,8 +401,6 @@ const Map<String, String> _enDictionary = {
   'Không tìm thấy thông báo.': 'Notification not found.',
   'Chỉ trưởng phòng mới có thể tạo dự án.':
       'Only a department head can create a project.',
-  'Chỉ có thể gửi phiếu lương khi bảng lương đã chốt.':
-      'Only a finalized payroll can be emailed.',
   'Chỉ trưởng phòng mới có thể giao công việc cấp nhóm.':
       'Only the department head can assign a team-level task.',
   'Chỉ trưởng phòng mới có thể quản lý dự án này.':
@@ -419,9 +411,7 @@ const Map<String, String> _enDictionary = {
   'Công việc cha đã đóng hoặc không hợp lệ.':
       'Parent task is closed or has an invalid scope.',
   'Không tìm thấy công việc cha.': 'Parent task not found.',
-  'Không tìm thấy kỳ lương.': 'Payroll period not found.',
   'Không tìm thấy thao tác đang chờ xác nhận.': 'Pending action not found.',
-  'Không tìm thấy đánh giá hiệu suất.': 'Performance review not found.',
   'Không tìm thấy quyền.': 'Permission not found.',
   'Chức danh không thuộc phòng ban đã chọn.':
       'Position does not belong to selected department.',
@@ -432,7 +422,6 @@ const Map<String, String> _enDictionary = {
   'Dự án nằm ngoài phạm vi quản lý của bạn.': 'Project scope denied.',
   'Kỹ năng yêu cầu chỉ được khai báo ở công việc con.':
       'Required skills are only defined on subtasks.',
-  'Không tìm thấy kỳ đánh giá.': 'Review cycle not found.',
   'Không tìm thấy vai trò.': 'Role not found.',
   'Không tìm thấy quyền của vai trò.': 'Role permission not found.',
   'Không thể hủy gợi ý AI đã được chọn.':
@@ -474,45 +463,30 @@ const Map<String, String> _enDictionary = {
       'Team-level task has active subtasks.',
   'Công nghệ được khai báo ở công việc cấp nhóm.':
       'Technologies are defined on the team-level task.',
-  'Kỳ lương đã chốt nên không thể thay đổi.':
-      'This payroll period is finalized and can no longer change.',
   'Thao tác chatbot không được hỗ trợ.': 'Unsupported chatbot action.',
   'Không tìm thấy vai trò của tài khoản.': 'User role not found.',
-  'Bạn chỉ có thể gửi bản tự đánh giá của chính mình.':
-      'You can only submit your own self-assessment.',
   'Bạn không thể tự duyệt hoặc từ chối đơn nghỉ của mình.':
       'You cannot approve or reject your own leave request.',
-  'Bạn không thể tự chấm điểm quản lý cho chính mình.':
-      'You cannot submit a manager review for yourself.',
   'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.':
       'ToDate must be after or equal to fromDate.',
-  'Đánh giá hiệu suất chưa ở đúng trạng thái để thực hiện thao tác này.':
-      'This performance review is not in the right status for this action.',
   'Thông tin gửi lên không hợp lệ. Vui lòng thử lại.':
       'The submitted information is invalid. Please try again.',
   'Con người là trọng tâm. Rõ ràng mỗi ngày.':
       'People first. Clarity every day.',
-  'Chưa có kỳ đánh giá': 'No review cycles yet',
   'Chưa có thông báo': 'No notifications yet',
   'Chốt': 'Final',
-  'Chờ bạn tự đánh giá': 'Waiting for your self-assessment',
-  'Khi công ty mở kỳ đánh giá, bạn sẽ thấy tại đây.':
-      'When the company opens a review cycle, it will appear here.',
   'Mức độ hoàn thành': 'Completion level',
   'Nhận xét của bạn': 'Your comment',
   'Nhận xét của quản lý': 'Manager\'s comment',
-  'Quản lý đã đánh giá': 'Reviewed by manager',
   'Quản lý': 'Manager',
+  'Bạn đã đọc hết thông báo.': 'You are all caught up.',
+  'Đã đánh dấu tất cả là đã đọc.': 'All notifications marked as read.',
+  '{count} thông báo chưa đọc': '{count} unread notifications',
   'Thông báo mới sẽ xuất hiện tại đây.': 'New notifications will appear here.',
   'Thông báo': 'Notifications',
-  'Tự đánh giá ngay': 'Self-assess now',
-  'Tự đánh giá': 'Self-assessment',
   'chưa đọc': 'unread',
-  'chờ tự đánh giá': 'awaiting self-assessment',
   'Đánh dấu đã đọc tất cả': 'Mark all as read',
-  'Đánh giá hiệu suất': 'Performance reviews',
   'Đã chốt': 'Finalized',
-  'Đã gửi tự đánh giá.': 'Self-assessment submitted.',
   'Đã gửi, chờ quản lý': 'Submitted, awaiting manager',
   'Phép năm cộng dồn theo tháng làm việc đủ; loại khác tính theo đơn đã duyệt':
       'Annual leave accrues per full month worked; other types count approved requests',

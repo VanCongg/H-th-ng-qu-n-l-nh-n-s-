@@ -1,5 +1,6 @@
 import { PrismaService } from "../../prisma/prisma.service";
 import { createFakeCache } from "../../redis/cache.service.fake";
+import { DEFAULT_SCORE_WEIGHTS } from "../../ai-task-suggestions/suggestion-scoring";
 import { SystemSettingsService } from "./system-settings.service";
 
 describe("SystemSettingsService", () => {
@@ -33,7 +34,7 @@ describe("SystemSettingsService", () => {
 
     expect(second).toEqual(first);
     expect(second.attendanceRadiusMeters).toBe(250);
-    // Attendance, leave, payroll and the chatbot all call this per request.
+    // Attendance, leave and the chatbot all call this per request.
     expect(prisma.systemSetting.findUnique).toHaveBeenCalledTimes(1);
   });
 
@@ -46,6 +47,25 @@ describe("SystemSettingsService", () => {
 
     expect(cacheStore.has("system:settings")).toBe(false);
     expect(prisma.systemSetting.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps fitted AI weights and falls back on an out-of-range one", async () => {
+    const { service, prisma } = createService();
+    prisma.systemSetting.findUnique.mockResolvedValue({
+      key: "default",
+      value: {
+        aiWeightSkill: 0.65,
+        aiWeightWorkload: 0.35,
+        // The tuner never writes this, but a hand-edited row might.
+        aiWeightAvailability: 4
+      }
+    });
+
+    await expect(service.getSettings()).resolves.toMatchObject({
+      aiWeightSkill: 0.65,
+      aiWeightWorkload: 0.35,
+      aiWeightAvailability: DEFAULT_SCORE_WEIGHTS.availability
+    });
   });
 
   it("serves the saved value on the next read, not the stale one", async () => {

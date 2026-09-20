@@ -67,5 +67,15 @@
   {"message": "Công ty có bảo hiểm gì không?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
   {"message": "Quy tắc ứng xử với đồng nghiệp thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
   {"message": "Nhân viên có được thưởng lương tháng 13 không?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
-  {"message": "Bảo mật thông tin công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false}
+  {"message": "Bảo mật thông tin công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Đánh dấu task Viết tài liệu API hoàn thành", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": "update_task_status_draft", "confirmationRequired": true},
+  {"message": "Cập nhật trạng thái task 42 sang đang làm", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": "update_task_status_draft", "confirmationRequired": true},
+  {"message": "Task #35 xong rồi", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": "update_task_status_draft", "confirmationRequired": true},
+  {"message": "Chuyển task 12 sang chờ duyệt", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": "update_task_status_draft", "confirmationRequired": true},
+  {"message": "Đánh dấu task hoàn thành", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Cập nhật trạng thái task", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Chính sách nghỉ phép của công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Nội quy công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Chính sách của công ty", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Quy định về làm việc từ xa", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false}
 ]

@@ -24,19 +24,14 @@ services:
       AI_SERVICE_URL: ${DOCKER_AI_SERVICE_URL:-http://omnihr-ai:8000}
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_SUGGESTION_EXPLANATIONS: ${AI_SUGGESTION_EXPLANATIONS:-true}
+      AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: ${AI_SUGGESTION_EXPLAIN_TIMEOUT_MS:-8000}
       CHATBOT_RATE_LIMIT_TTL_SECONDS: ${CHATBOT_RATE_LIMIT_TTL_SECONDS:-60}
       CHATBOT_RATE_LIMIT_MAX: ${CHATBOT_RATE_LIMIT_MAX:-20}
       CHATBOT_RATE_LIMIT_PER_MINUTE: ${CHATBOT_RATE_LIMIT_PER_MINUTE:-20}
       CHATBOT_HISTORY_LIMIT: ${CHATBOT_HISTORY_LIMIT:-12}
       CHATBOT_MAX_MESSAGE_LENGTH: ${CHATBOT_MAX_MESSAGE_LENGTH:-1000}
       CHATBOT_PENDING_ACTION_TTL_MINUTES: ${CHATBOT_PENDING_ACTION_TTL_MINUTES:-30}
-      # Defaults to the local Mailpit catcher so dev payslip emails never leave the machine.
-      SMTP_HOST: ${DOCKER_SMTP_HOST:-mailpit}
-      SMTP_PORT: ${DOCKER_SMTP_PORT:-1025}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      SMTP_FROM: ${SMTP_FROM:-OmniHR <no-reply@omnihr.local>}
     ports:
       - "3000:3000"
     depends_on:
@@ -79,14 +74,6 @@ services:
     networks:
       - omnihr-network
 
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: omnihr-mailpit
-    ports:
-      - "8025:8025"
-      - "1025:1025"
-    networks:
-      - omnihr-network
 
   omnihr-ai:
     build:

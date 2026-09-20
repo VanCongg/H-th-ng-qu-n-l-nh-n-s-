@@ -13,6 +13,49 @@ from app.services.rag_service import RagService
 from app.services.text_normalize import normalize
 
 
+POLICY_FRAMING_PHRASES = (
+    "chinh sach cua cong ty",
+    "chinh sach cong ty",
+    "chinh sach",
+    "noi quy cong ty",
+    "noi quy",
+    "quy che",
+    "cua cong ty",
+    "cong ty minh",
+    "cong ty",
+    "quy dinh ve",
+    "quy dinh cua",
+    "quy dinh",
+    "nhu the nao",
+    "the nao",
+    "ra sao",
+    "la gi",
+    "co gi",
+    "cho toi biet",
+    "cho toi hoi",
+)
+
+TASK_TITLE_END_MARKERS = (
+    "sang trang thai",
+    "sang ",
+    "thanh ",
+    "da xong",
+    "xong roi",
+    "lam xong",
+    "hoan thanh",
+    "hoan tat",
+    "dang lam",
+    "cho duyet",
+    "cho review",
+    "chua lam",
+    "chua bat dau",
+    "giup toi",
+    "gium toi",
+    "nhe",
+    "nha",
+)
+
+
 class RuleBasedPlannerService:
     def __init__(self, rag_service: RagService | None = None):
         self.rag_service = rag_service or RagService()
@@ -132,6 +175,11 @@ class RuleBasedPlannerService:
                 "Tôi sẽ kiểm tra cấu hình chấm công hiện tại.",
             )
 
+        # Before the profile branch: "gửi task X cho quản lý duyệt" contains
+        # "quản lý" but is a status change, not a question about the org chart.
+        if self._is_task_status_update(normalized):
+            return self._task_status_plan(text, normalized, available)
+
         if self._has_any(normalized, "phong ban", "manager", "quan ly", "ho so", "toi la ai"):
             return self._tool_plan(
                 "get_my_profile",
@@ -167,7 +215,7 @@ class RuleBasedPlannerService:
                 confidence=0.78,
             )
 
-        policy_answer = self._policy_plan(text)
+        policy_answer = self._policy_plan(text, normalized)
         if policy_answer is not None:
             return policy_answer
 
@@ -181,10 +229,44 @@ class RuleBasedPlannerService:
             confidence=0.62,
         )
 
-    def _policy_plan(self, text: str) -> ChatPlanResponse | None:
+    def _without_policy_framing(self, normalized: str) -> str:
+        stripped = normalized
+        for phrase in POLICY_FRAMING_PHRASES:
+            stripped = stripped.replace(phrase, " ")
+        return re.sub(r"\s+", " ", stripped).strip()
+
+    def _policy_topics_answer(self, normalized: str) -> ChatPlanResponse | None:
+        """A policy question we cannot pin down deserves the list of policies
+        we do hold, not the generic "what can I help with" reply."""
+        if not self._has_any(normalized, "chinh sach", "noi quy", "quy dinh", "quy che"):
+            return None
+
+        return ChatPlanResponse(
+            type="answer",
+            intent="GET_HR_POLICY_INFO",
+            reply=(
+                "Mình tra cứu được các nhóm chính sách sau: nghỉ phép, chấm công và "
+                "làm việc từ xa, phúc lợi - bảo hiểm - lương thưởng, quy tắc ứng xử. "
+                "Bạn muốn hỏi về nhóm nào?"
+            ),
+            confidence=0.7,
+        )
+
+    def _policy_plan(self, text: str, normalized: str) -> ChatPlanResponse | None:
         result = self.rag_service.search(RagSearchRequest(query=text, topK=1))
         if not result.items:
-            return None
+            # "chinh sach nghi phep cua cong ty" is the same question as
+            # "nghi phep", wrapped in words every HR question shares. Retrieval
+            # scores an overlap ratio, so that framing dilutes a real match
+            # below the floor - ask again with it removed.
+            stripped = self._without_policy_framing(normalized)
+            if stripped and stripped != normalized:
+                result = self.rag_service.search(
+                    RagSearchRequest(query=stripped, topK=1)
+                )
+
+        if not result.items:
+            return self._policy_topics_answer(normalized)
 
         top = result.items[0]
         reply = f"{top.title}: {top.content}"
@@ -435,7 +517,20 @@ class RuleBasedPlannerService:
         if private and someone_else:
             return self._forbidden("Lương và kết quả đánh giá là thông tin riêng của từng người, "
                                    "tôi chỉ có thể cho bạn xem thông tin của chính bạn.")
+
+        # The backend only ever resolves a task among the caller's own, so this
+        # could not change someone else's work anyway - but drafting the change
+        # and asking for confirmation would still promise something untrue.
+        others_work = self._has_any(normalized, "task", "cong viec", "viec")
+        if others_work and someone_else and self._is_task_status_update(normalized):
+            return self._forbidden(
+                "Tôi chỉ có thể cập nhật trạng thái công việc của chính bạn. "
+                "Công việc của người khác thì quản lý hoặc chính người đó cập nhật nhé."
+            )
         return None
+
+    def _out_of_scope(self, reply: str) -> ChatPlanResponse:
+        return ChatPlanResponse(type="answer", intent="OUT_OF_SCOPE", reply=reply, confidence=0.8)
 
     def _forbidden(self, reply: str) -> ChatPlanResponse:
         return ChatPlanResponse(type="answer", intent="FORBIDDEN_REQUEST", reply=reply, confidence=0.8)
@@ -463,12 +558,16 @@ class RuleBasedPlannerService:
             and not self._has_any(normalized, "nghi", "phep")
             and self._has_any(normalized, "luong", "thuc linh", "tien tang ca", "tien lam them", "lam them gio")
         ):
-            return self._tool_plan("get_my_payslip", month_args, available,
-                                   "Tôi sẽ lấy phiếu lương đã chốt của bạn.")
+            return self._out_of_scope(
+                "Hệ thống không quản lý bảng lương nên tôi không tra cứu được thông tin lương. "
+                "Bạn vui lòng liên hệ phòng nhân sự."
+            )
 
         if self._has_any(normalized, "danh gia", "performance review", "cham diem", "diem cuoi"):
-            return self._tool_plan("get_my_performance_reviews", {}, available,
-                                   "Tôi sẽ kiểm tra kết quả đánh giá của bạn.")
+            return self._out_of_scope(
+                "Hệ thống không có chức năng đánh giá hiệu suất. "
+                "Bạn vui lòng liên hệ quản lý hoặc phòng nhân sự."
+            )
 
         task_words = self._has_any(normalized, "task", "cong viec", "viec")
         stats_words = self._has_any(
@@ -545,12 +644,11 @@ class RuleBasedPlannerService:
             "get_department_headcount": "GET_DEPARTMENT_HEADCOUNT",
             "get_my_manager": "GET_MY_MANAGER",
             "get_my_attendance_summary": "GET_MY_ATTENDANCE_SUMMARY",
-            "get_my_payslip": "GET_MY_PAYSLIP",
-            "get_my_performance_reviews": "GET_MY_PERFORMANCE_REVIEWS",
             "get_my_projects": "GET_MY_PROJECTS",
             "get_my_skills": "GET_MY_SKILLS",
             "get_my_team_members": "GET_MY_TEAM_MEMBERS",
             "get_my_task_stats": "GET_MY_TASK_STATS",
+            "update_task_status_draft": "UPDATE_TASK_STATUS_DRAFT",
         }.get(tool_name, "UNKNOWN")
 
     def _is_leave_today_query(self, normalized: str) -> bool:
@@ -631,6 +729,162 @@ class RuleBasedPlannerService:
             return start, start + timedelta(days=6)
         return None
 
+    def _is_task_status_update(self, normalized: str) -> bool:
+        if not self._has_any(normalized, "task", "cong viec"):
+            return False
+
+        # "cac task dang lam cua toi" names the same states as an update but is
+        # a question, so a status word alone is never enough to write anything.
+        if self._has_any(
+            normalized,
+            "cac task",
+            "nhung task",
+            "task nao",
+            "cong viec nao",
+            "danh sach",
+            "liet ke",
+            "bao nhieu",
+            "sap den han",
+            "qua han",
+        ):
+            return False
+
+        if self._has_any(
+            normalized,
+            "danh dau",
+            "cap nhat trang thai",
+            "chuyen trang thai",
+            "doi trang thai",
+            "bat dau lam",
+            "da xong",
+            "xong roi",
+            "lam xong",
+            "gui duyet",
+            "cho quan ly duyet",
+            "nop task",
+            "nop cong viec",
+        ):
+            return True
+
+        return self._has_any(normalized, "chuyen", "doi") and "sang" in normalized
+
+    def _task_status_plan(
+        self,
+        original_text: str,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse:
+        if "update_task_status_draft" not in available:
+            return ChatPlanResponse(
+                type="answer",
+                intent="UPDATE_TASK_STATUS_DRAFT",
+                reply="Bạn chưa có quyền cập nhật trạng thái công việc bằng HRGenie.",
+                confidence=0.7,
+            )
+
+        status = self._task_status_from_text(normalized)
+        if status is None:
+            return ChatPlanResponse(
+                type="answer",
+                intent="UPDATE_TASK_STATUS_DRAFT",
+                reply=(
+                    "Bạn muốn chuyển công việc sang trạng thái nào: "
+                    "chưa làm, đang làm, chờ duyệt hay hoàn thành?"
+                ),
+                confidence=0.76,
+            )
+
+        task_id = self._extract_task_id(normalized)
+        task_title = None if task_id else self._extract_task_title(original_text)
+        if task_id is None and not task_title:
+            return ChatPlanResponse(
+                type="answer",
+                intent="UPDATE_TASK_STATUS_DRAFT",
+                reply="Bạn muốn cập nhật công việc nào? Bạn cho mình biết tên hoặc mã công việc nhé.",
+                confidence=0.76,
+            )
+
+        arguments: dict[str, object] = {"status": status}
+        if task_id is not None:
+            arguments["taskId"] = task_id
+        else:
+            arguments["taskTitle"] = task_title
+
+        return ChatPlanResponse(
+            type="confirmation_required",
+            intent="UPDATE_TASK_STATUS_DRAFT",
+            reply="Tôi đã chuẩn bị cập nhật trạng thái công việc. Bạn xác nhận nhé.",
+            toolCalls=[
+                ToolCall(
+                    id=f"call_{uuid4().hex[:8]}",
+                    toolName="update_task_status_draft",
+                    arguments=arguments,
+                )
+            ],
+            needConfirmation=True,
+            confirmation=Confirmation(
+                title="Xác nhận cập nhật công việc",
+                summary=arguments,
+            ),
+            confidence=0.88,
+        )
+
+    def _task_status_from_text(self, normalized: str) -> str | None:
+        # Ordered so the more specific wording wins: "xong" also appears in
+        # "chua xong", and "cho duyet" contains "duyet".
+        if self._has_any(
+            normalized,
+            "cho duyet",
+            "cho review",
+            "can review",
+            "review",
+            "gui duyet",
+            "duyet",
+            "nop",
+        ):
+            return "IN_REVIEW"
+        if self._has_any(
+            normalized, "hoan thanh", "da xong", "xong roi", "lam xong", "done", "hoan tat"
+        ):
+            return "DONE"
+        if self._has_any(
+            normalized, "dang lam", "bat dau lam", "bat tay vao", "in progress", "dang xu ly"
+        ):
+            return "IN_PROGRESS"
+        if self._has_any(normalized, "chua lam", "to do", "todo", "chua bat dau"):
+            return "TODO"
+        return None
+
+    def _extract_task_id(self, normalized: str) -> int | None:
+        match = re.search(r"(?:task|cong viec|cv|ma)\s*#?\s*(\d{1,6})\b", normalized)
+        if not match:
+            match = re.search(r"#(\d{1,6})\b", normalized)
+        return int(match.group(1)) if match else None
+
+    def _extract_task_title(self, original_text: str) -> str | None:
+        """Keep the employee's own wording - the backend matches it against the
+        titles of their open tasks, which still carry Vietnamese diacritics."""
+        quoted = re.search(r"[\"'\u201c\u2018](.+?)[\"'\u201d\u2019]", original_text)
+        if quoted:
+            return quoted.group(1).strip() or None
+
+        match = re.search(
+            r"(?:task|c\u00f4ng vi\u1ec7c|cong viec)\s+(.+)",
+            original_text,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+
+        rest = match.group(1).strip()
+        cut_at = len(rest)
+        for marker in TASK_TITLE_END_MARKERS:
+            found = normalize(rest).find(marker)
+            if found != -1:
+                cut_at = min(cut_at, found)
+        title = rest[:cut_at].strip(" ,.:;-\u2013")
+        return title or None
+
     def _is_leave_request(self, normalized: str) -> bool:
         return self._has_any(normalized, "muon nghi", "xin nghi", "nghi phep", "nghi om") and not self._has_any(
             normalized,
@@ -638,6 +892,8 @@ class RuleBasedPlannerService:
             "con bao nhieu",
             "la gi",
             "quy dinh",
+            "chinh sach",
+            "noi quy",
             "loai nghi",
             "co duoc",
             "cong don",

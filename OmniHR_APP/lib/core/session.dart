@@ -38,6 +38,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   String? refreshToken;
   AuthUser? user;
   Employee? employee;
+  Future<bool>? _refreshInFlight;
   ThemeMode _themeMode = ThemeMode.light;
   AppLanguage _language = AppLanguage.vi;
 
@@ -84,7 +85,15 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       try {
         await loadCurrentUser();
         await loadEmployeeProfile(silent: true);
+      } on ApiException catch (error) {
+        // Same rule as refreshAccessToken: only a rejected token ends the
+        // session. Starting the app while the server is down or the phone is
+        // offline must not throw the user out - the stored profile is enough
+        // to open the app, and the next call refreshes or signs out.
+        final status = error.statusCode;
+        if (status == 401 || status == 403) await logoutLocal(notify: false);
       } catch (_) {
+        // Unexpected local failure (bad cached payload): start clean.
         await logoutLocal(notify: false);
       }
     }
@@ -196,9 +205,30 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   }
 
   @override
-  Future<bool> refreshAccessToken() async {
+  Future<bool> refreshAccessToken() {
+    // Screens load several endpoints at once, so an expired access token makes
+    // them all get a 401 together. The backend rotates the refresh token on
+    // every use and treats the old one as reuse, which revokes the whole
+    // session - so every caller has to wait on a single refresh call.
+    final pending = _refreshInFlight;
+    if (pending != null) return pending;
+
+    final started = _runRefresh();
+    _refreshInFlight = started;
+    return started.whenComplete(() {
+      if (identical(_refreshInFlight, started)) _refreshInFlight = null;
+    });
+  }
+
+  Future<bool> _runRefresh() async {
     final token = refreshToken;
-    if (token == null) return false;
+    if (token == null) {
+      // Nothing left to refresh with, so the session is over - saying so
+      // sends the app back to login instead of leaving every screen on an
+      // error the user cannot retry out of.
+      if (isLoggedIn) await logoutLocal();
+      return false;
+    }
 
     try {
       final response = await http
@@ -219,8 +249,13 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       await _saveSession();
       notifyListeners();
       return true;
+    } on ApiException catch (error) {
+      // Only a rejected refresh token ends the session; a server or network
+      // hiccup must not sign the user out.
+      final status = error.statusCode;
+      if (status == 401 || status == 403) await logoutLocal();
+      return false;
     } catch (_) {
-      await logoutLocal();
       return false;
     }
   }

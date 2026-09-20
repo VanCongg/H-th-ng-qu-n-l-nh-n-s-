@@ -6,7 +6,6 @@ import {
   ChatbotActionType,
   EmployeeStatus,
   LeaveRequestStatus,
-  PayrollPeriodStatus,
   Prisma,
   TaskStatus,
   TeamMemberRole,
@@ -24,6 +23,7 @@ import { AuthUser, RequestContext } from "../common/types";
 import { calculateLeaveDays, toDateOnly } from "../common/utils";
 import { LeaveRequestsService } from "../leave-requests/leave-requests.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { TasksService } from "../tasks/tasks.service";
 import {
   AiToolCall,
   ChatbotToolDefinition,
@@ -58,6 +58,7 @@ export class ChatbotToolsService {
     private readonly systemSettings: SystemSettingsService,
     private readonly leaveRequests: LeaveRequestsService,
     private readonly leaveBalances: LeaveBalancesService,
+    private readonly tasks: TasksService,
     private readonly timesheets: TimesheetService,
   ) {}
 
@@ -180,6 +181,14 @@ export class ChatbotToolsService {
       });
     }
 
+    if (user.employeeId && this.hasAny(user, "TASK_UPDATE_STATUS")) {
+      tools.push({
+        name: "update_task_status_draft",
+        description:
+          "Validate and prepare a status change on a task assigned to the current employee, pending user confirmation",
+      });
+    }
+
     if (this.hasAny(user, "TASK_READ_ALL", "TASK_READ_TEAM")) {
       tools.push({
         name: "get_team_task_summary",
@@ -197,21 +206,8 @@ export class ChatbotToolsService {
 
     if (user.employeeId && this.hasAny(user, "EMPLOYEE_READ_SELF")) {
       tools.push({
-        name: "get_my_payslip",
-        description:
-          "Finalized payslip of the current employee for a month (gross, deductions, net)",
-      });
-      tools.push({
         name: "get_my_team_members",
         description: "Teams of the current employee with their lead and members",
-      });
-    }
-
-    if (user.employeeId && this.hasAny(user, "REVIEW_READ_SELF")) {
-      tools.push({
-        name: "get_my_performance_reviews",
-        description:
-          "Performance reviews of the current employee: cycle, step, ratings, manager comment",
       });
     }
 
@@ -339,6 +335,16 @@ export class ChatbotToolsService {
             call.toolName,
             await this.getTeamTaskSummary(user, call.arguments),
           );
+        case "update_task_status_draft":
+          return this.success(
+            call.toolName,
+            await this.updateTaskStatusDraft(
+              conversationId,
+              user,
+              call.arguments,
+              context,
+            ),
+          );
         case "get_department_headcount":
           return this.success(
             call.toolName,
@@ -348,16 +354,6 @@ export class ChatbotToolsService {
           return this.success(
             call.toolName,
             await this.getMyAttendanceSummary(user, call.arguments),
-          );
-        case "get_my_payslip":
-          return this.success(
-            call.toolName,
-            await this.getMyPayslip(user, call.arguments),
-          );
-        case "get_my_performance_reviews":
-          return this.success(
-            call.toolName,
-            await this.getMyPerformanceReviews(user, call.arguments),
           );
         case "get_my_projects":
           return this.success(call.toolName, await this.getMyProjects(user));
@@ -1034,6 +1030,141 @@ export class ChatbotToolsService {
     };
   }
 
+  private async updateTaskStatusDraft(
+    conversationId: number,
+    user: AuthUser,
+    args: Record<string, unknown>,
+    context?: RequestContext,
+  ) {
+    const employeeId = this.requireEmployee(user);
+    const status = this.taskStatusArg(args.status);
+    const taskId = this.optionalIntegerArg(args.taskId);
+    const keyword = this.stringArg(args.taskTitle).trim();
+
+    const task = await this.resolveOwnTask(employeeId, taskId, keyword);
+    if (!task.parentTaskId) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Team-level task status is calculated from its subtasks",
+        "ROOT_TASK_STATUS_IS_DERIVED",
+      );
+    }
+    if (task.status === status) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        `Công việc "${task.title}" đã ở trạng thái này rồi.`,
+        "CHATBOT_TASK_STATUS_UNCHANGED",
+      );
+    }
+
+    const note = this.stringArg(args.note, "Cập nhật từ HRGenie").slice(0, 500);
+    const payload = {
+      taskId: task.id,
+      taskTitle: task.title,
+      projectName: task.project?.name ?? null,
+      currentStatus: task.status,
+      status,
+      note,
+    };
+    const action = await this.prisma.chatbotPendingAction.create({
+      data: {
+        conversationId,
+        userId: user.id,
+        actionType: ChatbotActionType.UPDATE_TASK_STATUS,
+        payload: this.toJsonValue(payload),
+        expiresAt: new Date(Date.now() + this.pendingActionTtlMs()),
+      },
+    });
+
+    await this.audit.log({
+      userId: user.id,
+      action: "CHATBOT_CREATE_PENDING_ACTION",
+      entityType: "ChatbotPendingAction",
+      entityId: action.id,
+      newValue: payload,
+      context,
+    });
+
+    return {
+      pendingAction: this.pendingActionView(
+        ChatbotActionType.UPDATE_TASK_STATUS,
+        action.id,
+        action.expiresAt,
+        payload,
+      ),
+    };
+  }
+
+  /**
+   * An employee names a task the way they remember it, so a keyword has to be
+   * enough - but only when it points at exactly one of their own tasks.
+   */
+  private async resolveOwnTask(
+    employeeId: number,
+    taskId: number | undefined,
+    keyword: string,
+  ) {
+    if (!taskId && !keyword) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Bạn muốn cập nhật công việc nào? Bạn cho mình biết tên hoặc mã công việc nhé.",
+        "CHATBOT_TASK_NOT_SPECIFIED",
+      );
+    }
+
+    const matches = await this.prisma.task.findMany({
+      where: {
+        assigneeId: employeeId,
+        deletedAt: null,
+        ...(taskId
+          ? { id: taskId }
+          : {
+              status: { in: ACTIVE_TASK_STATUSES },
+              title: { contains: keyword, mode: "insensitive" },
+            }),
+      },
+      include: { project: true },
+      orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+      take: 2,
+    });
+
+    if (!matches.length) {
+      throw new ApiError(
+        HttpStatus.NOT_FOUND,
+        "Mình không tìm thấy công việc nào của bạn khớp với mô tả này.",
+        "CHATBOT_TASK_NOT_FOUND",
+      );
+    }
+    if (matches.length > 1) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Bạn có nhiều công việc khớp với mô tả này. Bạn nói rõ tên đầy đủ hoặc mã công việc giúp mình nhé.",
+        "CHATBOT_TASK_AMBIGUOUS",
+      );
+    }
+
+    return matches[0];
+  }
+
+  private taskStatusArg(value: unknown): TaskStatus {
+    const raw = this.stringArg(value).trim().toUpperCase();
+    const allowed: TaskStatus[] = [
+      TaskStatus.TODO,
+      TaskStatus.IN_PROGRESS,
+      TaskStatus.IN_REVIEW,
+      TaskStatus.DONE,
+    ];
+    const status = allowed.find((candidate) => candidate === raw);
+    if (!status) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Bạn muốn chuyển công việc sang trạng thái nào (chưa làm, đang làm, chờ duyệt hay hoàn thành)?",
+        "CHATBOT_TASK_STATUS_INVALID",
+      );
+    }
+    return status;
+  }
+
   private async cancelMyPendingLeaveRequestDraft(
     conversationId: number,
     user: AuthUser,
@@ -1415,73 +1546,6 @@ export class ChatbotToolsService {
     };
   }
 
-  /** Only finalized payslips: a draft period can still change. */
-  private async getMyPayslip(user: AuthUser, args: Record<string, unknown>) {
-    const employeeId = this.requireEmployee(user);
-    const requestedMonth = this.optionalIntegerArg(args.month);
-    const settings = await this.systemSettings.getSettings();
-    const today = this.workDateFor(new Date(), settings.timezoneOffsetMinutes);
-    const target = requestedMonth ? this.monthArg(args, today) : null;
-
-    const payslip = await this.prisma.payslip.findFirst({
-      where: {
-        employeeId,
-        period: {
-          status: PayrollPeriodStatus.FINALIZED,
-          ...(target ? { year: target.year, month: target.month } : {}),
-        },
-      },
-      include: { period: true },
-      orderBy: [{ period: { year: "desc" } }, { period: { month: "desc" } }],
-    });
-
-    if (!payslip) {
-      return { found: false, year: target?.year ?? null, month: target?.month ?? null };
-    }
-    return {
-      found: true,
-      year: payslip.period.year,
-      month: payslip.period.month,
-      baseSalary: payslip.baseSalary,
-      allowance: payslip.allowance,
-      standardWorkDays: payslip.standardWorkDays,
-      payableDays: payslip.payableDays,
-      grossSalary: payslip.grossSalary,
-      overtimeMinutes: payslip.overtimeMinutes,
-      overtimePay: payslip.overtimePay,
-      lateAndEarlyMinutes: payslip.lateMinutes + payslip.earlyLeaveMinutes,
-      attendanceDeduction: payslip.attendanceDeduction,
-      insuranceDeduction: payslip.insuranceDeduction,
-      netSalary: payslip.netSalary,
-    };
-  }
-
-  private async getMyPerformanceReviews(
-    user: AuthUser,
-    args: Record<string, unknown>,
-  ) {
-    const employeeId = this.requireEmployee(user);
-    const reviews = await this.prisma.performanceReview.findMany({
-      where: { employeeId },
-      include: { cycle: true },
-      orderBy: { cycle: { startDate: "desc" } },
-      take: Math.min(Math.max(this.integerArg(args.limit, 4), 1), 8),
-    });
-    return {
-      items: reviews.map((review) => ({
-        cycleName: review.cycle.name,
-        cycleStatus: review.cycle.status,
-        startDate: this.dateKey(review.cycle.startDate),
-        endDate: this.dateKey(review.cycle.endDate),
-        status: review.status,
-        selfRating: review.selfRating,
-        managerRating: review.managerRating,
-        finalRating: review.finalRating,
-        managerComment: review.managerComment,
-      })),
-    };
-  }
-
   private async getMyProjects(user: AuthUser) {
     const employeeId = this.requireEmployee(user);
     const tasks = await this.prisma.task.findMany({
@@ -1788,11 +1852,58 @@ export class ChatbotToolsService {
       };
     }
 
+    if (action.actionType === ChatbotActionType.UPDATE_TASK_STATUS) {
+      const payload = this.updateTaskStatusPayload(action.payload);
+      const task = await this.tasks.updateStatus(
+        payload.taskId,
+        { status: payload.status, note: payload.note },
+        user,
+        context,
+      );
+      return {
+        result: { id: task.id, status: task.status },
+        auditValue: { taskId: task.id, status: task.status },
+        reply: `Đã cập nhật công việc "${task.title}" sang trạng thái ${this.taskStatusLabel(task.status)}.`,
+        data: {
+          taskId: task.id,
+          status: task.status,
+        },
+      };
+    }
+
     throw new ApiError(
       HttpStatus.BAD_REQUEST,
       "Unsupported chatbot action",
       "CHATBOT_ACTION_UNSUPPORTED",
     );
+  }
+
+  private updateTaskStatusPayload(value: unknown) {
+    const payload = isRecord(value) ? value : {};
+    const taskId = this.integerArg(payload.taskId, 0);
+    if (!taskId) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Task id is required",
+        "VALIDATION_ERROR",
+      );
+    }
+    return {
+      taskId,
+      status: this.taskStatusArg(payload.status),
+      note: this.stringArg(payload.note, "Cập nhật từ HRGenie").slice(0, 500),
+    };
+  }
+
+  private taskStatusLabel(status: TaskStatus) {
+    const labels: Record<string, string> = {
+      TODO: "chưa làm",
+      IN_PROGRESS: "đang làm",
+      IN_REVIEW: "chờ duyệt",
+      DONE: "hoàn thành",
+      CANCELLED: "đã hủy",
+    };
+    return labels[status] ?? status;
   }
 
   private submitLeavePayload(value: unknown) {
@@ -1824,6 +1935,23 @@ export class ChatbotToolsService {
     expiresAt: Date,
     payload: Record<string, unknown>,
   ): PendingActionView {
+    if (actionType === ChatbotActionType.UPDATE_TASK_STATUS) {
+      return {
+        actionId,
+        type: actionType,
+        title: "Xác nhận cập nhật công việc",
+        summary: {
+          taskId: payload.taskId,
+          taskTitle: payload.taskTitle,
+          projectName: payload.projectName,
+          currentStatus: payload.currentStatus,
+          status: payload.status,
+          note: payload.note,
+        },
+        expiresAt,
+      };
+    }
+
     if (actionType === ChatbotActionType.CANCEL_LEAVE_REQUEST) {
       return {
         actionId,
@@ -1911,6 +2039,10 @@ export class ChatbotToolsService {
     }
     if (actionType === ChatbotActionType.CANCEL_LEAVE_REQUEST) {
       this.requirePermission(user, "LEAVE_CANCEL_SELF");
+      return;
+    }
+    if (actionType === ChatbotActionType.UPDATE_TASK_STATUS) {
+      this.requirePermission(user, "TASK_UPDATE_STATUS");
       return;
     }
   }

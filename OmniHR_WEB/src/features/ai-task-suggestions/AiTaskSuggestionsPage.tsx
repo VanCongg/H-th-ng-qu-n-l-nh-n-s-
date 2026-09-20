@@ -320,6 +320,16 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
               { key: "workload", label: "Workload", render: (item) => item.workloadScore },
               { key: "availability", label: "Availability", render: (item) => item.availabilityScore },
               {
+                key: "history",
+                label: "Track record",
+                render: (item) =>
+                  item.historyScore ?? (
+                    <Text size="xs" c="dimmed">
+                      {tx("Not enough finished tasks")}
+                    </Text>
+                  )
+              },
+              {
                 key: "reason",
                 label: "Reason",
                 width: 72,
