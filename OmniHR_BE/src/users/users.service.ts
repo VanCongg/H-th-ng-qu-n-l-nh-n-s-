@@ -139,6 +139,7 @@ export class UsersService {
   async create(dto: CreateUserDto, actor: AuthUser, context?: RequestContext) {
     const roleIds = this.uniqueIds(dto.roleIds);
     const email = dto.email.toLowerCase();
+    await this.ensureAccountIdentityAvailable(dto.username, email);
     await this.ensureRoles(roleIds);
     const requiresEmployeeProfile = await this.requiresEmployeeProfile(roleIds);
     await this.ensureEmployeeProfileForCreate(
@@ -214,6 +215,7 @@ export class UsersService {
     const effectiveRoleIds =
       roleIds ?? oldValue.userRoles.map((userRole) => userRole.roleId);
     const email = dto.email?.toLowerCase();
+    await this.ensureAccountIdentityAvailable(dto.username, email, id);
     await this.ensureRoles(roleIds);
     const requiresEmployeeProfile =
       await this.requiresEmployeeProfile(effectiveRoleIds);
@@ -737,6 +739,56 @@ export class UsersService {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
         "Employee code already exists",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
+
+  // The `username`/`email` columns are unique in the database, including for
+  // soft-deleted accounts. Without this pre-check the insert fails with a raw
+  // P2002 and the client only learns "Unique constraint violated".
+  private async ensureAccountIdentityAvailable(
+    username?: string,
+    email?: string,
+    userId?: number
+  ) {
+    if (!username && !email) {
+      return;
+    }
+
+    const conflicts = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          ...(username ? [{ username }] : []),
+          ...(email ? [{ email }] : [])
+        ],
+        id: userId ? { not: userId } : undefined
+      },
+      select: { username: true, email: true, deletedAt: true }
+    });
+
+    const usernameConflict = username
+      ? conflicts.find((user) => user.username === username)
+      : undefined;
+    if (usernameConflict) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        usernameConflict.deletedAt
+          ? "Username belongs to a deleted account"
+          : "Username already exists",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    const emailConflict = email
+      ? conflicts.find((user) => user.email === email)
+      : undefined;
+    if (emailConflict) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        emailConflict.deletedAt
+          ? "Email belongs to a deleted account"
+          : "Email already exists",
         "VALIDATION_ERROR"
       );
     }

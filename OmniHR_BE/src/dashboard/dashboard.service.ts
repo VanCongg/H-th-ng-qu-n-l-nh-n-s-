@@ -2,8 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { AttendanceRecordType, EmployeeStatus, LeaveRequestStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AccessControlService } from "../common/services/access-control.service";
+import { AuditService } from "../common/services/audit.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
-import { AuthUser } from "../common/types";
+import { AuthUser, RequestContext } from "../common/types";
 import { toDateOnly } from "../common/utils";
 import { currentEmployeeWhere } from "../common/prisma-where";
 
@@ -12,7 +13,8 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessControl: AccessControlService,
-    private readonly systemSettings: SystemSettingsService
+    private readonly systemSettings: SystemSettingsService,
+    private readonly audit: AuditService
   ) {}
 
   async adminDashboard() {
@@ -125,7 +127,38 @@ export class DashboardService {
     return this.systemSettings.getSettings();
   }
 
-  async updateSettings(settings: Record<string, unknown>) {
-    return this.systemSettings.updateSettings(settings);
+  async updateSettings(
+    settings: Record<string, unknown>,
+    actor: AuthUser,
+    context?: RequestContext
+  ) {
+    const before = await this.systemSettings.getSettings();
+    const after = await this.systemSettings.updateSettings(settings);
+
+    // Only the keys that moved, so the trail answers "who changed the
+    // attendance radius" instead of repeating the whole settings blob. A save
+    // that changed nothing is not a mutation, so it is not logged.
+    const changed = Object.keys(after).filter(
+      (key) =>
+        JSON.stringify(before[key as keyof typeof before]) !==
+        JSON.stringify(after[key as keyof typeof after])
+    );
+    if (changed.length) {
+      await this.audit.log({
+        userId: actor.id,
+        action: "UPDATE_SYSTEM_SETTINGS",
+        entityType: "SystemSetting",
+        entityId: "default",
+        oldValue: pick(before, changed),
+        newValue: pick(after, changed),
+        context
+      });
+    }
+
+    return after;
   }
+}
+
+function pick(source: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(keys.map((key) => [key, source[key]]));
 }

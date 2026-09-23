@@ -80,7 +80,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   private prismaMessage(error: Prisma.PrismaClientKnownRequestError): string {
     if (error.code === "P2002") {
-      return "Unique constraint violated";
+      const fields = this.uniqueTargetFields(error.meta?.target);
+      return fields.length
+        ? `Duplicate value for field(s): ${fields.join(", ")}`
+        : "Unique constraint violated";
     }
 
     if (error.code === "P2025") {
@@ -88,5 +91,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     return "Database request failed";
+  }
+
+  // Prisma reports the conflicting columns as `["email"]`, or as the raw index
+  // name (`"users_email_key"`) when it cannot resolve them to fields.
+  private uniqueTargetFields(target: unknown): string[] {
+    const raw = Array.isArray(target)
+      ? target.filter((item): item is string => typeof item === "string")
+      : typeof target === "string"
+        ? [target]
+        : [];
+
+    return raw.map((item) =>
+      item.replace(/^.*?_(.+)_key$/, "$1").split("_").join(" ")
+    );
   }
 }

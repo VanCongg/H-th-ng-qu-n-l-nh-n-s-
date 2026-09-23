@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../core/utils.dart';
 import 'brand_backdrop.dart';
 
+/// Colors come from the theme, not from the global palette in `utils.dart`:
+/// a pushed route is built once and kept, so a widget that only read the
+/// globals would still be painted in the old palette after the user flips
+/// the theme from inside that route. Reading the theme both registers the
+/// dependency that rebuilds this screen and picks up the new colors.
 class SubScreen extends StatelessWidget {
   const SubScreen({super.key, required this.title, required this.child});
 
@@ -11,11 +15,13 @@ class SubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: appBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: surfaceColor.withValues(alpha: 0.92),
+        backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.92),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),

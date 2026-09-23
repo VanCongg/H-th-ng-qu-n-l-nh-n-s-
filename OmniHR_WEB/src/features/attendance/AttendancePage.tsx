@@ -19,7 +19,7 @@ import { Clock, LogIn, LogOut, Plus } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
-import { attendanceApi, employeesApi } from "../../api/endpoints";
+import { attendanceApi } from "../../api/endpoints";
 import { formatDate, formatDateTime } from "../../api/format";
 import type { AttendanceRecord } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
@@ -27,6 +27,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { PermissionGate } from "../../components/PermissionGate";
 import { useTranslation } from "../../i18n";
 import { useAuthStore } from "../../store/auth";
+import { EmployeeSelect } from "./EmployeeSelect";
 
 type AttendancePageProps = {
   scope: "all" | "team";
@@ -76,7 +77,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
   const { te, tx } = useTranslation();
   const queryClient = useQueryClient();
   const [opened, setOpened] = useState(false);
-  // The timesheet links here with an employee and month preselected.
+  // Links can preselect an employee and date range through the query string.
   const [searchParams] = useSearchParams();
   const [employeeId, setEmployeeId] = useState<string | null>(searchParams.get("employeeId"));
   const [fromDate, setFromDate] = useState(searchParams.get("fromDate") ?? "");
@@ -89,10 +90,6 @@ export function AttendancePage({ scope }: AttendancePageProps) {
       scope === "team"
         ? attendanceApi.team({ employeeId: employeeId ? Number(employeeId) : undefined, fromDate: fromDate || undefined, toDate: toDate || undefined, page, limit: 20 })
         : attendanceApi.list({ employeeId: employeeId ? Number(employeeId) : undefined, fromDate: fromDate || undefined, toDate: toDate || undefined, page, limit: 20 })
-  });
-  const employeeQuery = useQuery({
-    queryKey: ["attendance-employees", scope],
-    queryFn: () => scope === "team" ? employeesApi.team({ limit: 100 }) : employeesApi.list({ limit: 100 })
   });
 
   const form = useForm({
@@ -136,11 +133,6 @@ export function AttendancePage({ scope }: AttendancePageProps) {
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
 
-  const employeeOptions = (employeeQuery.data?.items ?? []).map((item) => ({
-    value: String(item.id),
-    label: `${item.employeeCode} - ${item.fullName}`
-  }));
-
   return (
     <Stack gap="md">
       <PageHeader
@@ -164,10 +156,10 @@ export function AttendancePage({ scope }: AttendancePageProps) {
       />
       <Paper withBorder radius="md" p="md" className="filter-bar">
         <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        <Select
+        <EmployeeSelect
+          scope={scope}
           label={tx("Employee")}
           placeholder={tx("All employees")}
-          data={employeeOptions}
           clearable
           value={employeeId}
           onChange={(value) => {
@@ -219,7 +211,15 @@ export function AttendancePage({ scope }: AttendancePageProps) {
       <Modal opened={opened} onClose={() => setOpened(false)} title={tx("Attendance adjustment")}>
         <form onSubmit={form.onSubmit((values) => adminCreateMutation.mutate(values))}>
           <Stack>
-            <Select label={tx("Employee")} data={employeeOptions} required {...form.getInputProps("employeeId")} />
+            <EmployeeSelect
+              scope="all"
+              label={tx("Employee")}
+              placeholder={tx("Search employee")}
+              required
+              value={form.values.employeeId || null}
+              onChange={(value) => form.setFieldValue("employeeId", value ?? "")}
+              error={form.errors.employeeId}
+            />
             <TextInput label={tx("Work date")} type="date" required {...form.getInputProps("workDate")} />
             <TextInput label={tx("Recorded at")} type="datetime-local" required {...form.getInputProps("recordedAt")} />
             <Select label={tx("Record type")} data={["CHECK_IN", "CHECK_OUT", "ADJUSTMENT"].map((value) => ({ value, label: te(value) }))} required {...form.getInputProps("recordType")} />

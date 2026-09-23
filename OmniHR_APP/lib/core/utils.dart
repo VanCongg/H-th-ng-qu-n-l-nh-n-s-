@@ -88,6 +88,10 @@ final dateFormat = DateFormat('dd/MM/yyyy');
 final dateTimeFormat = DateFormat('dd/MM/yyyy HH:mm');
 final apiDateFormat = DateFormat('yyyy-MM-dd');
 final timeFormat = DateFormat('HH:mm');
+final _metersFormat = NumberFormat('#,##0');
+
+/// A distance in metres, grouped so 4520 reads as 4.520 rather than 4520.
+String formatMeters(num meters) => _metersFormat.format(meters.round());
 
 String defaultApiBaseUrl() {
   return AppConfig.defaultApiBaseUrl();
@@ -230,6 +234,133 @@ Color notificationColor(String type) {
     default:
       return const Color(0xFF64748B);
   }
+}
+
+/// The notification heading in the app's language.
+///
+/// The server writes titles in English and stores them that way, so the app
+/// renders them from the stable [type] instead of showing what was saved.
+/// Going through the type also fixes the rows already in the database rather
+/// than only the ones created from now on. [fallback] is the stored title,
+/// used for a type this build does not know about yet.
+///
+/// TASK_STATUS_CHANGED is only ever emitted for a task sent back for rework,
+/// by both the API and the simulator; widen the wording if that changes.
+String notificationTitle(String type, String fallback) {
+  switch (type.toUpperCase()) {
+    case 'LEAVE_APPROVED':
+      return tx('Đơn nghỉ phép đã được duyệt');
+    case 'LEAVE_REJECTED':
+      return tx('Đơn nghỉ phép bị từ chối');
+    case 'TASK_ASSIGNED':
+      return tx('Bạn được giao công việc mới');
+    case 'TASK_STATUS_CHANGED':
+      return tx('Công việc bị trả về để sửa');
+    case 'ATTENDANCE_ADJUSTED':
+      return tx('Bản ghi chấm công được điều chỉnh');
+    default:
+      return fallback;
+  }
+}
+
+// The English sentences the server stores as a notification message. Each one
+// is written in several places, and all of them must keep these exact shapes:
+//   TASK_ASSIGNED        tasks.service.ts, seed.ts, simulate-day.ts
+//   TASK_STATUS_CHANGED  simulate-day.ts
+//   LEAVE_APPROVED       leave-requests.service.ts, seed.ts, simulate-day.ts
+//   ATTENDANCE_ADJUSTED  attendance.service.ts
+// A message that does not match (a rejection reason, a reworded sentence) is
+// shown exactly as stored, so a drift degrades to English rather than to junk.
+final _assignedMessage = RegExp(
+  r'^You were assigned to "(.+)"\.$',
+  dotAll: true,
+);
+final _reworkMessage = RegExp(
+  r'^"(.+)" needs changes before it can be accepted\.$',
+  dotAll: true,
+);
+final _leaveApprovedMessage = RegExp(
+  r'^Your leave request from (.+) to (.+) was approved\.$',
+);
+final _attendanceMessage = RegExp(
+  r'^An attendance record for (.+) was (created|updated) by an admin\.$',
+);
+
+const _englishMonths = {
+  'Jan': 1,
+  'Feb': 2,
+  'Mar': 3,
+  'Apr': 4,
+  'May': 5,
+  'Jun': 6,
+  'Jul': 7,
+  'Aug': 8,
+  'Sep': 9,
+  'Oct': 10,
+  'Nov': 11,
+  'Dec': 12,
+};
+
+/// A date as the server wrote it into a message: `2026-09-21` from the
+/// simulator, or JavaScript's `toDateString()` form `Mon Sep 21 2026` from the
+/// API and the seed. Anything else is passed through untouched.
+String _messageDate(String raw) {
+  final iso = DateTime.tryParse(raw);
+  if (iso != null) return formatDate(iso);
+
+  final parts = raw.trim().split(RegExp(r'\s+'));
+  if (parts.length == 4) {
+    final month = _englishMonths[parts[1]];
+    final day = int.tryParse(parts[2]);
+    final year = int.tryParse(parts[3]);
+    if (month != null && day != null && year != null) {
+      return formatDate(DateTime(year, month, day));
+    }
+  }
+  return raw;
+}
+
+/// The notification body in the app's language, rebuilt from the English
+/// sentence the server stored. Like [notificationTitle] this works on every
+/// row already in the database, which a new column could not have done.
+String notificationMessage(String type, String message) {
+  switch (type.toUpperCase()) {
+    case 'TASK_ASSIGNED':
+      final match = _assignedMessage.firstMatch(message);
+      if (match != null) {
+        return tx('Bạn được giao công việc "{task}".', {
+          'task': match.group(1)!,
+        });
+      }
+    case 'TASK_STATUS_CHANGED':
+      final match = _reworkMessage.firstMatch(message);
+      if (match != null) {
+        return tx('Công việc "{task}" cần chỉnh sửa trước khi được duyệt.', {
+          'task': match.group(1)!,
+        });
+      }
+    case 'LEAVE_APPROVED':
+      final match = _leaveApprovedMessage.firstMatch(message);
+      if (match != null) {
+        return tx('Đơn nghỉ phép từ {start} đến {end} của bạn đã được duyệt.', {
+          'start': _messageDate(match.group(1)!),
+          'end': _messageDate(match.group(2)!),
+        });
+      }
+    case 'ATTENDANCE_ADJUSTED':
+      final match = _attendanceMessage.firstMatch(message);
+      if (match != null) {
+        final date = _messageDate(match.group(1)!);
+        return match.group(2) == 'created'
+            ? tx('Quản trị viên đã thêm bản ghi chấm công ngày {date}.', {
+                'date': date,
+              })
+            : tx('Quản trị viên đã sửa bản ghi chấm công ngày {date}.', {
+                'date': date,
+              });
+      }
+  }
+  return message;
 }
 
 IconData notificationIcon(String type) {

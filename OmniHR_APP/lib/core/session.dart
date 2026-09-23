@@ -25,6 +25,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   static const _refreshTokenKey = 'refreshToken';
   static const _userKey = 'authUser';
   static const _themeModeKey = 'themeMode';
+  static const _genieHiddenKey = 'hrGenieHidden';
   static const _languageKey = 'language';
   static const _secureStorage = FlutterSecureStorage();
 
@@ -40,6 +41,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   Employee? employee;
   Future<bool>? _refreshInFlight;
   ThemeMode _themeMode = ThemeMode.light;
+  bool _genieHidden = false;
   AppLanguage _language = AppLanguage.vi;
 
   @override
@@ -52,6 +54,11 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   bool get onboardingCompleted => _onboardingCompleted;
   bool get isLoggedIn => _accessToken != null && user != null;
   ThemeMode get themeMode => _themeMode;
+
+  /// The HRGenie bubble tucked against the edge of the home screen. Kept in
+  /// the session, not in the bubble's own state, so the home screen's
+  /// "Hỏi HRGenie" card can bring it back and so it survives a restart.
+  bool get genieHidden => _genieHidden;
   AppLanguage get language => _language;
 
   Future<void> bootstrap() async {
@@ -76,6 +83,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     applyAppBrightness(
       _themeMode == ThemeMode.dark ? Brightness.dark : Brightness.light,
     );
+    _genieHidden = _prefs?.getBool(_genieHiddenKey) ?? false;
     _language = (_prefs?.getString(_languageKey)) == 'en'
         ? AppLanguage.en
         : AppLanguage.vi;
@@ -122,6 +130,14 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       mode == ThemeMode.dark ? 'dark' : 'light',
     );
     notifyListeners();
+  }
+
+  Future<void> setGenieHidden(bool hidden) async {
+    if (_genieHidden == hidden) return;
+    _genieHidden = hidden;
+    notifyListeners();
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs?.setBool(_genieHiddenKey, hidden);
   }
 
   Future<void> setLanguage(AppLanguage language) async {

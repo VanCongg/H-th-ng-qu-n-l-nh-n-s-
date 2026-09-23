@@ -22,11 +22,11 @@ import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import {
   departmentsApi,
-  employeeSkillsApi,
   employeesApi,
   positionsApi,
   skillsApi
 } from "../../api/endpoints";
+import { syncEmployeeSkills } from "../employee-skills/syncEmployeeSkills";
 import {
   careerLevelOptions,
   formatDate,
@@ -136,24 +136,47 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
         ? await employeesApi.update(editing.id, payload)
         : await employeesApi.create(payload);
       const employeeId = "employeeId" in result ? result.employeeId : result.id;
-      await syncEmployeeSkills(employeeId, values.skillIds.map(Number));
-      await syncDepartmentManager({
-        employeeId,
-        departmentId: payload.departmentId ?? null,
-        shouldSet: values.isDepartmentManager && canUseDepartmentManagerFlag({
-          departmentId: values.departmentId,
-          positionId: values.positionId,
+
+      // The employee is already committed at this point, so a failure below must
+      // be reported without letting the next submit create a second employee.
+      let followUp: { message: string; error: unknown } | null = null;
+
+      try {
+        await syncEmployeeSkills(employeeId, values.skillIds.map(Number));
+      } catch (error) {
+        followUp = { message: "Saved, but the skills were not updated", error };
+      }
+
+      try {
+        await syncDepartmentManager({
+          employeeId,
+          departmentId: payload.departmentId ?? null,
+          shouldSet: values.isDepartmentManager && canUseDepartmentManagerFlag({
+            departmentId: values.departmentId,
+            positionId: values.positionId,
+            editingEmployee: editing,
+            positions: positionsQuery.data ?? [],
+            departments: departmentsQuery.data ?? []
+          }),
           editingEmployee: editing,
-          positions: positionsQuery.data ?? [],
           departments: departmentsQuery.data ?? []
-        }),
-        editingEmployee: editing,
-        departments: departmentsQuery.data ?? []
-      });
-      return result;
+        });
+      } catch (error) {
+        followUp ??= {
+          message: "Saved, but the department manager was not updated",
+          error
+        };
+      }
+
+      return { result, followUp };
     },
-    onSuccess: (result: Employee | EmployeeCreateResult) => {
-      notifications.show({ color: "green", message: tx("Employee saved") });
+    onSuccess: ({
+      result,
+      followUp
+    }: {
+      result: Employee | EmployeeCreateResult;
+      followUp: { message: string; error: unknown } | null;
+    }) => {
       if ("defaultPassword" in result) {
         setDefaultPassword(result.defaultPassword);
       }
@@ -161,6 +184,19 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
       queryClient.invalidateQueries({ queryKey: ["employee-skills"] });
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       queryClient.invalidateQueries({ queryKey: ["teams"] });
+
+      if (followUp) {
+        // Keep the form open on the employee that was just saved, so pressing
+        // save again retries the rest instead of creating a duplicate.
+        setEditing("defaultPassword" in result ? result.employee : result);
+        notifications.show({
+          color: "red",
+          message: `${tx(followUp.message)}: ${getApiErrorMessage(followUp.error)}`
+        });
+        return;
+      }
+
+      notifications.show({ color: "green", message: tx("Employee saved") });
       setOpened(false);
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
@@ -678,22 +714,6 @@ function filterSkillIdsForPosition(
     const skill = skills.find((item) => String(item.id) === skillId);
     return skill ? skillAppliesToPosition(skill, positionId) : false;
   });
-}
-
-async function syncEmployeeSkills(employeeId: number, desiredSkillIds: number[]) {
-  const desiredIds = Array.from(new Set(desiredSkillIds));
-  const existingSkills = await employeeSkillsApi.list(employeeId);
-  const existingIds = new Set(existingSkills.map((item) => item.skillId));
-  const desiredSet = new Set(desiredIds);
-
-  await Promise.all([
-    ...desiredIds
-      .filter((skillId) => !existingIds.has(skillId))
-      .map((skillId) => employeeSkillsApi.create(employeeId, { skillId })),
-    ...existingSkills
-      .filter((item) => !desiredSet.has(item.skillId))
-      .map((item) => employeeSkillsApi.remove(item.id))
-  ]);
 }
 
 async function syncDepartmentManager({

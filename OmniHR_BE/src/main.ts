@@ -1,10 +1,11 @@
-import { BadRequestException, ValidationPipe } from "@nestjs/common";
+import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { SanitizeInputPipe } from "./common/pipes/sanitize-input.pipe";
+import { validationExceptionFactory } from "./common/validation-message";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,14 +25,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      exceptionFactory: (errors) =>
-        new BadRequestException({
-          success: false,
-          message: errors
-            .flatMap((error) => Object.values(error.constraints ?? {}))
-            .join("; "),
-          errorCode: "VALIDATION_ERROR"
-        })
+      exceptionFactory: validationExceptionFactory
     })
   );
 

@@ -9,6 +9,7 @@ import {
   NumberInput,
   Paper,
   Progress,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -37,7 +38,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { teamTaskProjects } from "./teamTaskAccess";
+import { currentMonthRange, teamTaskProjects } from "./teamTaskAccess";
 import {
   aiTaskSuggestionsApi,
   employeesApi,
@@ -129,6 +130,11 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(() => new Set());
   const [page, setPage] = useState(1);
+  // The team board defaults to what still needs attention: due this month, or
+  // unfinished from any month. "all" brings back finished work from the past.
+  const [teamView, setTeamView] = useState<"active" | "all">("active");
+  const monthRange = useMemo(() => currentMonthRange(), []);
+  const activeTeamView = scope === "team" && teamView === "active";
 
   const canCreate = hasPermission("TASK_CREATE");
   const canUpdate = hasPermission("TASK_UPDATE");
@@ -139,9 +145,23 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
   const canSelectAi = hasPermission("AI_TASK_SELECT");
 
   const tasksQuery = useQuery({
-    queryKey: ["tasks", scope, search, status, priority, projectId, teamId, assigneeId, page],
+    queryKey: [
+      "tasks",
+      scope,
+      search,
+      status,
+      priority,
+      projectId,
+      teamId,
+      assigneeId,
+      page,
+      activeTeamView
+    ],
     queryFn: () => {
       const params = {
+        ...(activeTeamView
+          ? { ...monthRange, includeOpen: true }
+          : {}),
         search: search || undefined,
         status: status || undefined,
         priority: priority || undefined,
@@ -624,6 +644,20 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       ) : null}
 
       <Paper withBorder radius="md" p="md" className="filter-bar">
+        {scope === "team" ? (
+          <SegmentedControl
+            mb="md"
+            value={teamView}
+            onChange={(value) => {
+              setTeamView(value as "active" | "all");
+              setPage(1);
+            }}
+            data={[
+              { value: "active", label: tx("This month & unfinished") },
+              { value: "all", label: tx("All tasks") }
+            ]}
+          />
+        ) : null}
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 6 }}>
           <TextInput
             label={tx("Search")}

@@ -553,7 +553,14 @@ export class AttendanceService {
       distanceMeters !== null &&
       distanceMeters > settings.attendanceRadiusMeters
     ) {
-      throw this.invalidAction("Attendance location is outside company radius.");
+      // Its own code: every other attendance failure shares
+      // ATTENDANCE_INVALID_ACTION, so a client cannot tell this one apart to
+      // explain it in the user's language.
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Attendance location is outside company radius.",
+        "ATTENDANCE_OUTSIDE_RADIUS"
+      );
     }
 
     return {

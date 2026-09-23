@@ -17,3 +17,20 @@ export function teamTaskProjects(
     (project) => project.department?.managerId === user.employeeId
   );
 }
+
+const pad = (value: number) => String(value).padStart(2, "0");
+
+/**
+ * The team board's default window: tasks due this calendar month (local time),
+ * sent with `includeOpen` so unfinished work from earlier months stays on it.
+ * Only finished work from past months drops off.
+ */
+export function currentMonthRange(today: Date = new Date()) {
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return {
+    fromDate: `${year}-${pad(month + 1)}-01`,
+    toDate: `${year}-${pad(month + 1)}-${pad(lastDay)}`
+  };
+}

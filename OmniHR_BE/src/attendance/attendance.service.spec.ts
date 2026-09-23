@@ -14,7 +14,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AttendanceService } from "./attendance.service";
 
 describe("AttendanceService", () => {
-  function createService() {
+  function createService(settingsOverrides: Record<string, unknown> = {}) {
     const prisma = {
       attendanceRecord: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -25,7 +25,9 @@ describe("AttendanceService", () => {
     };
     const audit = { log: jest.fn() };
     const systemSettings = {
-      getSettings: jest.fn().mockResolvedValue(defaultSystemSettings)
+      getSettings: jest
+        .fn()
+        .mockResolvedValue({ ...defaultSystemSettings, ...settingsOverrides })
     };
 
     return {
@@ -135,6 +137,63 @@ describe("AttendanceService", () => {
 
     await expect(service.checkOut(employee, location)).rejects.toMatchObject({
       message: expect.stringContaining("You have not checked in today")
+    });
+  });
+
+  describe("company radius", () => {
+    // Hoàn Kiếm, Hà Nội — the point `location` sits on.
+    const office = { companyLatitude: 21.02776, companyLongitude: 105.83416 };
+
+    it("rejects a punch outside the radius with its own error code", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-14T02:00:00Z"));
+      const { service, prisma } = createService({
+        ...office,
+        attendanceRadiusMeters: 150,
+        requireAttendanceLocation: true
+      });
+
+      // ~37km away, in Bắc Ninh.
+      await expect(
+        service.checkIn(employee, { latitude: 21.212445, longitude: 106.137263 })
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          errorCode: "ATTENDANCE_OUTSIDE_RADIUS"
+        })
+      });
+      expect(prisma.attendanceRecord.create).not.toHaveBeenCalled();
+    });
+
+    it("accepts a punch inside the radius", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-14T02:00:00Z"));
+      const { service, prisma } = createService({
+        ...office,
+        attendanceRadiusMeters: 150,
+        requireAttendanceLocation: true
+      });
+
+      // ~30m north of the office.
+      await service.checkIn(employee, {
+        latitude: 21.02803,
+        longitude: 105.83416
+      });
+
+      expect(prisma.attendanceRecord.create).toHaveBeenCalled();
+    });
+
+    it("does not enforce a radius it has no company point for", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-14T02:00:00Z"));
+      const { service, prisma } = createService({
+        companyLatitude: null,
+        companyLongitude: null,
+        requireAttendanceLocation: true
+      });
+
+      await service.checkIn(employee, {
+        latitude: 21.212445,
+        longitude: 106.137263
+      });
+
+      expect(prisma.attendanceRecord.create).toHaveBeenCalled();
     });
   });
 });

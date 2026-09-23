@@ -159,41 +159,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (distance <= policy.attendanceRadiusMeters) return true;
     if (!mounted) return false;
 
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          icon: AppIconBadge(
-            icon: Icons.location_off_outlined,
-            color: dangerColor,
-            size: 54,
-          ),
-          title: Text(tx('Ngoài khu vực công ty')),
-          content: Text(
-            tx(
-              'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho '
-              'phép {radius}m. Vẫn tiếp tục?',
-              {
-                'distance': '${distance.round()}',
-                'radius': '${policy.attendanceRadiusMeters.round()}',
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(tx('Hủy')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: dangerColor),
-              child: Text(tx('Vẫn tiếp tục')),
-            ),
-          ],
-        );
-      },
+    // The server rejects this anyway, so there is nothing to offer beyond the
+    // reason: say why it is invalid rather than dangling a button that fails.
+    await showAppAlert(
+      context,
+      icon: Icons.location_off_outlined,
+      title: tx('Chấm công không hợp lệ'),
+      message: tx(
+        'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho phép '
+        '{radius}m. Hãy tới khu vực công ty rồi chấm công lại.',
+        {
+          'distance': formatMeters(distance),
+          'radius': formatMeters(policy.attendanceRadiusMeters),
+        },
+      ),
     );
-    return proceed == true;
+    return false;
   }
 
   /// Shows a tick on the action orb for a moment after a successful punch.
@@ -252,33 +233,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          icon: AppIconBadge(
-            icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
-            color: isCheckIn ? brandColor : accentColor,
-            size: 54,
-          ),
-          title: Text(tx(isCheckIn ? 'Chấm công vào' : 'Chấm công ra')),
-          content: Text(
-            tx('Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(tx('Hủy')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(tx('Xác nhận')),
-            ),
-          ],
-        );
-      },
+    final confirmed = await showAppConfirm(
+      context,
+      icon: isCheckIn ? Icons.login_rounded : Icons.logout_rounded,
+      color: isCheckIn ? brandColor : accentColor,
+      title: tx(isCheckIn ? 'Chấm công vào' : 'Chấm công ra'),
+      message: tx('Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.'),
+      confirmLabel: tx('Xác nhận'),
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _submitting = true);
     try {
@@ -296,11 +259,27 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       await _refresh();
     } catch (error) {
       if (!mounted) return;
-      showAppSnack(
-        context,
-        error is ApiException ? error.message : error.toString(),
-        error: true,
-      );
+      if (error is ApiException &&
+          error.errorCode == 'ATTENDANCE_OUTSIDE_RADIUS') {
+        // The client-side check passed but the server disagreed, so it has a
+        // company point this screen's cached policy did not. Its message is
+        // English; say it in the app's language instead.
+        await showAppAlert(
+          context,
+          icon: Icons.location_off_outlined,
+          title: tx('Chấm công không hợp lệ'),
+          message: tx(
+            'Bạn đang ở ngoài khu vực công ty nên không thể chấm công. '
+            'Hãy tới nơi làm việc rồi thử lại.',
+          ),
+        );
+      } else {
+        showAppSnack(
+          context,
+          error is ApiException ? error.message : error.toString(),
+          error: true,
+        );
+      }
       // The server rejected a stale action (e.g. a duplicate punch): reload
       // so the screen shows the real next action.
       if (error is ApiException &&
@@ -476,10 +455,6 @@ class MonthAttendanceCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final monthTitle = tx('Tháng {month}/{year}', {
-      'month': visibleMonth.month.toString().padLeft(2, '0'),
-      'year': '${visibleMonth.year}',
-    });
     final firstDay = DateTime(visibleMonth.year, visibleMonth.month);
     final daysInMonth = DateTime(
       visibleMonth.year,
@@ -492,28 +467,10 @@ class MonthAttendanceCalendar extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: tx('Tháng trước'),
-              onPressed: onPreviousMonth,
-              icon: const Icon(Icons.chevron_left_rounded),
-            ),
-            Expanded(
-              child: Text(
-                monthTitle,
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-              ),
-            ),
-            IconButton(
-              tooltip: tx('Tháng sau'),
-              onPressed: onNextMonth,
-              icon: const Icon(Icons.chevron_right_rounded),
-            ),
-          ],
+        MonthSwitcher(
+          visibleMonth: visibleMonth,
+          onPreviousMonth: onPreviousMonth,
+          onNextMonth: onNextMonth,
         ),
         const SizedBox(height: 8),
         Row(

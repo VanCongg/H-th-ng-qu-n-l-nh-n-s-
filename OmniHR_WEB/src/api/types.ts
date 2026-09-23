@@ -441,24 +441,6 @@ export type EmployeeRef = {
   position?: Pick<Position, "id" | "code" | "name"> | null;
 };
 
-export type EmployeeTimesheet = {
-  standardWorkDays: number;
-  attendanceDays: number;
-  paidLeaveDays: number;
-  unpaidLeaveDays: number;
-  lateMinutes: number;
-  earlyLeaveMinutes: number;
-  overtimeMinutes: number;
-  missingCheckOuts: number;
-  workedMinutes: number;
-  shiftMinutesPerDay: number;
-};
-
-export type TimesheetRow = {
-  employee: EmployeeRef;
-  timesheet: EmployeeTimesheet;
-};
-
 export type LeaveBalanceStatus = "AVAILABLE" | "LOW" | "EXHAUSTED";
 
 export type AnnualLeaveBalance = {

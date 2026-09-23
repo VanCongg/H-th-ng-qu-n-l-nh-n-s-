@@ -9,33 +9,24 @@ import {
   SimpleGrid,
   Stack,
   Text,
-  TextInput,
   Tooltip
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Eye } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { auditLogsApi } from "../../api/endpoints";
 import { formatDateTime } from "../../api/format";
 import type { AuditLog } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
-import { useTranslation } from "../../i18n";
-
-const actionOptions = [
-  "LOGIN",
-  "LOGOUT",
-  "CREATE_EMPLOYEE",
-  "UPDATE_EMPLOYEE",
-  "DELETE_EMPLOYEE",
-  "ASSIGN_MANAGER",
-  "CREATE_LEAVE_REQUEST",
-  "APPROVE_LEAVE_REQUEST",
-  "REJECT_LEAVE_REQUEST",
-  "CHECK_IN",
-  "CHECK_OUT"
-];
+import {
+  auditActionCodes,
+  auditEntityTypes,
+  translateAuditAction,
+  translateEntityType,
+  useTranslation
+} from "../../i18n";
 
 function actionColor(action: string) {
   if (action.includes("DELETE") || action.includes("REJECT") || action.includes("CANCEL")) {
@@ -106,11 +97,25 @@ function AuditPayloadPreview({ log }: { log: AuditLog }) {
 }
 
 export function AuditLogsPage() {
-  const { tx } = useTranslation();
+  const { tx, ta, tn, language } = useTranslation();
   const [action, setAction] = useState<string | null>(null);
   const [entityType, setEntityType] = useState("");
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const actionOptions = useMemo(
+    () =>
+      auditActionCodes
+        .map((value) => ({ value, label: translateAuditAction(language, value) }))
+        .sort((a, b) => a.label.localeCompare(b.label, language)),
+    [language]
+  );
+  const entityTypeOptions = useMemo(
+    () =>
+      auditEntityTypes
+        .map((value) => ({ value, label: translateEntityType(language, value) }))
+        .sort((a, b) => a.label.localeCompare(b.label, language)),
+    [language]
+  );
   const query = useQuery({
     queryKey: ["audit-logs", action, entityType, page],
     queryFn: () =>
@@ -130,20 +135,24 @@ export function AuditLogsPage() {
           <Select
             label={tx("Action")}
             placeholder={tx("All actions")}
-            data={actionOptions.map((value) => ({ value, label: tx(value) }))}
+            data={actionOptions}
             clearable
+            searchable
             value={action}
             onChange={(value) => {
               setAction(value);
               setPage(1);
             }}
           />
-          <TextInput
+          <Select
             label={tx("Entity type")}
-            placeholder={tx("Example: User, Task, LeaveRequest")}
-            value={entityType}
-            onChange={(event) => {
-              setEntityType(event.currentTarget.value);
+            placeholder={tx("All entity types")}
+            data={entityTypeOptions}
+            clearable
+            searchable
+            value={entityType || null}
+            onChange={(value) => {
+              setEntityType(value ?? "");
               setPage(1);
             }}
           />
@@ -183,7 +192,7 @@ export function AuditLogsPage() {
             width: 180,
             render: (item) => (
               <Stack gap={0}>
-                <Text size="sm" fw={700}>{item.entityType}</Text>
+                <Text size="sm" fw={700}>{tn(item.entityType)}</Text>
                 <Text size="xs" c="dimmed">#{item.entityId ?? "-"}</Text>
               </Stack>
             )
@@ -233,7 +242,7 @@ export function AuditLogsPage() {
               <Paper withBorder radius="md" p="sm" className="audit-detail-tile">
                 <Text size="xs" c="dimmed">{tx("Action")}</Text>
                 <Badge color={actionColor(selectedLog.action)} variant="light">
-                  {tx(selectedLog.action)}
+                  {ta(selectedLog.action)}
                 </Badge>
               </Paper>
               <Paper withBorder radius="md" p="sm" className="audit-detail-tile">
@@ -243,7 +252,7 @@ export function AuditLogsPage() {
               <Paper withBorder radius="md" p="sm" className="audit-detail-tile">
                 <Text size="xs" c="dimmed">{tx("Entity")}</Text>
                 <Text size="sm" fw={700}>
-                  {selectedLog.entityType} #{selectedLog.entityId ?? "-"}
+                  {tn(selectedLog.entityType)} #{selectedLog.entityId ?? "-"}
                 </Text>
               </Paper>
               <Paper withBorder radius="md" p="sm" className="audit-detail-tile">

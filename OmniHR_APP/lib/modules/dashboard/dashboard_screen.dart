@@ -8,6 +8,8 @@ import '../../shared/widgets/widgets.dart';
 import '../attendance/attendance_screen.dart';
 import '../chat/chat_screen.dart';
 import '../leave/leave_screen.dart';
+import '../settings/settings_screen.dart';
+import '../skills/skills_screen.dart';
 import '../tasks/tasks_screen.dart';
 
 class DashboardBundle {
@@ -82,8 +84,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = _load();
+    });
+    try {
+      await _future;
+    } catch (_) {
+      // Lỗi tải đã được FutureBuilder hiển thị.
+    }
   }
 
   void _openChat() {
@@ -122,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 20),
               _QuickActions(session: widget.session),
               const SizedBox(height: 18),
-              _HrGeniePanel(onOpen: _openChat),
+              _HrGeniePanel(session: widget.session, onOpen: _openChat),
               const SizedBox(height: 18),
               AppPanel(
                 child: Column(
@@ -202,60 +211,96 @@ class _QuickActions extends StatelessWidget {
 
   final AppSession session;
 
-  void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  /// Takes a builder, not a ready-made widget: a route that hands back the
+  /// same widget instance every time is skipped by the element tree, so the
+  /// screen it shows would keep the palette and the language it was opened
+  /// with even after the app rebuilds with new ones.
+  void _open(BuildContext context, WidgetBuilder screen) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: screen));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _QuickActionButton(
+        _row(context, [
+          _QuickActionButton(
             icon: Icons.location_on_rounded,
             color: brandColor,
             label: tx('Chấm công'),
             onTap: () => _open(
               context,
-              SubScreen(
+              (_) => SubScreen(
                 title: tx('Chấm công'),
                 child: AttendanceScreen(session: session),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _QuickActionButton(
+          _QuickActionButton(
             icon: Icons.beach_access_rounded,
             color: brandGreen,
             label: tx('Nghỉ phép'),
             onTap: () => _open(
               context,
-              SubScreen(
+              (_) => SubScreen(
                 title: tx('Nghỉ phép'),
                 child: LeaveScreen(session: session),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _QuickActionButton(
+          _QuickActionButton(
             icon: Icons.assignment_rounded,
             color: accentColor,
             label: tx('Công việc'),
             onTap: () => _open(
               context,
-              SubScreen(
+              (_) => SubScreen(
                 title: tx('Công việc'),
                 child: TasksScreen(session: session),
               ),
             ),
           ),
-        ),
+        ]),
+        const SizedBox(height: 12),
+        _row(context, [
+          _QuickActionButton(
+            icon: Icons.psychology_alt_rounded,
+            color: brandGreen,
+            label: tx('Kỹ năng'),
+            onTap: () => _open(
+              context,
+              (_) => SubScreen(
+                title: tx('Kỹ năng'),
+                child: SkillsScreen(session: session),
+              ),
+            ),
+          ),
+          _QuickActionButton(
+            icon: Icons.settings_rounded,
+            color: brandColor,
+            label: tx('Cài đặt'),
+            onTap: () => _open(
+              context,
+              (_) => SubScreen(
+                title: tx('Cài đặt'),
+                child: SettingsScreen(session: session),
+              ),
+            ),
+          ),
+        ]),
       ],
     );
+  }
+
+  /// Each button takes an equal share of the row, so the second row's two
+  /// buttons line up with the three above them rather than stretching wider.
+  Widget _row(BuildContext context, List<Widget> buttons) {
+    final children = <Widget>[];
+    for (var index = 0; index < buttons.length; index++) {
+      if (index > 0) children.add(const SizedBox(width: 12));
+      children.add(Expanded(child: buttons[index]));
+    }
+    return Row(children: children);
   }
 }
 
@@ -462,16 +507,21 @@ class _TaskPreview extends StatelessWidget {
 }
 
 class _HrGeniePanel extends StatelessWidget {
-  const _HrGeniePanel({required this.onOpen});
+  const _HrGeniePanel({required this.session, required this.onOpen});
 
+  final AppSession session;
   final VoidCallback onOpen;
 
   static final _radius = BorderRadius.circular(14);
 
   @override
   Widget build(BuildContext context) {
+    // While the bubble is tucked against the edge this card calls it back
+    // instead of opening the chat, so it is never lost for good.
+    final hidden = session.genieHidden;
+
     return PressableScale(
-      onTap: onOpen,
+      onTap: hidden ? () => session.setGenieHidden(false) : onOpen,
       borderRadius: _radius,
       child: Container(
         decoration: BoxDecoration(
@@ -483,7 +533,9 @@ class _HrGeniePanel extends StatelessWidget {
           child: Row(
             children: [
               AppIconBadge(
-                icon: Icons.auto_awesome_rounded,
+                icon: hidden
+                    ? Icons.visibility_rounded
+                    : Icons.auto_awesome_rounded,
                 color: brandGreen,
                 size: 36,
               ),
@@ -499,7 +551,9 @@ class _HrGeniePanel extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      tx('Chấm công, nghỉ phép, công việc'),
+                      hidden
+                          ? tx('Chạm để hiện lại bong bóng')
+                          : tx('Chấm công, nghỉ phép, công việc'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(

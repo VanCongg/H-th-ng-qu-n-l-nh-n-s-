@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Checkbox,
   NumberInput,
@@ -11,7 +12,7 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Save } from "lucide-react";
+import { Save, TriangleAlert } from "lucide-react";
 import { useEffect } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { dashboardApi } from "../../api/endpoints";
@@ -109,6 +110,13 @@ export function SystemSettingsPage() {
     onError: (error) =>
       notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+
+  // The server skips the radius check when it has no company coordinates, so
+  // this combination silently accepts every check-in.
+  const geofenceInert =
+    form.values.requireAttendanceLocation &&
+    (form.values.companyLatitude === null ||
+      form.values.companyLongitude === null);
 
   return (
     <Stack gap="md">
@@ -269,6 +277,18 @@ export function SystemSettingsPage() {
                 })}
               />
             </SimpleGrid>
+            {geofenceInert && (
+              <Alert
+                color="red"
+                variant="light"
+                icon={<TriangleAlert size={18} />}
+                title={tx("Attendance radius is not being enforced")}
+              >
+                {tx(
+                  "\"Require attendance location\" is on, but no company location is set. Until a point is placed on the map below, check-ins are accepted from anywhere and only the coordinates are recorded."
+                )}
+              </Alert>
+            )}
             <CompanyLocationPicker
               latitude={form.values.companyLatitude}
               longitude={form.values.companyLongitude}

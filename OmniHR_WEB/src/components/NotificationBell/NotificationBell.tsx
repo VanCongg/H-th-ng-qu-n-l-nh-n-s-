@@ -3,9 +3,10 @@ import { Bell } from "lucide-react";
 import { formatDateTime } from "../../api/format";
 import { useTranslation } from "../../i18n";
 import { useNotificationsStore } from "../../store/notifications";
+import { notificationMessage, notificationTitle } from "./notificationText";
 
 export function NotificationBell() {
-  const { tx, te } = useTranslation();
+  const { tx, te, language } = useTranslation();
   const items = useNotificationsStore((state) => state.items);
   const unreadCount = useNotificationsStore((state) => state.unreadCount);
   const markRead = useNotificationsStore((state) => state.markRead);
@@ -64,10 +65,10 @@ export function NotificationBell() {
                 >
                   <Stack gap={2}>
                     <Text size="sm" fw={600}>
-                      {tx(item.title)}
+                      {notificationTitle(language, item.type, item.title)}
                     </Text>
                     <Text size="xs" c="dimmed">
-                      {tx(item.message)}
+                      {notificationMessage(language, item.type, item.message)}
                     </Text>
                     <Text size="xs" c="dimmed">
                       {te(item.type)} · {formatDateTime(item.createdAt)}

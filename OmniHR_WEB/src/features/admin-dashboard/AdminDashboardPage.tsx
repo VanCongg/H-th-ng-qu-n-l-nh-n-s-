@@ -11,7 +11,7 @@ import type { AuditLog } from "../../api/types";
 import { getApiErrorMessage } from "../../api/axios";
 
 export function AdminDashboardPage() {
-  const { tx } = useTranslation();
+  const { tx, ta, tn } = useTranslation();
   const query = useQuery({
     queryKey: ["admin-dashboard"],
     queryFn: dashboardApi.admin
@@ -46,8 +46,8 @@ export function AdminDashboardPage() {
             data={data?.recentAuditLogs ?? []}
             emptyTitle="No activity yet"
             columns={[
-              { key: "action", label: "Action", render: (item) => <Text fw={700} size="sm">{tx(item.action)}</Text> },
-              { key: "entity", label: "Entity", render: (item) => `${item.entityType} #${item.entityId ?? "-"}` },
+              { key: "action", label: "Action", render: (item) => <Text fw={700} size="sm">{ta(item.action)}</Text> },
+              { key: "entity", label: "Entity", render: (item) => `${tn(item.entityType)} #${item.entityId ?? "-"}` },
               { key: "user", label: "Employee", render: (item) => item.user?.username ?? "-" },
               { key: "time", label: "Time", render: (item) => formatDateTime(item.createdAt) }
             ]}

@@ -55,7 +55,12 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 const STATE_KEY = "simulation";
 const MAX_DAYS_PER_RUN = 92;
-const OFFICE = { latitude: 21.0227, longitude: 105.8466 };
+/**
+ * Where punches are generated when system settings carry no company location.
+ * The seed leaves those null on purpose, so the radius is not enforced and
+ * this is the only coordinate available.
+ */
+const FALLBACK_OFFICE = { latitude: 21.0227, longitude: 105.8466 };
 const SHIFTS = [
   { shift: AttendanceShift.MORNING, start: 8 * 60, end: 12 * 60 },
   { shift: AttendanceShift.AFTERNOON, start: 13 * 60, end: 17 * 60 }
@@ -566,6 +571,11 @@ type Context = {
   adminUserId: number;
   /** Notifications older than this are created as already read. */
   readBefore: Date;
+  /**
+   * The configured company location, so generated punches land inside the
+   * attendance radius instead of drifting away from it once an admin sets one.
+   */
+  office: { latitude: number; longitude: number };
 };
 
 type SimulationState = {
@@ -698,6 +708,31 @@ async function loadState(): Promise<SimulationState> {
   };
 }
 
+/**
+ * The company point an admin configured, or [FALLBACK_OFFICE] when none is set.
+ * Punches are scattered within ~30m of it, which keeps a simulated day inside
+ * whatever attendance radius the settings ask for.
+ */
+export function officeFrom(settingsValue: unknown) {
+  const value = (settingsValue ?? {}) as Record<string, unknown>;
+  const latitude = value.companyLatitude;
+  const longitude = value.companyLongitude;
+  if (
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude)
+  ) {
+    return { latitude, longitude };
+  }
+  return FALLBACK_OFFICE;
+}
+
+async function loadOffice() {
+  const record = await prisma.systemSetting.findUnique({ where: { key: "default" } });
+  return officeFrom(record?.value);
+}
+
 async function saveState(client: Tx, state: SimulationState) {
   const value = state as unknown as Prisma.InputJsonValue;
   await client.systemSetting.upsert({
@@ -769,7 +804,8 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
     skillIds: new Map(skills.map((skill) => [skill.code, skill.id])),
     leaveTypes: new Map(leaveTypes.map((type) => [type.code, { id: type.id, annualAllowance: type.annualAllowance }])),
     adminUserId: admin.id,
-    readBefore
+    readBefore,
+    office: await loadOffice()
   };
 
   for (const employee of employees) {
@@ -1086,8 +1122,8 @@ async function recordAttendance(tx: Tx, ctx: Context, day: Date, onLeave: Set<nu
 
     const shift = SHIFTS.find((item) => checkIn >= item.start - EARLY_CHECK_IN_MINUTES && checkIn <= item.end)!;
     const location = {
-      latitude: Number((OFFICE.latitude + (random() - 0.5) * 0.0006).toFixed(6)),
-      longitude: Number((OFFICE.longitude + (random() - 0.5) * 0.0006).toFixed(6)),
+      latitude: Number((ctx.office.latitude + (random() - 0.5) * 0.0006).toFixed(6)),
+      longitude: Number((ctx.office.longitude + (random() - 0.5) * 0.0006).toFixed(6)),
       source: "MOBILE",
       createdByUserId: employee.userId
     };

@@ -38,8 +38,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = _load();
+    });
+    try {
+      await _future;
+    } catch (_) {
+      // Lỗi tải đã được FutureBuilder hiển thị.
+    }
   }
 
   int get _unreadCount =>
@@ -109,24 +116,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 104),
             children: [
-              Row(
-                children: [
-                  Pill(
-                    label: _unreadCount == 0
-                        ? tx('Bạn đã đọc hết thông báo.')
-                        : tx('{count} thông báo chưa đọc', {
-                            'count': '$_unreadCount',
-                          }),
-                    color: _unreadCount > 0 ? accentColor : brandGreen,
-                  ),
-                  const Spacer(),
-                  if (_unreadCount > 0)
-                    TextButton.icon(
-                      onPressed: _markingAll ? null : _markAllRead,
-                      icon: const Icon(Icons.done_all_rounded, size: 18),
-                      label: Text(tx('Đánh dấu đã đọc tất cả')),
-                    ),
-                ],
+              NotificationsHeader(
+                unreadCount: _unreadCount,
+                busy: _markingAll,
+                onMarkAllRead: _markAllRead,
               ),
               const SizedBox(height: 8),
               if (_items.isEmpty)
@@ -180,7 +173,10 @@ class _NotificationCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          notification.title,
+                          notificationTitle(
+                            notification.type,
+                            notification.title,
+                          ),
                           style: TextStyle(
                             fontWeight: notification.isRead
                                 ? FontWeight.w700
@@ -201,7 +197,10 @@ class _NotificationCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    notification.message,
+                    notificationMessage(
+                      notification.type,
+                      notification.message,
+                    ),
                     style: TextStyle(
                       color: mutedTextColor,
                       fontWeight: FontWeight.w600,
@@ -223,6 +222,45 @@ class _NotificationCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Unread count on the left, "mark all read" on the right, on one line that
+/// fits a phone: the count gives way rather than pushing the button off-screen.
+class NotificationsHeader extends StatelessWidget {
+  const NotificationsHeader({
+    super.key,
+    required this.unreadCount,
+    required this.busy,
+    required this.onMarkAllRead,
+  });
+
+  final int unreadCount;
+  final bool busy;
+  final VoidCallback onMarkAllRead;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Pill(
+            label: unreadCount == 0
+                ? tx('Bạn đã đọc hết thông báo.')
+                : tx('{count} thông báo chưa đọc', {'count': '$unreadCount'}),
+            color: unreadCount > 0 ? accentColor : brandGreen,
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (unreadCount > 0)
+          TextButton.icon(
+            onPressed: busy ? null : onMarkAllRead,
+            icon: const Icon(Icons.done_all_rounded, size: 18),
+            label: Text(tx('Đọc tất cả')),
+          ),
+      ],
     );
   }
 }

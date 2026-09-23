@@ -89,7 +89,7 @@ export function AdminIndexRedirect() {
 
   return (
     <Navigate
-      to={user?.roles.includes("ADMIN") ? "/admin/dashboard" : "/admin/timesheets"}
+      to={user?.roles.includes("ADMIN") ? "/admin/dashboard" : "/admin/attendance"}
       replace
     />
   );

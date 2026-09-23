@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme.dart';
 import '../../core/utils.dart';
 
 class AppIconBadge extends StatelessWidget {
@@ -46,9 +47,11 @@ class AppPanel extends StatelessWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: surfaceColor,
+        // Read from the theme rather than the global palette so a panel
+        // inside an already-open route repaints when the theme mode flips.
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: context.colors.outline),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF101828).withValues(alpha: 0.04),

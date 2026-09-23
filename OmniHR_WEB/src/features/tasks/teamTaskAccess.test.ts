@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthUser, Project } from "../../api/types";
-import { teamTaskProjects } from "./teamTaskAccess";
+import { currentMonthRange, teamTaskProjects } from "./teamTaskAccess";
 
 function user(overrides: Partial<AuthUser>): AuthUser {
   return {
@@ -39,5 +39,25 @@ describe("teamTaskProjects", () => {
   it("returns nothing without a user or employee profile", () => {
     expect(teamTaskProjects(projects, null)).toEqual([]);
     expect(teamTaskProjects(projects, user({ employeeId: null }))).toEqual([]);
+  });
+});
+
+describe("currentMonthRange", () => {
+  it("covers the whole calendar month", () => {
+    expect(currentMonthRange(new Date(2026, 8, 22))).toEqual({
+      fromDate: "2026-09-01",
+      toDate: "2026-09-30"
+    });
+  });
+
+  it("ends a leap February on the 29th", () => {
+    expect(currentMonthRange(new Date(2028, 1, 10)).toDate).toBe("2028-02-29");
+  });
+
+  it("does not spill into the next year in December", () => {
+    expect(currentMonthRange(new Date(2026, 11, 31))).toEqual({
+      fromDate: "2026-12-01",
+      toDate: "2026-12-31"
+    });
   });
 });

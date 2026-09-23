@@ -9,6 +9,25 @@ import '../../shared/widgets/widgets.dart';
 
 enum _TaskFilter { all, open, overdue, done }
 
+/// Splits one month's response into the tasks that are actually due in that
+/// month and the undated ones that ride along because of `includeUndated`.
+/// The month's counters must only describe the former; the latter belong to
+/// no month and are listed separately.
+({List<TaskItem> dated, List<TaskItem> undated}) splitTasksByDueDate(
+  List<TaskItem> tasks,
+) {
+  final dated = <TaskItem>[];
+  final undated = <TaskItem>[];
+  for (final task in tasks) {
+    if (dateOf(task.dueDate) == null) {
+      undated.add(task);
+    } else {
+      dated.add(task);
+    }
+  }
+  return (dated: dated, undated: undated);
+}
+
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key, required this.session});
 
@@ -20,25 +39,54 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   late Future<List<TaskItem>> _future;
+  late DateTime _visibleMonth;
   _TaskFilter _filter = _TaskFilter.all;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _visibleMonth = DateTime(now.year, now.month);
     _future = _load();
   }
 
+  /// One month of work at a time, filtered on the due date. A flat `limit: 50`
+  /// silently hid the current work of anyone with a long history, because the
+  /// server returns the oldest tasks first.
   Future<List<TaskItem>> _load() {
+    final firstDay = DateTime(_visibleMonth.year, _visibleMonth.month);
+    final lastDay = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0);
     return widget.session.api.getList(
       '/tasks/me',
       TaskItem.fromJson,
-      query: {'limit': 50},
+      query: {
+        'limit': 100,
+        'fromDate': apiDate(firstDay),
+        'toDate': apiDate(lastDay),
+        // A task with no due date belongs to no month, so without this it
+        // would be missing from every single one of them.
+        'includeUndated': true,
+      },
     );
   }
 
+  void _changeMonth(int delta) {
+    setState(() {
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+      _future = _load();
+    });
+  }
+
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = _load();
+    });
+    try {
+      await _future;
+    } catch (_) {
+      // The FutureBuilder already renders this failure.
+    }
   }
 
   bool get _canUpdateStatus {
@@ -170,6 +218,12 @@ class _TasksScreenState extends State<TasksScreen> {
                           await _updateStatus(task, status);
                         },
                       ),
+                      const SizedBox(height: 12),
+                    ] else if (_canUpdateStatus &&
+                        task.parentTaskId == null) ...[
+                      // The server derives a team-level task's status from its
+                      // subtasks, so say that instead of just hiding the field.
+                      _DerivedStatusNote(),
                       const SizedBox(height: 12),
                     ],
                     ProfileRow(
@@ -315,7 +369,9 @@ class _TasksScreenState extends State<TasksScreen> {
           return ErrorView(error: snapshot.error.toString(), onRetry: _refresh);
         }
 
-        final tasks = snapshot.data ?? const <TaskItem>[];
+        final split = splitTasksByDueDate(snapshot.data ?? const <TaskItem>[]);
+        final tasks = split.dated;
+        final undatedTasks = _filteredTasks(split.undated);
         final visibleTasks = _filteredTasks(tasks);
         final openCount = tasks.where((task) => task.isOpen).length;
         final overdueCount = tasks.where((task) => task.isOverdue).length;
@@ -327,6 +383,12 @@ class _TasksScreenState extends State<TasksScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 112),
             children: [
+              MonthSwitcher(
+                visibleMonth: _visibleMonth,
+                onPreviousMonth: () => _changeMonth(-1),
+                onNextMonth: () => _changeMonth(1),
+              ),
+              const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -373,8 +435,8 @@ class _TasksScreenState extends State<TasksScreen> {
               if (tasks.isEmpty)
                 EmptyState(
                   icon: Icons.assignment_outlined,
-                  title: tx('Chưa có công việc'),
-                  body: tx('Công việc được giao cho bạn sẽ xuất hiện tại đây.'),
+                  title: tx('Không có công việc trong tháng này'),
+                  body: tx('Dùng mũi tên phía trên để xem tháng khác.'),
                 )
               else if (visibleTasks.isEmpty)
                 EmptyState(
@@ -387,10 +449,51 @@ class _TasksScreenState extends State<TasksScreen> {
                   (task) =>
                       TaskCard(task: task, onDetails: () => _openDetails(task)),
                 ),
+              if (undatedTasks.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                SectionTitle(
+                  title: tx('Không có hạn ({count})', {
+                    'count': '${undatedTasks.length}',
+                  }),
+                  subtitle: tx('Không thuộc tháng nào nên luôn hiển thị ở đây'),
+                ),
+                ...undatedTasks.map(
+                  (task) =>
+                      TaskCard(task: task, onDetails: () => _openDetails(task)),
+                ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _DerivedStatusNote extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: brandColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: brandColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tx(
+                'Đây là công việc cấp nhóm. Trạng thái của nó được tính từ '
+                'các công việc con, không đổi trực tiếp được.',
+              ),
+              style: TextStyle(color: brandColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

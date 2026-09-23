@@ -28,7 +28,6 @@ import type {
   Team,
   UserSummary,
   AuditLog,
-  TimesheetRow,
   LeaveBalanceList
 } from "./types";
 
@@ -216,8 +215,6 @@ export const attendanceApi = {
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/self", { params })),
   team: (params?: QueryParams) =>
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance/team", { params })),
-  timesheets: (params?: QueryParams) =>
-    unwrap<Paginated<TimesheetRow>>(api.get("/attendance/timesheets", { params })),
   checkIn: (payload?: Record<string, unknown>) =>
     unwrap<AttendanceRecord>(api.post("/attendance/check-in", payload ?? {})),
   checkOut: (payload?: Record<string, unknown>) =>

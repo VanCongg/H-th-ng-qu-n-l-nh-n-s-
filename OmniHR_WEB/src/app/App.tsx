@@ -18,7 +18,6 @@ import { DepartmentsPage } from "../features/departments/DepartmentsPage";
 import { TeamsPage } from "../features/teams/TeamsPage";
 import { PositionsPage } from "../features/positions/PositionsPage";
 import { AttendancePage } from "../features/attendance/AttendancePage";
-import { TimesheetPage } from "../features/attendance/TimesheetPage";
 import { LeaveRequestsPage } from "../features/leave-requests/LeaveRequestsPage";
 import { LeaveBalancesPage } from "../features/leave-balances/LeaveBalancesPage";
 import { UsersPage } from "../features/users/UsersPage";
@@ -79,9 +78,6 @@ export function App() {
                 <Route index element={<AdminIndexRedirect />} />
                 <Route element={<RequirePermission permissions={["ATTENDANCE_READ_ALL"]} />}>
                   <Route path="attendance" element={<AttendancePage scope="all" />} />
-                </Route>
-                <Route element={<RequirePermission permissions={["ATTENDANCE_READ_ALL"]} />}>
-                  <Route path="timesheets" element={<TimesheetPage />} />
                 </Route>
                 <Route element={<RequireRole roles={["ADMIN"]} />}>
                   <Route path="dashboard" element={<AdminDashboardPage />} />

@@ -54,7 +54,6 @@ const CAREER_LEVEL_INDEX: Record<string, number> = {
   SENIOR: 4,
   LEAD: 5
 };
-const HISTORY_WEIGHT = 0.2;
 
 export type Candidate = {
   employeeId: number;
@@ -91,10 +90,25 @@ type Variant = {
 };
 
 const W = DEFAULT_SCORE_WEIGHTS;
+/**
+ * The first entry is exactly what the API ranks with; the other two drop
+ * signals from it, so each row shows what a signal adds on top of the last.
+ */
 const VARIANTS: Variant[] = [
   {
-    key: "v4",
-    label: "v4 hiện tại (kỹ năng + khối lượng + lịch nghỉ)",
+    key: "deployed",
+    label: `Đang chạy (kỹ năng ${W.skill} / tải việc ${W.workload} / lịch nghỉ ${W.availability} / lịch sử ${W.history})`,
+    score: (c) =>
+      combineScores([
+        { value: c.skillScore, weight: W.skill },
+        { value: c.workloadScore, weight: W.workload },
+        { value: c.availabilityScore, weight: W.availability },
+        { value: c.historyScore, weight: W.history }
+      ])
+  },
+  {
+    key: "no-history",
+    label: "Bỏ lịch sử (kỹ năng + tải việc + lịch nghỉ)",
     score: (c) =>
       combineScores([
         { value: c.skillScore, weight: W.skill },
@@ -106,17 +120,6 @@ const VARIANTS: Variant[] = [
     key: "skill-only",
     label: "Chỉ kỹ năng",
     score: (c) => c.skillScore
-  },
-  {
-    key: "v5",
-    label: "v5 thử nghiệm (thêm lịch sử task)",
-    score: (c) =>
-      combineScores([
-        { value: c.skillScore, weight: W.skill },
-        { value: c.workloadScore, weight: W.workload },
-        { value: c.availabilityScore, weight: W.availability },
-        { value: c.historyScore, weight: HISTORY_WEIGHT }
-      ])
   }
 ];
 
@@ -480,7 +483,6 @@ function availabilityAt(data: Data, employeeId: number, task: TaskRow, at: Date)
   };
 }
 
-/** Candidate v5 signal: on-time rate and hours efficiency of tasks already finished. */
 /**
  * Fills in the shrunk track record once the whole shortlist is known: the
  * prior a candidate is pulled towards is the median of the peers they are
@@ -655,7 +657,8 @@ function buildReport(decisions: Decision[], from: Date, evalEnd: Date) {
     "## Ghi chú",
     "",
     `- Ứng viên có đủ ${HISTORY_MIN_TASKS} task đã xong để tính lịch sử: ${pct(withHistory)}.`,
-    "- v4 cố ý cân nhắc khối lượng việc và lịch nghỉ, nên không nhắm chọn người giỏi nhất tuyệt đối; bảng 1 chỉ đo riêng khả năng nhận ra năng lực.",
+    "- Bộ đang chạy cố ý cân nhắc khối lượng việc và lịch nghỉ, nên không nhắm chọn người giỏi nhất tuyệt đối; bảng 1 chỉ đo riêng khả năng nhận ra năng lực.",
+    "- Thứ hạng ở đây đã áp ràng buộc cứng (thiếu kỹ năng bắt buộc, nghỉ quá nửa kỳ task) nhưng chưa trừ điểm cân tải; báo cáo tune-weights đo cả phần đó.",
     "- Dữ liệu là mô phỏng: kết quả kiểm chứng thuật toán bắt được tín hiệu trong kịch bản giả lập, không thay cho đánh giá trên dữ liệu công ty thật.",
     ""
   );

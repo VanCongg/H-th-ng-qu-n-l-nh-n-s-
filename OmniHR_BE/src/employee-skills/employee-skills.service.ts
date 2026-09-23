@@ -42,6 +42,7 @@ export class EmployeeSkillsService {
   ) {
     await this.accessControl.ensureCanUpdateEmployeeSkill(actor, employeeId);
     await this.ensureSkillForEmployee(dto.skillId, employeeId);
+    await this.ensureSkillNotAssigned(employeeId, dto.skillId);
     this.ensureLastUsedAt(dto.lastUsedAt);
 
     const employeeSkill = await this.prisma.employeeSkill.create({
@@ -78,6 +79,9 @@ export class EmployeeSkillsService {
     await this.accessControl.ensureCanUpdateEmployeeSkill(actor, oldValue.employeeId);
     if (dto.skillId) {
       await this.ensureSkillForEmployee(dto.skillId, oldValue.employeeId);
+      if (dto.skillId !== oldValue.skillId) {
+        await this.ensureSkillNotAssigned(oldValue.employeeId, dto.skillId);
+      }
     }
     this.ensureLastUsedAt(dto.lastUsedAt);
 
@@ -171,6 +175,22 @@ export class EmployeeSkillsService {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
         "Skill is not applicable to employee position",
+        "VALIDATION_ERROR"
+      );
+    }
+  }
+
+  // (employeeId, skillId) is unique in the database; without this check a repeated
+  // save answers with a raw constraint violation instead of a usable message.
+  private async ensureSkillNotAssigned(employeeId: number, skillId: number) {
+    const existing = await this.prisma.employeeSkill.findFirst({
+      where: { employeeId, skillId },
+      select: { id: true }
+    });
+    if (existing) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Employee already has this skill",
         "VALIDATION_ERROR"
       );
     }

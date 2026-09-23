@@ -21,6 +21,13 @@ import { TaskRequiredSkillDto } from "./dto/task-required-skill.dto";
 import { UpdateTaskDto } from "./dto/update-task.dto";
 import { UpdateTaskStatusDto } from "./dto/update-task-status.dto";
 
+/** Not finished yet: what a manager still has to follow up on. */
+const OPEN_TASK_STATUSES = [
+  TaskStatus.TODO,
+  TaskStatus.IN_PROGRESS,
+  TaskStatus.IN_REVIEW
+];
+
 export const taskInclude = {
   parentTask: {
     select: {
@@ -474,7 +481,15 @@ export class TasksService {
       this.prisma.task.findMany({
         where,
         include: taskInclude,
-        orderBy: [{ parentTaskId: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
+        // A "still open" view leads with the open work: the TaskStatus enum is
+        // declared TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED, so ascending
+        // puts it first. Otherwise this month's finished tasks fill page one.
+        orderBy: [
+          ...(query.includeOpen ? [{ status: "asc" as const }] : []),
+          { parentTaskId: "asc" },
+          { dueDate: "asc" },
+          { createdAt: "desc" }
+        ],
         skip,
         take
       }),
@@ -485,6 +500,14 @@ export class TasksService {
   }
 
   private async buildWhere(query: TaskQueryDto, user: AuthUser, scope: "all" | "team" | "self") {
+    const hasDateRange = Boolean(query.fromDate || query.toDate);
+    const dueDateRange = hasDateRange
+      ? {
+          gte: query.fromDate ? toDateOnly(query.fromDate) : undefined,
+          lte: query.toDate ? toDateOnly(query.toDate) : undefined
+        }
+      : undefined;
+
     const base: Prisma.TaskWhereInput = {
       deletedAt: null,
       parentTaskId: query.parentTaskId,
@@ -494,13 +517,24 @@ export class TasksService {
       assigneeId: query.assigneeId,
       status: query.status,
       priority: query.priority,
-      dueDate:
-        query.fromDate || query.toDate
-          ? {
-              gte: query.fromDate ? toDateOnly(query.fromDate) : undefined,
-              lte: query.toDate ? toDateOnly(query.toDate) : undefined
-            }
-          : undefined,
+      // A period filter can be widened: `includeUndated` adds tasks with no due
+      // date (which belong to no period), `includeOpen` adds unfinished tasks
+      // from any period. It goes under AND because OR is taken by `search`.
+      ...(hasDateRange && (query.includeUndated || query.includeOpen)
+        ? {
+            AND: [
+              {
+                OR: [
+                  { dueDate: dueDateRange },
+                  ...(query.includeUndated ? [{ dueDate: null }] : []),
+                  ...(query.includeOpen
+                    ? [{ status: { in: OPEN_TASK_STATUSES } }]
+                    : [])
+                ]
+              }
+            ]
+          }
+        : { dueDate: dueDateRange }),
       ...(query.search
         ? {
             OR: [

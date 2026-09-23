@@ -29,11 +29,15 @@ const Map<String, String> _enDictionary = {
   'Nghỉ phép': 'Leave',
   'Công việc': 'Tasks',
   'Cá nhân': 'Profile',
+  'Kỹ năng': 'Skills',
+  'Cài đặt': 'Settings',
   'Nhân viên': 'Employee',
   'Nhân viên OmniHR': 'OmniHR employee',
   'Công việc chưa đặt tên': 'Untitled task',
   'Hỏi HRGenie': 'Ask HRGenie',
   'Chấm công, nghỉ phép, công việc': 'Attendance, leave, tasks',
+  'Chạm để hiện lại bong bóng': 'Tap to bring the bubble back',
+  'Hiện trợ lý': 'Show the assistant',
   'Xin chào,': 'Hello,',
 
   // Dashboard
@@ -100,11 +104,6 @@ const Map<String, String> _enDictionary = {
       'This account cannot record attendance.',
   'Bạn chưa chấm công vào nên không thể chấm công ra.':
       'You have not checked in, so you cannot check out.',
-  'Ngoài khu vực công ty': 'Outside company area',
-  'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho phép {radius}m. Vẫn tiếp tục?':
-      'You are {distance}m from the office, beyond the allowed radius of '
-      '{radius}m. Continue anyway?',
-  'Vẫn tiếp tục': 'Continue anyway',
   'Ứng dụng sẽ lấy vị trí hiện tại để gửi lên hệ thống.':
       'The app will use your current location for this record.',
   'Xác nhận': 'Confirm',
@@ -149,9 +148,15 @@ const Map<String, String> _enDictionary = {
   'Đang mở': 'Open',
   'Xong': 'Done',
   'Danh sách công việc': 'Task list',
-  'Chưa có công việc': 'No tasks',
-  'Công việc được giao cho bạn sẽ xuất hiện tại đây.':
-      'Tasks assigned to you will appear here.',
+  'Không có công việc trong tháng này': 'No tasks due this month',
+  'Không có hạn ({count})': 'No due date ({count})',
+  'Không thuộc tháng nào nên luôn hiển thị ở đây':
+      'These belong to no month, so they always show here',
+  'Dùng mũi tên phía trên để xem tháng khác.':
+      'Use the arrows above to look at another month.',
+  'Đây là công việc cấp nhóm. Trạng thái của nó được tính từ các công việc con, không đổi trực tiếp được.':
+      'This is a team-level task. Its status is derived from its subtasks and '
+      'cannot be set directly.',
   'Không có công việc phù hợp': 'No matching tasks',
   'Đổi bộ lọc để xem các công việc khác.':
       'Change the filter to see other tasks.',
@@ -181,7 +186,6 @@ const Map<String, String> _enDictionary = {
   'Đăng xuất': 'Log out',
   'Bạn muốn đăng xuất khỏi OmniHR?': 'Log out of OmniHR?',
   'Hủy': 'Cancel',
-  'Kỹ năng': 'Skills',
   'Kỹ năng bạn tự khai báo': 'Skills you\'ve added yourself',
   'Chưa có kỹ năng': 'No skills yet',
   'Thêm kỹ năng để quản lý gợi ý task chính xác hơn.':
@@ -218,6 +222,7 @@ const Map<String, String> _enDictionary = {
   'Đang tải dữ liệu': 'Loading data',
   'Cài đặt hiển thị': 'Display settings',
   'Giao diện tối': 'Dark theme',
+  'Giao diện sáng': 'Light theme',
   'Ngôn ngữ': 'Language',
   'Tiếng Việt': 'Vietnamese',
   'English': 'English',
@@ -473,6 +478,29 @@ const Map<String, String> _enDictionary = {
       'The submitted information is invalid. Please try again.',
   'Con người là trọng tâm. Rõ ràng mỗi ngày.':
       'People first. Clarity every day.',
+  'Chấm công không hợp lệ': 'Check-in not allowed',
+  'Bạn đang cách văn phòng {distance}m, vượt quá bán kính cho phép {radius}m. Hãy tới khu vực công ty rồi chấm công lại.':
+      'You are {distance}m from the office, beyond the {radius}m limit. Go to '
+      'the workplace and try again.',
+  'Bạn đang ở ngoài khu vực công ty nên không thể chấm công. Hãy tới nơi làm việc rồi thử lại.':
+      'You are outside the company area, so this check-in is not allowed. Go '
+      'to the workplace and try again.',
+  'Đã hiểu': 'Got it',
+  'Đơn nghỉ phép đã được duyệt': 'Leave request approved',
+  'Đơn nghỉ phép bị từ chối': 'Leave request rejected',
+  'Bạn được giao công việc mới': 'New task assigned',
+  'Công việc bị trả về để sửa': 'Task returned for rework',
+  'Bản ghi chấm công được điều chỉnh': 'Attendance record adjusted',
+  'Bạn được giao công việc "{task}".': 'You were assigned to "{task}".',
+  'Công việc "{task}" cần chỉnh sửa trước khi được duyệt.':
+      '"{task}" needs changes before it can be accepted.',
+  'Đơn nghỉ phép từ {start} đến {end} của bạn đã được duyệt.':
+      'Your leave request from {start} to {end} was approved.',
+  'Quản trị viên đã thêm bản ghi chấm công ngày {date}.':
+      'An admin added an attendance record for {date}.',
+  'Quản trị viên đã sửa bản ghi chấm công ngày {date}.':
+      'An admin updated the attendance record for {date}.',
+  'Đọc tất cả': 'Mark all read',
   'Chưa có thông báo': 'No notifications yet',
   'Chốt': 'Final',
   'Mức độ hoàn thành': 'Completion level',
@@ -485,7 +513,6 @@ const Map<String, String> _enDictionary = {
   'Thông báo mới sẽ xuất hiện tại đây.': 'New notifications will appear here.',
   'Thông báo': 'Notifications',
   'chưa đọc': 'unread',
-  'Đánh dấu đã đọc tất cả': 'Mark all as read',
   'Đã chốt': 'Finalized',
   'Đã gửi, chờ quản lý': 'Submitted, awaiting manager',
   'Phép năm cộng dồn theo tháng làm việc đủ; loại khác tính theo đơn đã duyệt':

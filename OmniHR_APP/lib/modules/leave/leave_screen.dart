@@ -92,43 +92,32 @@ class _LeaveScreenState extends State<LeaveScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
-    await _future;
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = _load();
+    });
+    try {
+      await _future;
+    } catch (_) {
+      // Lỗi tải đã được FutureBuilder hiển thị.
+    }
   }
 
   Future<void> _cancel(LeaveRequest request) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          icon: AppIconBadge(
-            icon: Icons.cancel_outlined,
-            color: dangerColor,
-            size: 54,
-          ),
-          title: Text(tx('Hủy đơn nghỉ phép')),
-          content: Text(
-            tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', {
-              'type': request.leaveType.name,
-              'start': formatDate(request.startDate),
-              'end': formatDate(request.endDate),
-            }),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(tx('Không hủy')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: dangerColor),
-              child: Text(tx('Xác nhận hủy')),
-            ),
-          ],
-        );
-      },
+    final confirmed = await showAppConfirm(
+      context,
+      icon: Icons.cancel_outlined,
+      destructive: true,
+      title: tx('Hủy đơn nghỉ phép'),
+      message: tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', {
+        'type': request.leaveType.name,
+        'start': formatDate(request.startDate),
+        'end': formatDate(request.endDate),
+      }),
+      cancelLabel: tx('Không hủy'),
+      confirmLabel: tx('Xác nhận hủy'),
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     try {
       await widget.session.api.post('/leave-requests/${request.id}/cancel');
@@ -156,212 +145,214 @@ class _LeaveScreenState extends State<LeaveScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> pickStart() async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: startDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2035),
-              );
-              if (picked != null) {
-                setSheetState(() {
-                  startDate = picked;
-                  if (endDate.isBefore(startDate)) endDate = startDate;
-                });
-              }
-            }
-
-            Future<void> pickEnd() async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: endDate,
-                firstDate: startDate,
-                lastDate: DateTime(2035),
-              );
-              if (picked != null) {
-                setSheetState(() => endDate = picked);
-              }
-            }
-
-            Future<void> submit() async {
-              if (leaveTypeId == null) {
-                showAppSnack(
-                  context,
-                  tx('Vui lòng chọn loại nghỉ.'),
-                  error: true,
+        return ControllerScope(
+          controllers: [reasonController],
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> pickStart() async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: startDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2035),
                 );
-                return;
-              }
-              if (endDate.isBefore(startDate)) {
-                showAppSnack(
-                  context,
-                  tx('Ngày kết thúc không được trước ngày bắt đầu.'),
-                  error: true,
-                );
-                return;
-              }
-              if (workingDaysBetween(startDate, endDate) == 0) {
-                showAppSnack(
-                  context,
-                  tx('Khoảng nghỉ không có ngày làm việc hợp lệ.'),
-                  error: true,
-                );
-                return;
-              }
-              if (reasonController.text.trim().isEmpty) {
-                showAppSnack(
-                  context,
-                  tx('Vui lòng nhập lý do nghỉ.'),
-                  error: true,
-                );
-                return;
-              }
-              setSheetState(() => submitting = true);
-              try {
-                await widget.session.api.post(
-                  '/leave-requests',
-                  body: {
-                    'leaveTypeId': leaveTypeId,
-                    'startDate': apiDate(startDate),
-                    'endDate': apiDate(endDate),
-                    'reason': reasonController.text.trim(),
-                  },
-                );
-                if (context.mounted) Navigator.pop(context, true);
-              } catch (error) {
-                if (context.mounted) {
-                  showAppSnack(context, error.toString(), error: true);
-                }
-              } finally {
-                if (context.mounted) {
-                  setSheetState(() => submitting = false);
+                if (picked != null) {
+                  setSheetState(() {
+                    startDate = picked;
+                    if (endDate.isBefore(startDate)) endDate = startDate;
+                  });
                 }
               }
-            }
 
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    tx('Tạo đơn nghỉ phép'),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<int>(
-                    initialValue: leaveTypeId,
-                    decoration: InputDecoration(
-                      labelText: tx('Loại nghỉ'),
-                      prefixIcon: const Icon(Icons.category_outlined),
-                    ),
-                    items: bundle.types
-                        .map(
-                          (type) => DropdownMenuItem(
-                            value: type.id,
-                            child: Text(type.name),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: submitting
-                        ? null
-                        : (value) => setSheetState(() => leaveTypeId = value),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: submitting ? null : pickStart,
-                          icon: const Icon(Icons.event),
-                          label: Text(formatDate(startDate)),
-                        ),
+              Future<void> pickEnd() async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: endDate,
+                  firstDate: startDate,
+                  lastDate: DateTime(2035),
+                );
+                if (picked != null) {
+                  setSheetState(() => endDate = picked);
+                }
+              }
+
+              Future<void> submit() async {
+                if (leaveTypeId == null) {
+                  showAppSnack(
+                    context,
+                    tx('Vui lòng chọn loại nghỉ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (endDate.isBefore(startDate)) {
+                  showAppSnack(
+                    context,
+                    tx('Ngày kết thúc không được trước ngày bắt đầu.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (workingDaysBetween(startDate, endDate) == 0) {
+                  showAppSnack(
+                    context,
+                    tx('Khoảng nghỉ không có ngày làm việc hợp lệ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (reasonController.text.trim().isEmpty) {
+                  showAppSnack(
+                    context,
+                    tx('Vui lòng nhập lý do nghỉ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                setSheetState(() => submitting = true);
+                try {
+                  await widget.session.api.post(
+                    '/leave-requests',
+                    body: {
+                      'leaveTypeId': leaveTypeId,
+                      'startDate': apiDate(startDate),
+                      'endDate': apiDate(endDate),
+                      'reason': reasonController.text.trim(),
+                    },
+                  );
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (error) {
+                  if (context.mounted) {
+                    showAppSnack(context, error.toString(), error: true);
+                  }
+                } finally {
+                  if (context.mounted) {
+                    setSheetState(() => submitting = false);
+                  }
+                }
+              }
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      tx('Tạo đơn nghỉ phép'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: submitting ? null : pickEnd,
-                          icon: const Icon(Icons.event_available),
-                          label: Text(formatDate(endDate)),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int>(
+                      initialValue: leaveTypeId,
+                      decoration: InputDecoration(
+                        labelText: tx('Loại nghỉ'),
+                        prefixIcon: const Icon(Icons.category_outlined),
+                      ),
+                      items: bundle.types
+                          .map(
+                            (type) => DropdownMenuItem(
+                              value: type.id,
+                              child: Text(type.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: submitting
+                          ? null
+                          : (value) => setSheetState(() => leaveTypeId = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickStart,
+                            icon: const Icon(Icons.event),
+                            label: Text(formatDate(startDate)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickEnd,
+                            icon: const Icon(Icons.event_available),
+                            label: Text(formatDate(endDate)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (workingDaysBetween(startDate, endDate) == 0) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: dangerColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.event_busy_outlined,
+                              size: 18,
+                              color: dangerColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tx(
+                                  'Khoảng ngày đã chọn không có ngày làm việc '
+                                  'nào. Vui lòng chọn ngày trong tuần.',
+                                ),
+                                style: TextStyle(color: dangerColor),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                  if (workingDaysBetween(startDate, endDate) == 0) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: tx('Lý do'),
+                        alignLabelWithHint: true,
                       ),
-                      decoration: BoxDecoration(
-                        color: dangerColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.event_busy_outlined,
-                            size: 18,
-                            color: dangerColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              tx(
-                                'Khoảng ngày đã chọn không có ngày làm việc '
-                                'nào. Vui lòng chọn ngày trong tuần.',
-                              ),
-                              style: TextStyle(color: dangerColor),
-                            ),
-                          ),
-                        ],
-                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed:
+                          submitting ||
+                              workingDaysBetween(startDate, endDate) == 0
+                          ? null
+                          : submit,
+                      icon: submitting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(tx(submitting ? 'Đang gửi...' : 'Gửi đơn')),
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: reasonController,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      labelText: tx('Lý do'),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed:
-                        submitting ||
-                            workingDaysBetween(startDate, endDate) == 0
-                        ? null
-                        : submit,
-                    icon: submitting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                    label: Text(tx(submitting ? 'Đang gửi...' : 'Gửi đơn')),
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         );
       },
     );
 
-    reasonController.dispose();
     if (created == true) {
       if (mounted) showAppSnack(context, tx('Đã tạo đơn nghỉ phép.'));
       await _refresh();

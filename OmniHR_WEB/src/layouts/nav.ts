@@ -3,7 +3,6 @@ import {
   BadgeCheck,
   BarChart3,
   CalendarCheck,
-  CalendarDays,
   CheckSquare,
   ClipboardList,
   Clock,
@@ -54,12 +53,6 @@ export const adminNavItems: NavItem[] = [
     labelKey: "attendance",
     to: "/admin/attendance",
     icon: Clock,
-    permissions: ["ATTENDANCE_READ_ALL"]
-  },
-  {
-    labelKey: "timesheets",
-    to: "/admin/timesheets",
-    icon: CalendarDays,
     permissions: ["ATTENDANCE_READ_ALL"]
   },
   { labelKey: "users", to: "/admin/users", icon: UserRound, roles: adminOnly },

@@ -27,7 +27,6 @@ export const messages = {
     myTeam: "My Team",
     noRole: "No role",
     personalInformation: "Personal information",
-    timesheets: "Timesheets",
     policies: "Policies",
     positions: "Positions",
     projects: "Projects",
@@ -75,7 +74,6 @@ export const messages = {
     myTeam: "Đội nhóm của tôi",
     noRole: "Chưa có vai trò",
     personalInformation: "Thông tin cá nhân",
-    timesheets: "Bảng công",
     policies: "Chính sách",
     positions: "Chức danh",
     rolesPermissions: "Vai trò & quyền",
@@ -92,6 +90,34 @@ export const messages = {
 export type TranslationKey = keyof typeof messages.en;
 
 const viLiterals: Record<string, string> = {
+  "Username already exists": "Tên đăng nhập đã tồn tại",
+  "Email already exists": "Email đã tồn tại",
+  "Username belongs to a deleted account":
+    "Tên đăng nhập đang thuộc một tài khoản đã bị xóa",
+  "Email belongs to a deleted account": "Email đang thuộc một tài khoản đã bị xóa",
+  "Unique constraint violated": "Dữ liệu bị trùng với bản ghi đã có",
+  "Record not found": "Không tìm thấy dữ liệu",
+  "Database request failed": "Truy vấn dữ liệu thất bại",
+  "Internal server error": "Lỗi hệ thống. Vui lòng thử lại sau.",
+  "Network Error": "Không kết nối được tới máy chủ. Kiểm tra lại đường truyền.",
+  "ThrottlerException: Too many requests":
+    "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
+  "Too many requests": "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
+  "Task id is required": "Thiếu mã công việc",
+  "You cannot submit a manager review for yourself":
+    "Bạn không thể tự đánh giá chính mình",
+  "Password changed successfully": "Đổi mật khẩu thành công",
+  "Logged out": "Đã đăng xuất",
+  "Password must include uppercase, lowercase, number, and special character":
+    "Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt",
+  "Avatar must be an http(s) URL or a png/jpeg/webp/gif data URL":
+    "Ảnh đại diện phải là đường dẫn http(s) hoặc dữ liệu ảnh png/jpeg/webp/gif",
+  "Invalid request payload": "Dữ liệu gửi lên không hợp lệ",
+  "Employee already has this skill": "Nhân viên đã có kỹ năng này",
+  "Saved, but the skills were not updated":
+    "Đã lưu, nhưng chưa cập nhật được kỹ năng",
+  "Saved, but the department manager was not updated":
+    "Đã lưu, nhưng chưa cập nhật được trưởng phòng",
   "Optional": "Không bắt buộc",
   "View details": "Xem chi tiết",
   "Project details": "Chi tiết dự án",
@@ -166,7 +192,7 @@ const viLiterals: Record<string, string> = {
   "All assignees": "Tất cả người được gán",
   "All categories": "Tất cả nhóm kỹ năng",
   "All actions": "Tất cả hành động",
-  "Example: User, Task, LeaveRequest": "Ví dụ: User, Task, LeaveRequest",
+  "All entity types": "Tất cả loại đối tượng",
   "Checked in today": "Đã chấm công hôm nay",
   "Afternoon shift end": "Kết thúc ca chiều",
   "Afternoon shift start": "Bắt đầu ca chiều",
@@ -410,6 +436,10 @@ const viLiterals: Record<string, string> = {
   "Related positions": "Chức danh liên quan",
   "Required": "Bắt buộc",
   "Require attendance location": "Bắt buộc đúng vị trí chấm công",
+  "Attendance radius is not being enforced":
+    "Bán kính chấm công đang không có hiệu lực",
+  '"Require attendance location" is on, but no company location is set. Until a point is placed on the map below, check-ins are accepted from anywhere and only the coordinates are recorded.':
+    "Đang bật \"Bắt buộc đúng vị trí chấm công\" nhưng chưa đặt vị trí công ty. Khi chưa chọn điểm trên bản đồ bên dưới, nhân viên chấm công được từ bất kỳ đâu và hệ thống chỉ ghi lại toạ độ.",
   "Required proficiency": "Mức thành thạo yêu cầu",
   "Required skills": "Kỹ năng yêu cầu",
   "Request failed": "Yêu cầu thất bại",
@@ -463,6 +493,8 @@ const viLiterals: Record<string, string> = {
   "Team Attendance": "Chấm công đội nhóm",
   "Team Leave Requests": "Đơn nghỉ của đội nhóm",
   "Team Tasks": "Công việc đội nhóm",
+  "This month & unfinished": "Tháng này & chưa hoàn thành",
+  "All tasks": "Tất cả công việc",
   "Team summary, attendance signals, and pending leave requests.": "Tóm tắt đội nhóm, tín hiệu chấm công và đơn nghỉ chờ duyệt.",
   "Task": "Công việc",
   "Task assigned": "Đã gán công việc",
@@ -556,11 +588,10 @@ const viLiterals: Record<string, string> = {
   "Leave request rejected": "Đơn nghỉ phép bị từ chối",
   "New task assigned": "Bạn được gán công việc mới",
   "Attendance record adjusted": "Bản ghi chấm công đã được điều chỉnh",
-  "Timesheets": "Bảng công",
-  "Monthly work days, leave, lateness and overtime computed from recorded check-in times.": "Ngày công, nghỉ phép, đi muộn và tăng ca theo tháng, tính từ thời gian chấm công đã lưu.",
   "Month": "Tháng",
   "Year": "Năm",
   "Search employee": "Tìm nhân viên",
+  "No employees found": "Không tìm thấy nhân viên",
   "Work days": "Ngày công",
   "Paid leave": "Nghỉ có lương",
   "Unpaid leave": "Nghỉ không lương",
@@ -845,14 +876,202 @@ export function getCurrentLocale() {
   return getCurrentLanguage() === "vi" ? "vi-VN" : "en-US";
 }
 
+// class-validator names the offending DTO property in its default messages, so
+// every validation error arrives as "<property> must be ...".
+const viFieldLabels: Record<string, string> = {
+  action: "Hành động",
+  actualHours: "Số giờ thực tế",
+  address: "Địa chỉ",
+  annualAllowance: "Hạn mức phép năm",
+  assigneeId: "Người được gán",
+  assignmentType: "Loại gán việc",
+  avatarUrl: "Ảnh đại diện",
+  balance: "Số dư phép",
+  birthDate: "Ngày sinh",
+  careerLevel: "Cấp bậc",
+  category: "Nhóm kỹ năng",
+  code: "Mã",
+  companyEmail: "Email công ty",
+  conversationId: "Mã hội thoại",
+  currentPassword: "Mật khẩu hiện tại",
+  departmentId: "Phòng ban",
+  description: "Mô tả",
+  dueDate: "Ngày hết hạn",
+  email: "Email",
+  employeeCode: "Mã nhân viên",
+  employeeId: "Nhân viên",
+  employeeProfile: "Hồ sơ nhân viên",
+  employeeStatus: "Trạng thái nhân viên",
+  endDate: "Ngày kết thúc",
+  entityType: "Loại đối tượng",
+  estimatedHours: "Số giờ dự kiến",
+  fromDate: "Từ ngày",
+  fullName: "Họ và tên",
+  hireDate: "Ngày vào làm",
+  importance: "Mức quan trọng",
+  isActive: "Trạng thái hoạt động",
+  isPaid: "Có lương",
+  isRead: "Đã đọc",
+  latitude: "Vĩ độ",
+  leadId: "Trưởng nhóm",
+  leaveTypeId: "Loại phép",
+  limit: "Số bản ghi mỗi trang",
+  longitude: "Kinh độ",
+  managerId: "Quản lý",
+  managerType: "Loại quản lý",
+  memberIds: "Thành viên",
+  message: "Nội dung",
+  month: "Tháng",
+  mustChangePassword: "Bắt buộc đổi mật khẩu",
+  name: "Tên",
+  newPassword: "Mật khẩu mới",
+  note: "Ghi chú",
+  page: "Trang",
+  parentId: "Mục cha",
+  parentTaskId: "Công việc cha",
+  password: "Mật khẩu",
+  permissionId: "Quyền",
+  permissionIds: "Quyền",
+  personalEmail: "Email cá nhân",
+  phone: "Số điện thoại",
+  positionId: "Chức danh",
+  positionIds: "Chức danh",
+  priority: "Mức ưu tiên",
+  proficiency: "Mức thành thạo",
+  projectId: "Dự án",
+  reason: "Lý do",
+  recordType: "Loại bản ghi",
+  recordedAt: "Thời điểm ghi nhận",
+  refreshToken: "Refresh token",
+  rejectionReason: "Lý do từ chối",
+  requiredProficiency: "Mức thành thạo yêu cầu",
+  requiredSkills: "Kỹ năng yêu cầu",
+  role: "Vai trò",
+  roleId: "Vai trò",
+  roleIds: "Vai trò",
+  search: "Từ khóa tìm kiếm",
+  settings: "Cấu hình",
+  skillId: "Kỹ năng",
+  sortBy: "Sắp xếp theo",
+  startDate: "Ngày bắt đầu",
+  status: "Trạng thái",
+  taskId: "Công việc",
+  teamId: "Nhóm",
+  technologies: "Công nghệ",
+  title: "Tiêu đề",
+  toDate: "Đến ngày",
+  userId: "Tài khoản",
+  username: "Tên đăng nhập",
+  usernameOrEmail: "Tên đăng nhập hoặc email",
+  workDate: "Ngày làm việc",
+  year: "Năm",
+  yearsExperience: "Số năm kinh nghiệm"
+};
+
+function viField(property: string) {
+  // Nested DTOs are reported as "employeeProfile.fullName".
+  const leaf = property.split(".").pop() ?? property;
+  return viFieldLabels[property] ?? viFieldLabels[leaf] ?? leaf;
+}
+
+function viValueList(values: string) {
+  return values
+    .split(",")
+    .map((value) => viEnums[value.trim()] ?? value.trim())
+    .join(", ");
+}
+
 // Backend messages that embed a runtime value cannot be looked up literally.
-const viPatterns: Array<[RegExp, string]> = [
+const viPatterns: Array<[RegExp, string | ((match: RegExpMatchArray) => string)]> = [
   [
     /^Performance review must be in \w+ status$/,
     "Đánh giá hiệu suất chưa ở đúng trạng thái để thực hiện thao tác này."
   ],
-  [/^\w+ is (required|invalid)$/, "Thông tin gửi lên không hợp lệ. Vui lòng thử lại."]
+  [/^\w+ is (required|invalid)$/, "Thông tin gửi lên không hợp lệ. Vui lòng thử lại."],
+  [
+    /^Duplicate value for field\(s\): (.+)$/,
+    (m) =>
+      `Dữ liệu bị trùng ở trường: ${m[1]
+        .split(",")
+        .map((field) => viField(field.trim()))
+        .join(", ")}`
+  ],
+  [/^timeout of \d+ms exceeded$/, "Máy chủ phản hồi quá lâu. Vui lòng thử lại."],
+  [/^property (\S+) should not exist$/, (m) => `Không được gửi trường ${viField(m[1])}`],
+  [
+    /^nested property (\S+) must be either object or array$/,
+    (m) => `${viField(m[1])} phải là đối tượng hoặc danh sách`
+  ],
+  [/^(\S+) should not be empty$/, (m) => `${viField(m[1])} không được để trống`],
+  [/^(\S+) must be an email$/, (m) => `${viField(m[1])} phải là email hợp lệ`],
+  [/^(\S+) must be a string$/, (m) => `${viField(m[1])} phải là chuỗi ký tự`],
+  [/^(\S+) must be an integer number$/, (m) => `${viField(m[1])} phải là số nguyên`],
+  [
+    /^(\S+) must be a number conforming to the specified constraints$/,
+    (m) => `${viField(m[1])} phải là số hợp lệ`
+  ],
+  [/^(\S+) must be a boolean value$/, (m) => `${viField(m[1])} phải là true hoặc false`],
+  [/^(\S+) must be an array$/, (m) => `${viField(m[1])} phải là danh sách`],
+  [/^(\S+) must be an object$/, (m) => `${viField(m[1])} phải là đối tượng`],
+  [
+    /^(\S+) must be a valid ISO 8601 date string$/,
+    (m) => `${viField(m[1])} phải là ngày hợp lệ`
+  ],
+  [
+    /^(\S+) must be one of the following values: (.+)$/,
+    (m) => `${viField(m[1])} chỉ nhận một trong các giá trị: ${viValueList(m[2])}`
+  ],
+  [
+    /^(\S+) must be longer than or equal to (\d+) characters$/,
+    (m) => `${viField(m[1])} phải có ít nhất ${m[2]} ký tự`
+  ],
+  [
+    /^(\S+) must be shorter than or equal to (\d+) characters$/,
+    (m) => `${viField(m[1])} không được dài hơn ${m[2]} ký tự`
+  ],
+  [
+    /^(\S+) must not be less than (\S+)$/,
+    (m) => `${viField(m[1])} không được nhỏ hơn ${m[2]}`
+  ],
+  [
+    /^(\S+) must not be greater than (\S+)$/,
+    (m) => `${viField(m[1])} không được lớn hơn ${m[2]}`
+  ],
+  [
+    /^(\S+) must contain not more than (\d+) elements$/,
+    (m) => `${viField(m[1])} không được có nhiều hơn ${m[2]} phần tử`
+  ],
+  [
+    /^(\S+) must be a (?:latitude|longitude) string or number$/,
+    (m) => `${viField(m[1])} không hợp lệ`
+  ],
+  [
+    /^(\S+) must match .+ regular expression$/,
+    (m) => `${viField(m[1])} không đúng định dạng`
+  ]
 ];
+
+function translateSegment(text: string): string {
+  const literal = viLiterals[text];
+  if (literal) {
+    return literal;
+  }
+
+  // Array element failures are reported as "each value in roleIds must be ...".
+  const eachValue = text.match(/^each value in (.+)$/);
+  if (eachValue) {
+    return `Từng giá trị của ${translateSegment(eachValue[1])}`;
+  }
+
+  for (const [pattern, replacement] of viPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return typeof replacement === "string" ? replacement : replacement(match);
+    }
+  }
+
+  return text;
+}
 
 export function translateText(language: AppLanguage, text?: string | null) {
   if (!text) {
@@ -861,9 +1080,19 @@ export function translateText(language: AppLanguage, text?: string | null) {
   if (language !== "vi") {
     return text;
   }
-  return (
-    viLiterals[text] ?? viPatterns.find(([pattern]) => pattern.test(text))?.[1] ?? text
-  );
+
+  const literal = viLiterals[text];
+  if (literal) {
+    return literal;
+  }
+
+  // Validation failures arrive as several messages joined by the backend.
+  return text.includes("; ")
+    ? text
+        .split("; ")
+        .map((segment) => translateSegment(segment.trim()))
+        .join("; ")
+    : translateSegment(text);
 }
 
 export function translateEnum(language: AppLanguage, value?: string | null) {
@@ -873,6 +1102,187 @@ export function translateEnum(language: AppLanguage, value?: string | null) {
   return language === "vi" ? viEnums[value] ?? value : value;
 }
 
+// Audit log rows carry the backend's own action codes and entity names, which
+// are no more readable in English than in Vietnamese, so both get a label.
+const auditActionLabels: Record<string, Record<AppLanguage, string>> = {
+  ADD_EMPLOYEE_SKILL: { en: "Add employee skill", vi: "Thêm kỹ năng nhân viên" },
+  ADD_TEAM_MEMBER: { en: "Add team member", vi: "Thêm thành viên nhóm" },
+  APPROVE_LEAVE_REQUEST: { en: "Approve leave request", vi: "Duyệt đơn nghỉ phép" },
+  ASSIGN_MANAGER: { en: "Assign manager", vi: "Gán quản lý" },
+  ASSIGN_PERMISSION: { en: "Assign permission", vi: "Gán quyền cho vai trò" },
+  ASSIGN_ROLE: { en: "Assign role", vi: "Gán vai trò" },
+  ASSIGN_TASK: { en: "Assign task", vi: "Gán công việc" },
+  ATTENDANCE_ADMIN_CREATE: {
+    en: "Create attendance record",
+    vi: "Tạo bản ghi chấm công"
+  },
+  ATTENDANCE_ADMIN_UPDATE: {
+    en: "Update attendance record",
+    vi: "Sửa bản ghi chấm công"
+  },
+  CANCEL_AI_TASK_SUGGESTION: { en: "Cancel AI suggestion", vi: "Hủy gợi ý AI" },
+  CANCEL_LEAVE_REQUEST: { en: "Cancel leave request", vi: "Hủy đơn nghỉ phép" },
+  CANCEL_LEAVE_REQUEST_BY_CHATBOT: {
+    en: "Cancel leave request via HRGenie",
+    vi: "Hủy đơn nghỉ phép qua HRGenie"
+  },
+  CHATBOT_CANCEL_ACTION: {
+    en: "Cancel HRGenie action",
+    vi: "Hủy thao tác HRGenie"
+  },
+  CHATBOT_CONFIRM_ACTION: {
+    en: "Confirm HRGenie action",
+    vi: "Xác nhận thao tác HRGenie"
+  },
+  CHATBOT_CREATE_PENDING_ACTION: {
+    en: "Create HRGenie pending action",
+    vi: "Tạo thao tác HRGenie chờ xác nhận"
+  },
+  CHATBOT_EXECUTE_ACTION: {
+    en: "Execute HRGenie action",
+    vi: "Thực thi thao tác HRGenie"
+  },
+  CHATBOT_EXPIRE_ACTION: {
+    en: "HRGenie action expired",
+    vi: "Thao tác HRGenie hết hạn"
+  },
+  CHATBOT_TOOL_CALL_FAILED: {
+    en: "HRGenie tool call failed",
+    vi: "Thao tác HRGenie thất bại"
+  },
+  CHECK_IN: { en: "Check in", vi: "Chấm công vào" },
+  CHECK_OUT: { en: "Check out", vi: "Chấm công ra" },
+  CREATE_DEPARTMENT: { en: "Create department", vi: "Tạo phòng ban" },
+  CREATE_EMPLOYEE: { en: "Create employee", vi: "Tạo nhân viên" },
+  CREATE_LEAVE_REQUEST: { en: "Create leave request", vi: "Tạo đơn nghỉ phép" },
+  CREATE_LEAVE_REQUEST_BY_CHATBOT: {
+    en: "Create leave request via HRGenie",
+    vi: "Tạo đơn nghỉ phép qua HRGenie"
+  },
+  CREATE_LEAVE_TYPE: { en: "Create leave type", vi: "Tạo loại phép" },
+  CREATE_POSITION: { en: "Create position", vi: "Tạo chức danh" },
+  CREATE_PROJECT: { en: "Create project", vi: "Tạo dự án" },
+  CREATE_ROLE: { en: "Create role", vi: "Tạo vai trò" },
+  CREATE_SKILL: { en: "Create skill", vi: "Tạo kỹ năng" },
+  CREATE_TASK: { en: "Create task", vi: "Tạo công việc" },
+  CREATE_TEAM: { en: "Create team", vi: "Tạo nhóm" },
+  CREATE_USER: { en: "Create account", vi: "Tạo tài khoản" },
+  CREATE_USER_FOR_EMPLOYEE: {
+    en: "Create account for employee",
+    vi: "Tạo tài khoản cho nhân viên"
+  },
+  DELETE_DEPARTMENT: { en: "Delete department", vi: "Xóa phòng ban" },
+  DELETE_EMPLOYEE: { en: "Delete employee", vi: "Xóa nhân viên" },
+  DELETE_LEAVE_TYPE: { en: "Delete leave type", vi: "Xóa loại phép" },
+  DELETE_POSITION: { en: "Delete position", vi: "Xóa chức danh" },
+  DELETE_PROJECT: { en: "Delete project", vi: "Xóa dự án" },
+  DELETE_ROLE: { en: "Delete role", vi: "Xóa vai trò" },
+  DELETE_SKILL: { en: "Delete skill", vi: "Xóa kỹ năng" },
+  DELETE_TASK: { en: "Delete task", vi: "Xóa công việc" },
+  DELETE_TEAM: { en: "Delete team", vi: "Xóa nhóm" },
+  DELETE_USER: { en: "Delete account", vi: "Xóa tài khoản" },
+  GENERATE_AI_TASK_SUGGESTION: { en: "Generate AI suggestion", vi: "Tạo gợi ý AI" },
+  LOGIN: { en: "Log in", vi: "Đăng nhập" },
+  LOGOUT: { en: "Log out", vi: "Đăng xuất" },
+  REASSIGN_TASK: { en: "Reassign task", vi: "Gán lại công việc" },
+  REFRESH_TOKEN_REUSE_DETECTED: {
+    en: "Refresh token reuse detected",
+    vi: "Phát hiện refresh token bị dùng lại"
+  },
+  REJECT_LEAVE_REQUEST: { en: "Reject leave request", vi: "Từ chối đơn nghỉ phép" },
+  REMOVE_EMPLOYEE_SKILL: { en: "Remove employee skill", vi: "Xóa kỹ năng nhân viên" },
+  REMOVE_MANAGER: { en: "Remove manager", vi: "Bỏ gán quản lý" },
+  REMOVE_PERMISSION: { en: "Remove permission", vi: "Bỏ quyền của vai trò" },
+  REMOVE_ROLE: { en: "Remove role", vi: "Bỏ vai trò" },
+  REMOVE_TEAM_MEMBER: { en: "Remove team member", vi: "Xóa thành viên nhóm" },
+  RESET_EMPLOYEE_PASSWORD: {
+    en: "Reset employee password",
+    vi: "Đặt lại mật khẩu nhân viên"
+  },
+  RESET_USER_PASSWORD: {
+    en: "Reset account password",
+    vi: "Đặt lại mật khẩu tài khoản"
+  },
+  SELECT_AI_TASK_SUGGESTION: { en: "Select AI suggestion", vi: "Chọn gợi ý AI" },
+  UPDATE_DEPARTMENT: { en: "Update department", vi: "Cập nhật phòng ban" },
+  UPDATE_EMPLOYEE: { en: "Update employee", vi: "Cập nhật nhân viên" },
+  UPDATE_EMPLOYEE_SELF: { en: "Update own profile", vi: "Tự cập nhật hồ sơ" },
+  UPDATE_EMPLOYEE_SKILL: {
+    en: "Update employee skill",
+    vi: "Cập nhật kỹ năng nhân viên"
+  },
+  UPDATE_LEAVE_TYPE: { en: "Update leave type", vi: "Cập nhật loại phép" },
+  UPDATE_POSITION: { en: "Update position", vi: "Cập nhật chức danh" },
+  UPDATE_PROJECT: { en: "Update project", vi: "Cập nhật dự án" },
+  UPDATE_ROLE: { en: "Update role", vi: "Cập nhật vai trò" },
+  UPDATE_SKILL: { en: "Update skill", vi: "Cập nhật kỹ năng" },
+  UPDATE_SYSTEM_SETTINGS: {
+    en: "Update system settings",
+    vi: "Cập nhật cấu hình hệ thống"
+  },
+  UPDATE_TASK: { en: "Update task", vi: "Cập nhật công việc" },
+  UPDATE_TASK_STATUS: {
+    en: "Update task status",
+    vi: "Cập nhật trạng thái công việc"
+  },
+  UPDATE_TEAM: { en: "Update team", vi: "Cập nhật nhóm" },
+  UPDATE_TEAM_MEMBER: { en: "Update team member", vi: "Cập nhật thành viên nhóm" },
+  UPDATE_USER: { en: "Update account", vi: "Cập nhật tài khoản" }
+};
+
+const entityTypeLabels: Record<string, Record<AppLanguage, string>> = {
+  AiTaskSuggestion: { en: "AI suggestion", vi: "Gợi ý AI" },
+  AttendanceRecord: { en: "Attendance record", vi: "Bản ghi chấm công" },
+  ChatbotPendingAction: {
+    en: "HRGenie pending action",
+    vi: "Thao tác HRGenie chờ xác nhận"
+  },
+  ChatbotTool: { en: "HRGenie tool", vi: "Công cụ HRGenie" },
+  Department: { en: "Department", vi: "Phòng ban" },
+  Employee: { en: "Employee", vi: "Nhân viên" },
+  EmployeeManager: { en: "Manager assignment", vi: "Phân công quản lý" },
+  EmployeeSkill: { en: "Employee skill", vi: "Kỹ năng nhân viên" },
+  LeaveRequest: { en: "Leave request", vi: "Đơn nghỉ phép" },
+  LeaveType: { en: "Leave type", vi: "Loại phép" },
+  Position: { en: "Position", vi: "Chức danh" },
+  Project: { en: "Project", vi: "Dự án" },
+  Role: { en: "Role", vi: "Vai trò" },
+  Skill: { en: "Skill", vi: "Kỹ năng" },
+  SystemSetting: { en: "System setting", vi: "Cấu hình hệ thống" },
+  Task: { en: "Task", vi: "Công việc" },
+  Team: { en: "Team", vi: "Nhóm" },
+  User: { en: "Account", vi: "Tài khoản" }
+};
+
+export const auditActionCodes = Object.keys(auditActionLabels);
+export const auditEntityTypes = Object.keys(entityTypeLabels);
+
+// A code the backend added after this dictionary was written still has to read
+// as a sentence rather than as SCREAMING_SNAKE.
+function humanizeCode(code: string) {
+  const words = code
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .trim();
+
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : code;
+}
+
+export function translateAuditAction(language: AppLanguage, action?: string | null) {
+  if (!action) {
+    return "";
+  }
+  return auditActionLabels[action]?.[language] ?? humanizeCode(action);
+}
+
+export function translateEntityType(language: AppLanguage, entityType?: string | null) {
+  if (!entityType) {
+    return "";
+  }
+  return entityTypeLabels[entityType]?.[language] ?? humanizeCode(entityType);
+}
+
 export function useTranslation() {
   const language = usePreferencesStore((state) => state.language);
 
@@ -880,6 +1290,8 @@ export function useTranslation() {
     language,
     t: (key: TranslationKey) => messages[language][key],
     te: (value?: string | null) => translateEnum(language, value),
-    tx: (text?: string | null) => translateText(language, text)
+    tx: (text?: string | null) => translateText(language, text),
+    ta: (action?: string | null) => translateAuditAction(language, action),
+    tn: (entityType?: string | null) => translateEntityType(language, entityType)
   };
 }

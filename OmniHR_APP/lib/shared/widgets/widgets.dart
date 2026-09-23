@@ -1,4 +1,5 @@
 export 'brand_backdrop.dart';
+export 'genie_mascot.dart';
 export 'logo_mark.dart';
 export 'app_containers.dart';
 export 'app_header_bar.dart';
@@ -11,3 +12,6 @@ export 'basic_elements.dart';
 export 'state_views.dart';
 export 'sub_screen.dart';
 export 'pressable_scale.dart';
+export 'controller_scope.dart';
+export 'month_switcher.dart';
+export 'app_dialogs.dart';

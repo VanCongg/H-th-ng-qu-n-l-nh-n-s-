@@ -24,7 +24,6 @@ import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import {
   departmentsApi,
-  employeeSkillsApi,
   positionsApi,
   rolesApi,
   skillsApi,
@@ -35,6 +34,7 @@ import {
   formatDepartmentName,
 } from "../../api/format";
 import type { Department, Position, Role, Skill, UserSummary } from "../../api/types";
+import { syncEmployeeSkills } from "../employee-skills/syncEmployeeSkills";
 import { openConfirmModal } from "../../components/ConfirmModal";
 import { DataTable } from "../../components/DataTable";
 import { EmployeeAvatar } from "../../components/EmployeeAvatar";
@@ -206,13 +206,24 @@ export function UsersPage() {
       const savedUser = editing
         ? await usersApi.update(editing.id, payload)
         : await usersApi.create(payload);
-      if (shouldSaveEmployeeProfile && savedUser.employee?.id) {
-        await syncEmployeeSkills(
-          savedUser.employee.id,
-          values.skillIds.map(Number)
-        );
+      if (!shouldSaveEmployeeProfile || !savedUser.employee?.id) {
+        return { savedUser, followUp: null };
+      }
+
+      // The account is already committed at this point, so a failure below must
+      // be reported without letting the next submit create a second account.
+      const employeeId = savedUser.employee.id;
+      let followUp: { message: string; error: unknown } | null = null;
+
+      try {
+        await syncEmployeeSkills(employeeId, values.skillIds.map(Number));
+      } catch (error) {
+        followUp = { message: "Saved, but the skills were not updated", error };
+      }
+
+      try {
         await syncDepartmentManager({
-          employeeId: savedUser.employee.id,
+          employeeId,
           departmentId: values.departmentId ? Number(values.departmentId) : null,
           shouldSet: values.isDepartmentManager && canUseDepartmentManagerFlag({
             departmentId: values.departmentId,
@@ -224,19 +235,37 @@ export function UsersPage() {
           editingUser: editing,
           departments: departmentsQuery.data ?? []
         });
+      } catch (error) {
+        followUp ??= {
+          message: "Saved, but the department manager was not updated",
+          error
+        };
       }
-      return savedUser;
+
+      return { savedUser, followUp };
     },
-    onSuccess: (savedUser) => {
-      notifications.show({
-        color: "green",
-        message: tx(savedUser.employee ? "Employee saved" : "User saved")
-      });
+    onSuccess: ({ savedUser, followUp }) => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["employee-skills"] });
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       queryClient.invalidateQueries({ queryKey: ["teams"] });
+
+      if (followUp) {
+        // Keep the form open on the account that was just saved, so pressing
+        // save again retries the rest instead of creating a duplicate.
+        setEditing(savedUser);
+        notifications.show({
+          color: "red",
+          message: `${tx(followUp.message)}: ${getApiErrorMessage(followUp.error)}`
+        });
+        return;
+      }
+
+      notifications.show({
+        color: "green",
+        message: tx(savedUser.employee ? "Employee saved" : "User saved")
+      });
       setOpened(false);
     },
     onError: (error) =>
@@ -1013,22 +1042,6 @@ function shouldUseEmployeeProfile(
   }
 
   return selectedRoleNames.some((roleName) => roleName !== "ADMIN");
-}
-
-async function syncEmployeeSkills(employeeId: number, desiredSkillIds: number[]) {
-  const desiredIds = Array.from(new Set(desiredSkillIds));
-  const existingSkills = await employeeSkillsApi.list(employeeId);
-  const existingIds = new Set(existingSkills.map((item) => item.skillId));
-  const desiredSet = new Set(desiredIds);
-
-  await Promise.all([
-    ...desiredIds
-      .filter((skillId) => !existingIds.has(skillId))
-      .map((skillId) => employeeSkillsApi.create(employeeId, { skillId })),
-    ...existingSkills
-      .filter((item) => !desiredSet.has(item.skillId))
-      .map((item) => employeeSkillsApi.remove(item.id))
-  ]);
 }
 
 async function syncDepartmentManager({
