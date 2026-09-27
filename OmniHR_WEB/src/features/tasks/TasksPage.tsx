@@ -7,6 +7,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  Pagination,
   Paper,
   Progress,
   SegmentedControl,
@@ -23,22 +24,30 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
+  Clock,
+  Columns3,
   Edit,
   Eye,
   History,
   ListPlus,
+  ListTree,
   Plus,
+  Search,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
+  UserCheck,
   UserPlus
 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { currentMonthRange, teamTaskProjects } from "./teamTaskAccess";
+import { buildProjectSections, localDateKey, type TaskTreeRow } from "./taskBoard";
+import { TaskKanbanView, TaskTreeView, type BoardHandlers, type TaskAction } from "./TaskBoardViews";
 import {
   aiTaskSuggestionsApi,
   employeesApi,
@@ -58,11 +67,13 @@ import {
 import type {
   AiTaskSuggestion,
   AiTaskSuggestionItem,
+  CareerLevel,
   EmployeeWorkload,
   SkillProficiency,
   Task,
   TaskAssignment,
   TaskPriority,
+  TaskQuickFilter,
   TaskSkillImportance,
   TaskStatus,
   Team
@@ -74,6 +85,17 @@ import { useTranslation } from "../../i18n";
 import { useAuthStore } from "../../store/auth";
 
 const taskPriorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const TEAM_TASKS_PER_PAGE = 10;
+/** The current status plus the moves the API allows the viewer to make. */
+function statusChoices(task: Pick<Task, "status" | "allowedStatuses">): TaskStatus[] {
+  if (!task.allowedStatuses) {
+    return taskStatuses;
+  }
+  return taskStatuses.filter(
+    (status) => status === task.status || task.allowedStatuses?.includes(status)
+  );
+}
+
 const taskStatuses: TaskStatus[] = [
   "TODO",
   "IN_PROGRESS",
@@ -97,11 +119,6 @@ type RequiredSkillForm = {
   skillId: string;
   requiredProficiency: SkillProficiency | "";
   importance: TaskSkillImportance | "";
-};
-
-type TaskTreeRow = Task & {
-  rowLevel: 0 | 1;
-  rowParent?: Task;
 };
 
 type TasksPageProps = {
@@ -128,8 +145,15 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<number>>(() => new Set());
+  // Team tasks the user opened or closed by hand, against the default: closed,
+  // or open while a filter picks out subtasks.
+  const [toggledTaskIds, setToggledTaskIds] = useState<Set<number>>(() => new Set());
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set());
+  const [quick, setQuick] = useState<TaskQuickFilter | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [boardView, setBoardView] = useState<"tree" | "kanban">("tree");
   const [page, setPage] = useState(1);
+  const today = useMemo(() => localDateKey(), []);
   // The team board defaults to what still needs attention: due this month, or
   // unfinished from any month. "all" brings back finished work from the past.
   const [teamView, setTeamView] = useState<"active" | "all">("active");
@@ -154,6 +178,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       projectId,
       teamId,
       assigneeId,
+      quick,
       page,
       activeTeamView
     ],
@@ -168,10 +193,12 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
         projectId: projectId ? Number(projectId) : undefined,
         teamId: teamId ? Number(teamId) : undefined,
         assigneeId: assigneeId ? Number(assigneeId) : undefined,
+        quick: quick || undefined,
         page,
-        limit: 20
+        // Team tasks per page; each brings its subtasks along.
+        limit: TEAM_TASKS_PER_PAGE
       };
-      return scope === "team" ? tasksApi.team(params) : tasksApi.list(params);
+      return scope === "team" ? tasksApi.teamGrouped(params) : tasksApi.listGrouped(params);
     }
   });
   const projectsQuery = useQuery({
@@ -213,6 +240,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       projectId: "",
       teamId: "",
       priority: "MEDIUM" as TaskPriority,
+      minLevel: "" as CareerLevel | "",
+      maxLevel: "" as CareerLevel | "",
       status: "TODO" as TaskStatus,
       assigneeId: "",
       startDate: "",
@@ -365,6 +394,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       projectId: "",
       teamId: "",
       priority: "MEDIUM",
+      minLevel: "",
+      maxLevel: "",
       status: "TODO",
       assigneeId: "",
       startDate: "",
@@ -387,6 +418,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       projectId: item.projectId ? String(item.projectId) : "",
       teamId: item.teamId ? String(item.teamId) : "",
       priority: item.priority,
+      minLevel: item.minLevel ?? "",
+      maxLevel: item.maxLevel ?? "",
       status: item.status,
       assigneeId: item.assigneeId ? String(item.assigneeId) : "",
       startDate: item.startDate?.slice(0, 10) ?? "",
@@ -417,6 +450,9 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
       projectId: parent.projectId ? String(parent.projectId) : "",
       teamId: parent.teamId ? String(parent.teamId) : "",
       priority: parent.priority,
+      // Empty: the subtask takes the team task's range.
+      minLevel: "",
+      maxLevel: "",
       status: "TODO",
       assigneeId: "",
       startDate: parent.startDate?.slice(0, 10) ?? "",
@@ -521,8 +557,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     }
   }
 
-  function toggleTaskExpanded(taskId: number) {
-    setExpandedTaskIds((current) => {
+  function toggleTask(taskId: number) {
+    setToggledTaskIds((current) => {
       const next = new Set(current);
       if (next.has(taskId)) {
         next.delete(taskId);
@@ -533,46 +569,134 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     });
   }
 
-  const taskTreeRows = useMemo(() => {
-    const items = tasksQuery.data?.items ?? [];
-    const fullTaskById = new Map(items.map((item) => [item.id, item]));
-    const rootTasks = items.filter((item) => !item.parentTaskId);
-    const fullChildrenByParentId = new Map<number, Task[]>();
-    items.forEach((item) => {
-      if (!item.parentTaskId) {
-        return;
+  function toggleProject(key: string) {
+    setCollapsedProjects((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
       }
-      const children = fullChildrenByParentId.get(item.parentTaskId) ?? [];
-      children.push(item);
-      fullChildrenByParentId.set(item.parentTaskId, children);
+      return next;
     });
+  }
 
-    if (!rootTasks.length) {
-      return items.map((item): TaskTreeRow => ({
-        ...item,
-        rowLevel: item.parentTaskId ? 1 : 0
-      }));
-    }
+  /** Filters that pick out subtasks; project and team pick whole team tasks. */
+  const narrowing = Boolean(search || status || priority || assigneeId || quick);
+  const advancedFilterCount = [status, priority, projectId, teamId, assigneeId].filter(Boolean).length;
+  const sections = useMemo(
+    () => buildProjectSections(tasksQuery.data?.items ?? [], narrowing),
+    [narrowing, tasksQuery.data?.items]
+  );
+  const summary = tasksQuery.data?.summary;
 
-    return rootTasks.flatMap((task): TaskTreeRow[] => {
-      const rows: TaskTreeRow[] = [{ ...task, rowLevel: 0 }];
-      if (!expandedTaskIds.has(task.id)) {
-        return rows;
-      }
+  function resetPage<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setPage(1);
+      setToggledTaskIds(new Set());
+    };
+  }
 
-      const uniqueChildren = uniqueTasksById([
-        ...(task.childTasks ?? []),
-        ...(fullChildrenByParentId.get(task.id) ?? [])
-      ]);
-      const childRows = uniqueChildren.map((child) => {
-        const fullChild = fullTaskById.get(child.id) ?? child;
-        return normalizeChildTaskRow(task, fullChild);
+  function clearFilters() {
+    setSearch("");
+    setStatus(null);
+    setPriority(null);
+    setProjectId(null);
+    setTeamId(null);
+    setAssigneeId(null);
+    setQuick(null);
+    setPage(1);
+    setToggledTaskIds(new Set());
+  }
+
+  function actionsFor(item: TaskTreeRow): TaskAction[] {
+    const canManageItem =
+      user?.roles.includes("ADMIN") ||
+      item.project?.managerId === user?.employeeId ||
+      (Boolean(item.parentTaskId) && item.team?.leadId === user?.employeeId);
+    const canSplitItem =
+      user?.roles.includes("ADMIN") ||
+      item.project?.managerId === user?.employeeId ||
+      item.team?.leadId === user?.employeeId;
+    const actions: TaskAction[] = [
+      { key: "view", label: tx("View details"), icon: <Eye size={16} />, onClick: () => setViewingTask(item) }
+    ];
+    if (canCreate && !item.parentTaskId && canSplitItem && mode !== "assign") {
+      actions.push({
+        key: "subtask",
+        label: tx("Create subtask"),
+        icon: <ListPlus size={16} />,
+        onClick: () => openCreateSubtask(item)
       });
-      return [...rows, ...childRows];
-    });
-  }, [expandedTaskIds, tasksQuery.data?.items]);
+    }
+    if (canUpdate && canManageItem && mode !== "assign") {
+      actions.push({ key: "edit", label: tx("Edit"), icon: <Edit size={16} />, onClick: () => openEdit(item) });
+    }
+    if (canAssign && item.parentTaskId && canManageItem) {
+      actions.push({
+        key: "assign",
+        label: tx(item.assigneeId ? "Reassign" : "Assign"),
+        icon: <UserPlus size={16} />,
+        onClick: () => openAssign(item)
+      });
+    }
+    if (item.parentTaskId) {
+      actions.push({
+        key: "history",
+        label: tx("Assignment history"),
+        icon: <History size={16} />,
+        onClick: () => setHistoryTask(item)
+      });
+    }
+    if (canDelete && canManageItem && mode !== "assign") {
+      actions.push({
+        key: "delete",
+        label: tx("Delete"),
+        icon: <Trash2 size={16} />,
+        color: "red",
+        onClick: () =>
+          openConfirmModal({
+            title: tx("Delete task"),
+            message: `${tx("Delete")} ${item.title}?`,
+            confirmLabel: tx("Delete"),
+            onConfirm: () => deleteMutation.mutate(item.id)
+          })
+      });
+    }
+    return actions;
+  }
+
+  const boardHandlers: BoardHandlers = {
+    today,
+    onView: setViewingTask,
+    actionsFor,
+    statusChoicesFor: (item) => (canUpdateStatus && item.parentTaskId ? statusChoices(item) : []),
+    onStatusChange: (item, next) => statusMutation.mutate({ id: item.id, status: next }),
+    assignFor: (item) => {
+      const canManageItem =
+        user?.roles.includes("ADMIN") ||
+        item.project?.managerId === user?.employeeId ||
+        item.team?.leadId === user?.employeeId;
+      return canAssign && item.parentTaskId && canManageItem ? () => openAssign(item) : null;
+    }
+  };
+
+  const quickFilters: Array<{ value: TaskQuickFilter; label: string; color: string; icon: ReactNode }> = [
+    { value: "overdue", label: tx("Overdue"), color: "red", icon: <AlertTriangle size={14} /> },
+    { value: "dueSoon", label: tx("Due soon"), color: "orange", icon: <Clock size={14} /> },
+    { value: "review", label: tx("Waiting for my review"), color: "yellow", icon: <UserCheck size={14} /> },
+    { value: "unassigned", label: tx("Unassigned"), color: "grape", icon: <UserPlus size={14} /> }
+  ];
+  const totalTeamTasks = tasksQuery.data?.meta.total ?? 0;
 
   const isSubtaskForm = Boolean(form.values.parentTaskId);
+  const levelRangeError =
+    form.values.minLevel &&
+    form.values.maxLevel &&
+    careerLevels.indexOf(form.values.minLevel) > careerLevels.indexOf(form.values.maxLevel)
+      ? tx("The lowest level is above the highest")
+      : null;
   const creatableProjects = teamTaskProjects(projectsQuery.data?.items ?? [], user);
   const canCreateTeamTask = canCreate && creatableProjects.length > 0;
   // A new team task may only target a department the user heads; editing
@@ -624,7 +748,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
               )
             },
             { key: "active", label: "Active tasks", render: (item) => item.workload.activeTaskCount },
-            { key: "estimated", label: "Estimated hours", render: (item) => item.workload.totalEstimatedHours },
+            { key: "remaining", label: "Hours left", render: (item) => `${item.workload.totalEstimatedHours}h` },
+            { key: "week", label: "This week", render: (item) => `${item.workload.weeklyLoadHours}h / ${item.workload.capacityHoursPerWeek}h` },
             { key: "available", label: "Available hours", render: (item) => item.workload.availableHours },
             { key: "overdue", label: "Overdue", render: (item) => item.workload.overdueTaskCount },
             {
@@ -643,262 +768,203 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
         />
       ) : null}
 
-      <Paper withBorder radius="md" p="md" className="filter-bar">
-        {scope === "team" ? (
-          <SegmentedControl
-            mb="md"
-            value={teamView}
-            onChange={(value) => {
-              setTeamView(value as "active" | "all");
-              setPage(1);
-            }}
-            data={[
-              { value: "active", label: tx("This month & unfinished") },
-              { value: "all", label: tx("All tasks") }
-            ]}
-          />
-        ) : null}
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 6 }}>
-          <TextInput
-            label={tx("Search")}
-            placeholder={tx("Search by title")}
-            value={search}
-            onChange={(event) => {
-              setSearch(event.currentTarget.value);
-              setPage(1);
-            }}
-          />
-          <Select
-            label={tx("Status")}
-            placeholder={tx("All statuses")}
-            data={taskStatuses.map((value) => ({ value, label: te(value) }))}
-            value={status}
-            onChange={(value) => {
-              setStatus(value);
-              setPage(1);
-            }}
-            clearable
-          />
-          <Select
-            label={tx("Priority")}
-            placeholder={tx("All priorities")}
-            data={taskPriorities.map((value) => ({ value, label: te(value) }))}
-            value={priority}
-            onChange={(value) => {
-              setPriority(value);
-              setPage(1);
-            }}
-            clearable
-          />
-          <Select
-            label={tx("Project")}
-            placeholder={tx("All projects")}
-            data={projectOptions}
-            value={projectId}
-            onChange={(value) => {
-              setProjectId(value);
-              setPage(1);
-            }}
-            clearable
-            searchable
-          />
-          <Select
-            label={tx("Team")}
-            placeholder={tx("All teams")}
-            data={filterTeamOptions}
-            value={teamId}
-            onChange={(value) => {
-              setTeamId(value);
-              setPage(1);
-            }}
-            clearable
-            searchable
-          />
-          <Select
-            label={tx("Assignee")}
-            placeholder={tx("All assignees")}
-            data={employeeOptions}
-            value={assigneeId}
-            onChange={(value) => {
-              setAssigneeId(value);
-              setPage(1);
-            }}
-            clearable
-            searchable
-          />
-        </SimpleGrid>
+      <Paper withBorder radius="md" p="sm" className="filter-bar">
+        <Stack gap="sm">
+          <Group justify="space-between" gap="sm">
+            <Group gap="sm">
+              {scope === "team" ? (
+                <SegmentedControl
+                  size="xs"
+                  value={teamView}
+                  onChange={(value) => resetPage(setTeamView)(value as "active" | "all")}
+                  data={[
+                    { value: "active", label: tx("This month & unfinished") },
+                    { value: "all", label: tx("All tasks") }
+                  ]}
+                />
+              ) : null}
+              <TextInput
+                size="xs"
+                w={240}
+                leftSection={<Search size={14} />}
+                placeholder={tx("Search by title")}
+                value={search}
+                onChange={(event) => resetPage(setSearch)(event.currentTarget.value)}
+              />
+              <Button
+                size="xs"
+                variant={filtersOpen || advancedFilterCount ? "light" : "default"}
+                leftSection={<SlidersHorizontal size={14} />}
+                rightSection={
+                  advancedFilterCount ? (
+                    <Badge size="xs" circle>
+                      {advancedFilterCount}
+                    </Badge>
+                  ) : null
+                }
+                onClick={() => setFiltersOpen((open) => !open)}
+              >
+                {tx("Filters")}
+              </Button>
+              {narrowing || advancedFilterCount ? (
+                <Button size="xs" variant="subtle" color="gray" onClick={clearFilters}>
+                  {tx("Clear filters")}
+                </Button>
+              ) : null}
+            </Group>
+            <SegmentedControl
+              size="xs"
+              value={boardView}
+              onChange={(value) => setBoardView(value as "tree" | "kanban")}
+              data={[
+                {
+                  value: "tree",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <ListTree size={14} />
+                      {tx("By project")}
+                    </Group>
+                  )
+                },
+                {
+                  value: "kanban",
+                  label: (
+                    <Group gap={6} wrap="nowrap">
+                      <Columns3 size={14} />
+                      Kanban
+                    </Group>
+                  )
+                }
+              ]}
+            />
+          </Group>
+
+          <Group gap="xs">
+            {quickFilters.map((item) => {
+              const active = quick === item.value;
+              const count = summary?.[item.value];
+              return (
+                <Button
+                  key={item.value}
+                  size="compact-sm"
+                  radius="xl"
+                  color={item.color}
+                  variant={active ? "filled" : "light"}
+                  leftSection={item.icon}
+                  rightSection={
+                    count === undefined ? null : (
+                      <Badge size="sm" px={6} variant={active ? "white" : "filled"} color={item.color}>
+                        {count}
+                      </Badge>
+                    )
+                  }
+                  onClick={() => resetPage(setQuick)(active ? null : item.value)}
+                >
+                  {item.label}
+                </Button>
+              );
+            })}
+          </Group>
+
+          <Collapse in={filtersOpen}>
+            <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
+              <Select
+                size="xs"
+                label={tx("Status")}
+                placeholder={tx("All statuses")}
+                data={taskStatuses.map((value) => ({ value, label: te(value) }))}
+                value={status}
+                onChange={resetPage(setStatus)}
+                clearable
+              />
+              <Select
+                size="xs"
+                label={tx("Priority")}
+                placeholder={tx("All priorities")}
+                data={taskPriorities.map((value) => ({ value, label: te(value) }))}
+                value={priority}
+                onChange={resetPage(setPriority)}
+                clearable
+              />
+              <Select
+                size="xs"
+                label={tx("Project")}
+                placeholder={tx("All projects")}
+                data={projectOptions}
+                value={projectId}
+                onChange={resetPage(setProjectId)}
+                clearable
+                searchable
+              />
+              <Select
+                size="xs"
+                label={tx("Team")}
+                placeholder={tx("All teams")}
+                data={filterTeamOptions}
+                value={teamId}
+                onChange={resetPage(setTeamId)}
+                clearable
+                searchable
+              />
+              <Select
+                size="xs"
+                label={tx("Assignee")}
+                placeholder={tx("All assignees")}
+                data={employeeOptions}
+                value={assigneeId}
+                onChange={resetPage(setAssigneeId)}
+                clearable
+                searchable
+              />
+            </SimpleGrid>
+          </Collapse>
+        </Stack>
       </Paper>
 
-      <DataTable<TaskTreeRow>
-        data={taskTreeRows}
-        loading={tasksQuery.isLoading}
-        error={tasksQuery.error ? getApiErrorMessage(tasksQuery.error) : null}
-        total={tasksQuery.data?.meta.total}
-        limit={tasksQuery.data?.meta.limit}
-        page={tasksQuery.data?.meta.page}
-        onPageChange={setPage}
-        columns={[
-          {
-            key: "task",
-            label: "Task",
-            render: (item) => (
-              <Stack gap={2} pl={item.rowLevel ? "xl" : 0}>
-                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                  {item.rowLevel === 0 ? (
-                    <Tooltip
-                      label={tx(
-                        expandedTaskIds.has(item.id)
-                          ? "Hide subtasks"
-                          : "Show subtasks"
-                      )}
-                    >
-                      <ActionIcon
-                        variant="subtle"
-                        size="sm"
-                        disabled={!taskChildCount(item)}
-                        onClick={() => toggleTaskExpanded(item.id)}
-                      >
-                        {expandedTaskIds.has(item.id) ? (
-                          <ChevronDown size={16} />
-                        ) : (
-                          <ChevronRight size={16} />
-                        )}
-                      </ActionIcon>
-                    </Tooltip>
-                  ) : null}
-                  <Badge size="xs" variant={item.parentTaskId ? "light" : "filled"}>
-                    {tx(item.parentTaskId ? "Subtask" : "Team task")}
-                  </Badge>
-                  <Text fw={700} lineClamp={1} style={{ minWidth: 0 }}>
-                    {item.title}
-                  </Text>
-                  {item.rowLevel === 0 && taskChildCount(item) ? (
-                    <Badge size="xs" variant="outline">
-                      {taskChildCount(item)} {tx("subtasks")}
-                    </Badge>
-                  ) : null}
-                </Group>
-                <Text size="xs" c="dimmed">
-                  {item.rowLevel === 1 && item.rowParent?.title
-                    ? `${item.project?.code ?? tx("No project")} · ${item.rowParent.title}`
-                    : item.parentTask?.title
-                    ? `${item.project?.code ?? tx("No project")} · ${item.parentTask.title}`
-                    : item.project?.code ?? tx("No project")}
-                </Text>
-              </Stack>
-            )
-          },
-          {
-            key: "status",
-            label: "Status",
-            render: (item) =>
-              canUpdateStatus && item.parentTaskId ? (
-                <Select
-                  data={taskStatuses.map((value) => ({ value, label: te(value) }))}
-                  value={item.status}
-                  onChange={(value) =>
-                    value
-                      ? statusMutation.mutate({ id: item.id, status: value as TaskStatus })
-                      : undefined
-                  }
-                  allowDeselect={false}
-                  size="xs"
-                  w={160}
-                />
-              ) : (
-                <Badge color={statusColor(item.status)}>{te(item.status)}</Badge>
-              )
-          },
-          {
-            key: "assignee",
-            label: "Assignee",
-            render: (item) =>
-              item.assignee ? (
-                <Stack gap={0}>
-                  <Text fw={700}>{item.assignee.fullName}</Text>
-                  <Text size="xs" c="dimmed">
-                    {item.assignee.employeeCode}
-                  </Text>
-                </Stack>
-              ) : (
-                <Text size="sm" c={item.parentTaskId ? "dimmed" : undefined}>
-                  {item.parentTaskId ? "-" : tx("Team responsibility")}
-                </Text>
-              )
-          },
-          { key: "dueDate", label: "Due date", render: (item) => formatDate(item.dueDate) },
-          {
-            key: "actions",
-            label: "",
-            width: 172,
-            render: (item) => {
-              const canManageItem =
-                user?.roles.includes("ADMIN") ||
-                item.project?.managerId === user?.employeeId ||
-                (Boolean(item.parentTaskId) && item.team?.leadId === user?.employeeId);
-              const canSplitItem =
-                user?.roles.includes("ADMIN") ||
-                item.project?.managerId === user?.employeeId ||
-                item.team?.leadId === user?.employeeId;
-              return (
-              <Group gap={4} justify="flex-end">
-                <Tooltip label={tx("View details")}>
-                  <ActionIcon variant="subtle" color="blue" onClick={() => setViewingTask(item)}>
-                    <Eye size={16} />
-                  </ActionIcon>
-                </Tooltip>
-                {canCreate && !item.parentTaskId && canSplitItem && mode !== "assign" ? (
-                  <Tooltip label={tx("Create subtask") }>
-                    <ActionIcon variant="light" color="indigo" onClick={() => openCreateSubtask(item)}>
-                      <ListPlus size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : null}
-                {canUpdate && canManageItem && mode !== "assign" ? (
-                  <Tooltip label={tx("Edit")}>
-                    <ActionIcon variant="subtle" onClick={() => openEdit(item)}>
-                      <Edit size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : null}
-                {canAssign && item.parentTaskId && canManageItem ? (
-                  <Tooltip label={tx("Assign")}>
-                    <ActionIcon variant="subtle" color="teal" onClick={() => openAssign(item)}>
-                      <UserPlus size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : null}
-                {item.parentTaskId ? (
-                  <Tooltip label={tx("Assignment history")}>
-                    <ActionIcon variant="subtle" color="gray" onClick={() => setHistoryTask(item)}>
-                      <History size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : null}
-                {canDelete && canManageItem && mode !== "assign" ? (
-                  <Tooltip label={tx("Delete")}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      onClick={() =>
-                        openConfirmModal({
-                          title: tx("Delete task"),
-                          message: `${tx("Delete")} ${item.title}?`,
-                          confirmLabel: tx("Delete"),
-                          onConfirm: () => deleteMutation.mutate(item.id)
-                        })
-                      }
-                    >
-                      <Trash2 size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                ) : null}
-              </Group>
-              );
-            }
-          }
-        ]}
-      />
+      {tasksQuery.error ? (
+        <DataTable data={[]} columns={[]} error={getApiErrorMessage(tasksQuery.error)} />
+      ) : tasksQuery.isLoading ? (
+        <DataTable data={[]} columns={[{ key: "task", label: "Task", render: () => null }]} loading />
+      ) : !sections.length ? (
+        <DataTable
+          data={[]}
+          columns={[{ key: "task", label: "Task", render: () => null }]}
+          emptyTitle={narrowing || advancedFilterCount ? tx("No task matches these filters") : undefined}
+        />
+      ) : boardView === "tree" ? (
+        <TaskTreeView
+          {...boardHandlers}
+          sections={sections}
+          filtered={narrowing}
+          toggledTaskIds={toggledTaskIds}
+          onToggleTask={toggleTask}
+          collapsedProjects={collapsedProjects}
+          onToggleProject={toggleProject}
+        />
+      ) : (
+        <TaskKanbanView {...boardHandlers} sections={sections} />
+      )}
+
+      {totalTeamTasks ? (
+        <Group justify="space-between">
+          <Text size="xs" c="dimmed">
+            {boardView === "kanban"
+              ? tx("Kanban shows the subtasks of the team tasks on this page")
+              : `${totalTeamTasks} ${tx("team tasks")}`}
+          </Text>
+          {totalTeamTasks > TEAM_TASKS_PER_PAGE ? (
+            <Pagination
+              size="sm"
+              total={Math.ceil(totalTeamTasks / TEAM_TASKS_PER_PAGE)}
+              value={page}
+              onChange={(value) => {
+                setPage(value);
+                setToggledTaskIds(new Set());
+              }}
+            />
+          ) : null}
+        </Group>
+      ) : null}
 
       <Modal
         opened={Boolean(viewingTask)}
@@ -959,6 +1025,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
               <DetailItem label={tx("Start date")} value={formatDate(viewingTask.startDate)} />
               <DetailItem label={tx("Due date")} value={formatDate(viewingTask.dueDate)} />
               <DetailItem label={tx("Hours")} value={formatTaskHours(viewingTask)} />
+              <DetailItem label={tx("Suitable level")} value={formatLevelRange(viewingTask, te, tx)} />
               <DetailItem
                 label={tx("Subtasks")}
                 value={viewingTask.parentTaskId ? "-" : taskChildCount(viewingTask)}
@@ -1098,9 +1165,30 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
                 allowDeselect={false}
                 {...form.getInputProps("priority")}
               />
+              <Group grow align="flex-start">
+                <Select
+                  label={tx("Suitable level from")}
+                  description={tx(isSubtaskForm ? "Empty: as the team task" : "Empty: any level")}
+                  placeholder={tx("Any")}
+                  data={careerLevels.map((value) => ({ value, label: te(value) }))}
+                  clearable
+                  {...form.getInputProps("minLevel")}
+                />
+                <Select
+                  label={tx("to")}
+                  placeholder={tx("Any")}
+                  data={careerLevels.map((value) => ({ value, label: te(value) }))}
+                  clearable
+                  error={levelRangeError}
+                  {...form.getInputProps("maxLevel")}
+                />
+              </Group>
               <Select
                 label={tx("Status")}
-                data={taskStatuses.map((value) => ({ value, label: te(value) }))}
+                data={(editing ? statusChoices(editing) : taskStatuses).map((value) => ({
+                  value,
+                  label: te(value)
+                }))}
                 allowDeselect={false}
                 disabled={!isSubtaskForm}
                 {...form.getInputProps("status")}
@@ -1393,6 +1481,28 @@ function defaultRequiredSkill(): RequiredSkillForm {
   };
 }
 
+const careerLevels: CareerLevel[] = ["INTERN", "FRESHER", "JUNIOR", "MIDDLE", "SENIOR", "LEAD"];
+
+/** "Fresher - Junior", "from Middle", "up to Junior", or the team task's range. */
+function formatLevelRange(
+  task: Task,
+  te: (value: string) => string,
+  tx: (value: string) => string
+) {
+  const min = task.minLevel ?? task.parentTask?.minLevel ?? null;
+  const max = task.maxLevel ?? task.parentTask?.maxLevel ?? null;
+  if (min && max) {
+    return min === max ? te(min) : `${te(min)} - ${te(max)}`;
+  }
+  if (min) {
+    return `${tx("from")} ${te(min)}`;
+  }
+  if (max) {
+    return `${tx("up to")} ${te(max)}`;
+  }
+  return tx("Any level");
+}
+
 function normalizeTaskPayload(values: {
   title: string;
   description: string;
@@ -1401,6 +1511,8 @@ function normalizeTaskPayload(values: {
   projectId: string;
   teamId: string;
   priority: TaskPriority;
+  minLevel: CareerLevel | "";
+  maxLevel: CareerLevel | "";
   status: TaskStatus;
   assigneeId: string;
   startDate: string;
@@ -1417,6 +1529,9 @@ function normalizeTaskPayload(values: {
     projectId: values.projectId ? Number(values.projectId) : undefined,
     teamId: values.teamId ? Number(values.teamId) : undefined,
     priority: values.priority,
+    // null clears a range on update; an empty range means any level.
+    minLevel: values.minLevel || null,
+    maxLevel: values.maxLevel || null,
     status: values.status,
     assigneeId: values.assigneeId ? Number(values.assigneeId) : undefined,
     startDate: values.startDate || undefined,
@@ -1432,28 +1547,6 @@ function normalizeTaskPayload(values: {
         importance: item.importance
       }))
   };
-}
-
-function normalizeChildTaskRow(parent: Task, child: Task): TaskTreeRow {
-  return {
-    ...child,
-    parentTaskId: child.parentTaskId ?? parent.id,
-    parentTask: child.parentTask ?? parent,
-    projectId: child.projectId ?? parent.projectId,
-    project: child.project ?? parent.project,
-    departmentId: child.departmentId ?? parent.departmentId,
-    department: child.department ?? parent.department,
-    teamId: child.teamId ?? parent.teamId,
-    team: child.team ?? parent.team,
-    rowLevel: 1,
-    rowParent: parent
-  };
-}
-
-function uniqueTasksById(tasks: Task[]) {
-  const unique = new Map<number, Task>();
-  tasks.forEach((task) => unique.set(task.id, task));
-  return Array.from(unique.values());
 }
 
 /**

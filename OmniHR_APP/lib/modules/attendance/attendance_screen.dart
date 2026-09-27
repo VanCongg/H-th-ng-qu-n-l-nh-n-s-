@@ -19,6 +19,16 @@ class AttendanceScreen extends StatefulWidget {
   State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
+/// Why the server would not accept a location, in the app's words.
+const _locationTrustMessages = {
+  'ATTENDANCE_LOCATION_MOCKED':
+      'Điện thoại đang dùng ứng dụng giả lập vị trí. Hãy tắt nó rồi chấm công lại.',
+  'ATTENDANCE_LOCATION_STALE':
+      'Vị trí lấy được đã cũ. Hãy bật GPS, chờ vài giây rồi chấm công lại.',
+  'ATTENDANCE_LOCATION_INACCURATE':
+      'Tín hiệu GPS quá yếu để xác định bạn có ở công ty không. Hãy ra gần cửa sổ hoặc chờ GPS ổn định rồi thử lại.',
+};
+
 class _AttendanceScreenState extends State<AttendanceScreen> {
   late Future<List<AttendanceRecord>> _future;
   late DateTime _visibleMonth;
@@ -26,6 +36,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _submitting = false;
   bool _justRecorded = false;
   Set<int> _workWeekdays = LocationPolicy.defaultWorkWeekdays;
+  Map<String, String> _holidays = const {};
 
   @override
   void initState() {
@@ -43,7 +54,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       final data = await widget.session.api.get('/attendance/location-policy');
       final policy = LocationPolicy.fromJson(mapOf(data));
-      if (mounted) setState(() => _workWeekdays = policy.workWeekdays);
+      if (mounted) {
+        setState(() {
+          _workWeekdays = policy.workWeekdays;
+          _holidays = policy.holidays;
+        });
+      }
     } catch (_) {
       // Keep the default work week.
     }
@@ -273,6 +289,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             'Hãy tới nơi làm việc rồi thử lại.',
           ),
         );
+      } else if (error is ApiException &&
+          _locationTrustMessages.containsKey(error.errorCode)) {
+        await showAppAlert(
+          context,
+          icon: Icons.gps_off_rounded,
+          title: tx('Vị trí chưa đủ tin cậy'),
+          message: tx(_locationTrustMessages[error.errorCode]!),
+        );
       } else {
         showAppSnack(
           context,
@@ -405,6 +429,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     MonthAttendanceCalendar(
                       visibleMonth: _visibleMonth,
                       workWeekdays: _workWeekdays,
+                      holidays: _holidays,
                       records: records,
                       selectedDay: _selectedDay,
                       onPreviousMonth: () => _changeMonth(-1),
@@ -419,6 +444,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     DayAttendanceDetails(
                       day: _selectedDay ?? DateTime.now(),
                       records: selectedRecords,
+                      holidayName:
+                          _holidays[apiDate(_selectedDay ?? DateTime.now())],
                     ),
                   ],
                 ),
@@ -441,6 +468,7 @@ class MonthAttendanceCalendar extends StatelessWidget {
     required this.onNextMonth,
     required this.onDaySelected,
     this.workWeekdays = LocationPolicy.defaultWorkWeekdays,
+    this.holidays = const {},
   });
 
   final DateTime visibleMonth;
@@ -452,6 +480,9 @@ class MonthAttendanceCalendar extends StatelessWidget {
 
   /// [DateTime.weekday] values the company works on.
   final Set<int> workWeekdays;
+
+  /// Public holidays by `yyyy-MM-dd`.
+  final Map<String, String> holidays;
 
   @override
   Widget build(BuildContext context) {
@@ -504,10 +535,12 @@ class MonthAttendanceCalendar extends StatelessWidget {
               visibleMonth.month,
               dayNumber,
             );
+            final holiday = holidays.containsKey(apiDate(day));
             return _AttendanceDayCell(
               day: day,
               hasAttendance: _hasAttendance(day),
-              workDay: workWeekdays.contains(day.weekday),
+              holiday: holiday,
+              workDay: workWeekdays.contains(day.weekday) && !holiday,
               selected: selectedDay != null && sameDate(selectedDay!, day),
               onTap: () => onDaySelected(day),
             );
@@ -552,11 +585,13 @@ class _AttendanceDayCell extends StatelessWidget {
     required this.workDay,
     required this.selected,
     required this.onTap,
+    this.holiday = false,
   });
 
   final DateTime day;
   final bool hasAttendance;
   final bool workDay;
+  final bool holiday;
   final bool selected;
   final VoidCallback onTap;
 
@@ -575,8 +610,11 @@ class _AttendanceDayCell extends StatelessWidget {
         ? brandGreen
         : absent
         ? dangerColor
+        : holiday
+        ? accentColor
         : mutedTextColor;
-    final backgroundOpacity = hasAttendance || absent ? 0.16 : 0.0;
+    final marked = hasAttendance || absent || holiday;
+    final backgroundOpacity = marked ? 0.16 : 0.0;
 
     return GestureDetector(
       onTap: onTap,
@@ -607,10 +645,8 @@ class _AttendanceDayCell extends StatelessWidget {
         child: Text(
           '${day.day}',
           style: TextStyle(
-            color: hasAttendance || absent ? color : mutedTextColor,
-            fontWeight: hasAttendance || absent || isToday
-                ? FontWeight.w800
-                : FontWeight.w600,
+            color: marked ? color : mutedTextColor,
+            fontWeight: marked || isToday ? FontWeight.w800 : FontWeight.w600,
             fontSize: 15,
           ),
         ),
@@ -624,25 +660,34 @@ class DayAttendanceDetails extends StatelessWidget {
     super.key,
     required this.day,
     required this.records,
+    this.holidayName,
   });
 
   final DateTime day;
   final List<AttendanceRecord> records;
 
+  /// Set when the day is a public holiday.
+  final String? holidayName;
+
   @override
   Widget build(BuildContext context) {
+    final holiday = holidayName;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionTitle(
           title: formatDate(day),
           subtitle: records.isEmpty
-              ? tx('Chưa có lượt chấm công trong ngày này')
+              ? holiday != null
+                    ? tx('Ngày lễ: {name}', {'name': holiday})
+                    : tx('Chưa có lượt chấm công trong ngày này')
               : tx('{count} lượt chấm công', {'count': '${records.length}'}),
         ),
         if (records.isEmpty)
           Text(
-            tx('Ngày này chưa ghi nhận chấm công.'),
+            holiday != null
+                ? tx('Ngày nghỉ lễ, không cần chấm công.')
+                : tx('Ngày này chưa ghi nhận chấm công.'),
             style: TextStyle(
               color: mutedTextColor,
               fontWeight: FontWeight.w600,

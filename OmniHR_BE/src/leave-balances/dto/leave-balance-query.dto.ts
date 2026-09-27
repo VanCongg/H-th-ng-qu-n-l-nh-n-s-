@@ -24,6 +24,14 @@ export class LeaveBalanceQueryDto extends PaginationQueryDto {
   @Max(2100)
   year?: number;
 
+  /** Balance as it stood at the end of this month (1-12) of `year`. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

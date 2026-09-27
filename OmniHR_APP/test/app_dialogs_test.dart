@@ -89,6 +89,24 @@ void main() {
     expect(notificationTitle('SOMETHING_NEW', 'Stored title'), 'Stored title');
   });
 
+  test('a status change notification reads in Vietnamese', () {
+    expect(
+      notificationTitle('TASK_STATUS_CHANGED', 'Task status updated'),
+      'Trạng thái công việc được cập nhật',
+    );
+    expect(
+      notificationTitle('TASK_STATUS_CHANGED', 'Task returned for rework'),
+      'Công việc bị trả về để sửa',
+    );
+    expect(
+      notificationMessage(
+        'TASK_STATUS_CHANGED',
+        '"Build login" was moved to IN_REVIEW by Nguyễn Văn A.',
+      ),
+      'Nguyễn Văn A đã chuyển công việc "Build login" sang "${friendlyStatus('IN_REVIEW')}".',
+    );
+  });
+
   test('distances read as grouped metres', () {
     expect(formatMeters(4520.4), '4,520');
     expect(formatMeters(150), '150');

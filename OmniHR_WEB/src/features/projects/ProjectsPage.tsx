@@ -90,7 +90,7 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
 
   const saveMutation = useMutation({
     mutationFn: (values: typeof form.values) => {
-      const payload = normalizeProjectPayload(values);
+      const payload = normalizeProjectPayload(values, Boolean(editing));
       return editing
         ? projectsApi.update(editing.id, payload)
         : projectsApi.create(payload);
@@ -366,13 +366,15 @@ function normalizeProjectPayload(values: {
   status: ProjectStatus;
   startDate: string;
   endDate: string;
-}) {
+}, editing: boolean) {
+  // On edit an emptied date is sent as null so the API clears it.
+  const blank = editing ? null : undefined;
   return {
     code: values.code.trim(),
     name: values.name.trim(),
     description: values.description.trim() || undefined,
     status: values.status,
-    startDate: values.startDate || undefined,
-    endDate: values.endDate || undefined
+    startDate: values.startDate || blank,
+    endDate: values.endDate || blank
   };
 }

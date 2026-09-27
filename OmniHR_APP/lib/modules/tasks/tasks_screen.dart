@@ -98,6 +98,13 @@ class _TasksScreenState extends State<TasksScreen> {
     return _canUpdateStatus && task.parentTaskId != null;
   }
 
+  /// A subtask whose next steps belong to the team lead: approved, cancelled,
+  /// or otherwise out of the assignee's hands.
+  bool _awaitsReviewer(TaskItem task) {
+    final allowed = task.allowedStatuses;
+    return allowed != null && allowed.isEmpty;
+  }
+
   List<TaskItem> _filteredTasks(List<TaskItem> tasks) {
     switch (_filter) {
       case _TaskFilter.open:
@@ -185,6 +192,15 @@ class _TasksScreenState extends State<TasksScreen> {
                                     label: friendlyPriority(task.priority),
                                     color: priorityColor(task.priority),
                                   ),
+                                  if (task.minLevel != null ||
+                                      task.maxLevel != null)
+                                    Pill(
+                                      label: levelRangeLabel(
+                                        task.minLevel,
+                                        task.maxLevel,
+                                      ),
+                                      color: brandGreen,
+                                    ),
                                   if (task.isOverdue)
                                     Pill(
                                       label: tx('Quá hạn'),
@@ -210,9 +226,18 @@ class _TasksScreenState extends State<TasksScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    if (_canUpdateTask(task)) ...[
+                    if (_canUpdateTask(task) && _awaitsReviewer(task)) ...[
+                      _StatusNote(
+                        text: tx(
+                          'Chỉ trưởng nhóm hoặc trưởng phòng mới đổi được '
+                          'trạng thái của công việc này.',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ] else if (_canUpdateTask(task)) ...[
                       _TaskStatusEditor(
                         currentStatus: task.status,
+                        allowedStatuses: task.allowedStatuses,
                         onChanged: (status) async {
                           Navigator.pop(context);
                           await _updateStatus(task, status);
@@ -223,7 +248,12 @@ class _TasksScreenState extends State<TasksScreen> {
                         task.parentTaskId == null) ...[
                       // The server derives a team-level task's status from its
                       // subtasks, so say that instead of just hiding the field.
-                      _DerivedStatusNote(),
+                      _StatusNote(
+                        text: tx(
+                          'Đây là công việc cấp nhóm. Trạng thái của nó được tính từ '
+                          'các công việc con, không đổi trực tiếp được.',
+                        ),
+                      ),
                       const SizedBox(height: 12),
                     ],
                     ProfileRow(
@@ -470,7 +500,12 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 }
 
-class _DerivedStatusNote extends StatelessWidget {
+/// An explanation shown where the status field would be.
+class _StatusNote extends StatelessWidget {
+  const _StatusNote({required this.text});
+
+  final String text;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -484,13 +519,7 @@ class _DerivedStatusNote extends StatelessWidget {
           Icon(Icons.info_outline_rounded, size: 18, color: brandColor),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              tx(
-                'Đây là công việc cấp nhóm. Trạng thái của nó được tính từ '
-                'các công việc con, không đổi trực tiếp được.',
-              ),
-              style: TextStyle(color: brandColor),
-            ),
+            child: Text(text, style: TextStyle(color: brandColor)),
           ),
         ],
       ),
@@ -502,6 +531,7 @@ class _TaskStatusEditor extends StatelessWidget {
   const _TaskStatusEditor({
     required this.currentStatus,
     required this.onChanged,
+    this.allowedStatuses,
   });
 
   static const _statuses = [
@@ -514,16 +544,27 @@ class _TaskStatusEditor extends StatelessWidget {
 
   final String currentStatus;
   final ValueChanged<String> onChanged;
+  final List<String>? allowedStatuses;
 
   @override
   Widget build(BuildContext context) {
+    // The current status stays listed so the field shows it; the rest are the
+    // moves the API accepts from here.
+    final allowed = allowedStatuses;
+    final statuses = allowed == null
+        ? _statuses
+        : _statuses
+              .where(
+                (status) => status == currentStatus || allowed.contains(status),
+              )
+              .toList();
     return DropdownButtonFormField<String>(
-      initialValue: _statuses.contains(currentStatus) ? currentStatus : null,
+      initialValue: statuses.contains(currentStatus) ? currentStatus : null,
       decoration: InputDecoration(
         labelText: tx('Đổi trạng thái'),
         prefixIcon: const Icon(Icons.update),
       ),
-      items: _statuses
+      items: statuses
           .map(
             (status) => DropdownMenuItem(
               value: status,

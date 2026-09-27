@@ -217,6 +217,42 @@ const viLiterals: Record<string, string> = {
   "Assignee": "Người được gán",
   "Availability": "Khả dụng",
   "Available hours": "Giờ còn khả dụng",
+  "Hours left": "Giờ việc còn lại",
+  "Overtime minimum": "Ngưỡng tính tăng ca",
+  "Asked to cancel": "Xin hủy",
+  "Skill weight multiplier: easy tasks": "Hệ số trọng số kỹ năng: task dễ",
+  "Skill weight multiplier: medium tasks": "Hệ số trọng số kỹ năng: task trung bình",
+  "Skill weight multiplier: hard tasks": "Hệ số trọng số kỹ năng: task khó",
+  "Multiplies the skill weight by task difficulty; fitted by the tuner (1 = same weight for every task)":
+    "Nhân trọng số kỹ năng theo độ khó của task; được tinh chỉnh từ dữ liệu (1 = mọi task như nhau)",
+  "Suitable level from": "Cấp bậc phù hợp từ",
+  "to": "đến",
+  "Any": "Không giới hạn",
+  "Empty: any level": "Để trống: cấp nào cũng được",
+  "Empty: as the team task": "Để trống: theo task lớn",
+  "Suitable level": "Cấp bậc phù hợp",
+  "from": "từ",
+  "up to": "tối đa",
+  "Any level": "Cấp nào cũng được",
+  "The lowest level is above the highest": "Cấp thấp nhất đang cao hơn cấp cao nhất",
+  "The lowest suitable level is above the highest": "Cấp bậc thấp nhất đang cao hơn cấp bậc cao nhất.",
+  "Cancellations to decide": "Yêu cầu hủy chờ duyệt",
+  "Why cancel": "Lý do xin hủy",
+  "Accept the cancellation": "Đồng ý hủy",
+  "Keep the leave": "Giữ đơn nghỉ",
+  "Cancellation declined; the leave stands": "Đã từ chối yêu cầu hủy, đơn nghỉ vẫn giữ nguyên",
+  "Part of the day": "Thời gian trong ngày",
+  "A half day is only for a one-day request": "Chỉ chọn được nửa ngày khi đơn nghỉ trong một ngày",
+  "Full day": "Cả ngày",
+  "Morning": "Buổi sáng",
+  "Afternoon": "Buổi chiều",
+  "A half-day leave covers a single day": "Nghỉ nửa ngày chỉ áp dụng cho một ngày.",
+  "Cancellation of this leave is already waiting for a manager": "Yêu cầu hủy đơn này đang chờ quản lý quyết định.",
+  "This leave has already started; ask your manager to change it": "Đơn nghỉ đã bắt đầu, hãy trao đổi trực tiếp với quản lý để điều chỉnh.",
+  "Nobody asked to cancel this leave": "Đơn nghỉ này không có yêu cầu hủy nào.",
+  "Time past the shifts counts as overtime only when a day's extra reaches this many minutes":
+    "Giờ làm ngoài ca chỉ được tính tăng ca khi tổng phần làm thêm trong ngày đạt số phút này",
+  "This week": "Tải tuần này",
   "Avatar URL": "Ảnh đại diện (URL)",
   "Image file is required": "Vui lòng chọn tệp ảnh",
   "Image must be 700 KB or smaller": "Ảnh phải từ 700 KB trở xuống",
@@ -384,6 +420,17 @@ const viLiterals: Record<string, string> = {
   "New password": "Mật khẩu mới",
   "New policy": "Thêm chính sách",
   "New position": "Thêm chức danh",
+  "Holidays": "Ngày lễ",
+  "7. Public holidays": "7. Ngày lễ và ngày nghỉ bù",
+  "New holiday": "Thêm ngày lễ",
+  "Edit holiday": "Sửa ngày lễ",
+  "Delete holiday": "Xóa ngày lễ",
+  "Holiday saved": "Đã lưu ngày lễ",
+  "e.g. Tết Nguyên đán": "Ví dụ: Tết Nguyên đán",
+  "Public holidays and compensatory days off: not working days for leave, attendance or tasks.":
+    "Ngày lễ và ngày nghỉ bù: không tính là ngày làm việc khi xin nghỉ, chấm công hay giao việc.",
+  "That date is already a holiday": "Ngày này đã là ngày lễ rồi.",
+  "Holiday not found": "Không tìm thấy ngày lễ.",
   "New employee skill": "Thêm kỹ năng nhân viên",
   "New project": "Thêm dự án",
   "New role": "Thêm vai trò",
@@ -394,6 +441,7 @@ const viLiterals: Record<string, string> = {
   "No activity yet": "Chưa có hoạt động",
   "No records": "Không có dữ liệu",
   "No project": "Chưa có dự án",
+  "team tasks": "task lớn",
   "No subordinates": "Chưa có cấp dưới",
   "No team leave requests": "Chưa có đơn nghỉ của đội nhóm",
   "Note": "Ghi chú",
@@ -494,6 +542,23 @@ const viLiterals: Record<string, string> = {
   "Team Leave Requests": "Đơn nghỉ của đội nhóm",
   "Team Tasks": "Công việc đội nhóm",
   "This month & unfinished": "Tháng này & chưa hoàn thành",
+  "Progress": "Tiến độ",
+  "Due soon": "Sắp đến hạn",
+  "Waiting for my review": "Chờ tôi duyệt",
+  "Unassigned": "Chưa giao",
+  "unassigned": "chưa giao",
+  "Filters": "Bộ lọc",
+  "By project": "Theo dự án",
+  "Nothing here": "Trống",
+  "Not split yet": "Chưa chia việc",
+  "more subtasks hidden by the filter": "task con khác bị ẩn bởi bộ lọc",
+  "Change status": "Đổi trạng thái",
+  "More actions": "Thao tác khác",
+  "Due within 3 days": "Đến hạn trong 3 ngày",
+  "No task matches these filters": "Không có công việc nào khớp bộ lọc",
+  "Kanban shows the subtasks of the team tasks on this page": "Kanban hiển thị task con của các task lớn ở trang này",
+  "ends": "kết thúc",
+  "Reassign": "Giao lại",
   "All tasks": "Tất cả công việc",
   "Team summary, attendance signals, and pending leave requests.": "Tóm tắt đội nhóm, tín hiệu chấm công và đơn nghỉ chờ duyệt.",
   "Task": "Công việc",
@@ -521,6 +586,7 @@ const viLiterals: Record<string, string> = {
   "User status updated": "Đã cập nhật trạng thái tài khoản nhân viên",
   "Username": "Tên đăng nhập",
   "Username or email": "Tên đăng nhập hoặc email",
+  "Username, email or employee code": "Tên đăng nhập, email hoặc mã nhân viên",
   "Users": "Nhân viên",
   "Values": "Giá trị",
   "View and process all leave requests.": "Xem và xử lý tất cả đơn nghỉ phép.",
@@ -589,6 +655,8 @@ const viLiterals: Record<string, string> = {
   "New task assigned": "Bạn được gán công việc mới",
   "Attendance record adjusted": "Bản ghi chấm công đã được điều chỉnh",
   "Month": "Tháng",
+  "Whole year": "Cả năm",
+  "All months": "Tất cả các tháng",
   "Year": "Năm",
   "Search employee": "Tìm nhân viên",
   "No employees found": "Không tìm thấy nhân viên",
@@ -702,6 +770,13 @@ const viLiterals: Record<string, string> = {
   "Position does not belong to selected department": "Chức danh không thuộc phòng ban đã chọn.",
   "Position not found": "Không tìm thấy chức danh.",
   "Project has active tasks": "Dự án vẫn còn công việc đang thực hiện.",
+  "Only the team lead or department head can make this status change": "Chỉ trưởng nhóm hoặc trưởng phòng mới được chuyển công việc sang trạng thái này.",
+  "Task is already closed": "Công việc đã đóng.",
+  "Task dates must fall inside the project dates": "Ngày của công việc phải nằm trong thời gian của dự án.",
+  "Some subtasks fall outside the new dates": "Có công việc con nằm ngoài khoảng ngày mới.",
+  "Some tasks fall outside the new project dates": "Có công việc nằm ngoài thời gian mới của dự án.",
+  "Finish or cancel the open tasks before closing the project": "Hãy hoàn thành hoặc hủy các công việc đang mở trước khi đóng dự án.",
+  "Project code already exists": "Mã dự án đã tồn tại.",
   "Project is closed": "Dự án đã đóng.",
   "Project not found": "Không tìm thấy dự án.",
   "Project scope denied": "Dự án nằm ngoài phạm vi quản lý của bạn.",
@@ -843,6 +918,9 @@ const viEnums: Record<string, string> = {
   TERMINATED: "Đã chấm dứt",
   LEAVE_APPROVED: "Đơn nghỉ được duyệt",
   LEAVE_REJECTED: "Đơn nghỉ bị từ chối",
+  LEAVE_CANCEL_REQUESTED: "Xin hủy đơn nghỉ",
+  LEAVE_CANCEL_APPROVED: "Đơn nghỉ được hủy",
+  LEAVE_CANCEL_REJECTED: "Không đồng ý hủy đơn nghỉ",
   TASK_ASSIGNED: "Được gán công việc",
   TASK_STATUS_CHANGED: "Trạng thái công việc thay đổi",
   ATTENDANCE_ADJUSTED: "Chấm công được điều chỉnh",
@@ -962,7 +1040,7 @@ const viFieldLabels: Record<string, string> = {
   toDate: "Đến ngày",
   userId: "Tài khoản",
   username: "Tên đăng nhập",
-  usernameOrEmail: "Tên đăng nhập hoặc email",
+  usernameOrEmail: "Tên đăng nhập, email hoặc mã nhân viên",
   workDate: "Ngày làm việc",
   year: "Năm",
   yearsExperience: "Số năm kinh nghiệm"
@@ -983,6 +1061,10 @@ function viValueList(values: string) {
 
 // Backend messages that embed a runtime value cannot be looked up literally.
 const viPatterns: Array<[RegExp, string | ((match: RegExpMatchArray) => string)]> = [
+  [
+    /^Not enough annual leave: ([\d.]+) day\(s\) left for (\d+), this request needs ([\d.]+)$/,
+    (m) => `Không đủ phép năm: năm ${m[2]} còn ${m[1]} ngày, đơn này cần ${m[3]} ngày.`
+  ],
   [
     /^Performance review must be in \w+ status$/,
     "Đánh giá hiệu suất chưa ở đúng trạng thái để thực hiện thao tác này."
@@ -1099,7 +1181,16 @@ export function translateEnum(language: AppLanguage, value?: string | null) {
   if (!value) {
     return "";
   }
-  return language === "vi" ? viEnums[value] ?? value : value;
+  return language === "vi" ? viEnums[value] ?? value : humanizeEnum(value);
+}
+
+/** "IN_REVIEW" reads as "In review"; anything that is not an enum code stays as it is. */
+function humanizeEnum(value: string) {
+  if (!/^[A-Z][A-Z0-9_]*$/.test(value)) {
+    return value;
+  }
+  const words = value.toLowerCase().split("_").filter(Boolean).join(" ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // Audit log rows carry the backend's own action codes and entity names, which
@@ -1159,6 +1250,10 @@ const auditActionLabels: Record<string, Record<AppLanguage, string>> = {
     en: "Create leave request via HRGenie",
     vi: "Tạo đơn nghỉ phép qua HRGenie"
   },
+  CREATE_HOLIDAY: { en: "Create holiday", vi: "Thêm ngày lễ" },
+  APPROVE_LEAVE_CANCELLATION: { en: "Approve leave cancellation", vi: "Đồng ý hủy đơn nghỉ" },
+  REJECT_LEAVE_CANCELLATION: { en: "Reject leave cancellation", vi: "Từ chối hủy đơn nghỉ" },
+  REQUEST_LEAVE_CANCELLATION: { en: "Request leave cancellation", vi: "Xin hủy đơn nghỉ đã duyệt" },
   CREATE_LEAVE_TYPE: { en: "Create leave type", vi: "Tạo loại phép" },
   CREATE_POSITION: { en: "Create position", vi: "Tạo chức danh" },
   CREATE_PROJECT: { en: "Create project", vi: "Tạo dự án" },
@@ -1173,6 +1268,7 @@ const auditActionLabels: Record<string, Record<AppLanguage, string>> = {
   },
   DELETE_DEPARTMENT: { en: "Delete department", vi: "Xóa phòng ban" },
   DELETE_EMPLOYEE: { en: "Delete employee", vi: "Xóa nhân viên" },
+  DELETE_HOLIDAY: { en: "Delete holiday", vi: "Xóa ngày lễ" },
   DELETE_LEAVE_TYPE: { en: "Delete leave type", vi: "Xóa loại phép" },
   DELETE_POSITION: { en: "Delete position", vi: "Xóa chức danh" },
   DELETE_PROJECT: { en: "Delete project", vi: "Xóa dự án" },
@@ -1211,6 +1307,7 @@ const auditActionLabels: Record<string, Record<AppLanguage, string>> = {
     en: "Update employee skill",
     vi: "Cập nhật kỹ năng nhân viên"
   },
+  UPDATE_HOLIDAY: { en: "Update holiday", vi: "Sửa ngày lễ" },
   UPDATE_LEAVE_TYPE: { en: "Update leave type", vi: "Cập nhật loại phép" },
   UPDATE_POSITION: { en: "Update position", vi: "Cập nhật chức danh" },
   UPDATE_PROJECT: { en: "Update project", vi: "Cập nhật dự án" },
@@ -1243,6 +1340,7 @@ const entityTypeLabels: Record<string, Record<AppLanguage, string>> = {
   EmployeeManager: { en: "Manager assignment", vi: "Phân công quản lý" },
   EmployeeSkill: { en: "Employee skill", vi: "Kỹ năng nhân viên" },
   LeaveRequest: { en: "Leave request", vi: "Đơn nghỉ phép" },
+  Holiday: { en: "Holiday", vi: "Ngày lễ" },
   LeaveType: { en: "Leave type", vi: "Loại phép" },
   Position: { en: "Position", vi: "Chức danh" },
   Project: { en: "Project", vi: "Dự án" },

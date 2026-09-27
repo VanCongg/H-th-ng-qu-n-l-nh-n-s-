@@ -157,6 +157,7 @@ model User {
   chatbotConversations     ChatbotConversation[]
   chatbotPendingActions    ChatbotPendingAction[]
   notifications            Notification[]
+  pushDevices              PushDevice[]
 
   @@map("users")
 }
@@ -400,6 +401,18 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+/// A public holiday or a compensatory day off: not a working day, whatever
+/// the work week says. Leave over it costs nothing and nobody is absent on it.
+model Holiday {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique @db.Date
+  name      String   @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("holidays")
+}
+
 model LeaveType {
   id              Int      @id @default(autoincrement())
   code            String   @unique @db.VarChar(80)
@@ -421,13 +434,20 @@ model LeaveRequest {
   leaveTypeId     Int                @map("leave_type_id")
   startDate       DateTime           @map("start_date") @db.Date
   endDate         DateTime           @map("end_date") @db.Date
-  totalDays       Int                @map("total_days")
+  /// Working days the leave costs: 0.5 for a half day.
+  totalDays       Float              @map("total_days")
+  /// Set on a one-day request that covers only the morning or the afternoon shift.
+  halfDay         LeaveHalf?         @map("half_day")
   reason          String             @db.VarChar(1000)
   status          LeaveRequestStatus @default(PENDING)
   approverUserId  Int?               @map("approver_user_id")
   approvedAt      DateTime?          @map("approved_at")
   rejectionReason String?            @map("rejection_reason") @db.VarChar(1000)
   canceledAt      DateTime?          @map("canceled_at")
+  /// The employee asked to withdraw this approved leave; the status stays
+  /// APPROVED - and the days stay booked - until a manager decides.
+  cancelRequestedAt   DateTime? @map("cancel_requested_at")
+  cancelRequestReason String?   @map("cancel_request_reason") @db.VarChar(1000)
   createdAt       DateTime           @default(now()) @map("created_at")
   updatedAt       DateTime           @updatedAt @map("updated_at")
 
@@ -457,9 +477,17 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+enum LeaveHalf {
+  MORNING
+  AFTERNOON
+}
+
 enum NotificationType {
   LEAVE_APPROVED
   LEAVE_REJECTED
+  LEAVE_CANCEL_REQUESTED
+  LEAVE_CANCEL_APPROVED
+  LEAVE_CANCEL_REJECTED
   TASK_ASSIGNED
   TASK_STATUS_CHANGED
   ATTENDANCE_ADJUSTED
@@ -480,6 +508,24 @@ model Notification {
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+/// A phone that receives this user's notifications as push messages (FCM).
+/// One row per token: a token signed in by someone else moves to them.
+model PushDevice {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(512)
+  platform  String   @db.VarChar(20)
+  /// "vi" or "en": push text is written in the app's language, not stored English.
+  language  String   @default("vi") @db.VarChar(5)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_devices")
 }
 
 model ChatbotConversation {
@@ -537,7 +583,7 @@ model Project {
   id              Int           @id @default(autoincrement())
   departmentId    Int           @map("department_id")
   managerId       Int           @map("manager_id")
-  code            String        @unique @db.VarChar(50)
+  code            String        @db.VarChar(50)
   name            String        @db.VarChar(255)
   description     String?       @db.Text
   status          ProjectStatus @default(ACTIVE)
@@ -554,6 +600,9 @@ model Project {
   tasks         Task[]
 
   @@index([departmentId, managerId, status])
+  // Unique among live projects only: a partial index, "projects_active_code_key"
+  // (see migration 20260924100000_project_code_reuse), since Prisma 5 cannot declare one.
+  @@index([code])
   @@map("projects")
 }
 
@@ -614,6 +663,10 @@ model Task {
   description      String?      @db.Text
   technologies     String[]     @default([])
   priority         TaskPriority @default(MEDIUM)
+  /// The career levels the work suits, both optional; on a subtask left
+  /// empty the team task's range applies. Ranking favours people inside it.
+  minLevel         CareerLevel? @map("min_level")
+  maxLevel         CareerLevel? @map("max_level")
   status           TaskStatus   @default(TODO)
   assigneeId       Int?         @map("assignee_id")
   createdByUserId  Int?         @map("created_by")

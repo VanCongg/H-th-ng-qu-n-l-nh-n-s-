@@ -10,6 +10,7 @@ const settings: TimesheetSettings = {
   workWeek: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
   timezoneOffsetMinutes: 420,
   attendanceGraceMinutes: 0,
+  overtimeMinimumMinutes: 0,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
@@ -98,6 +99,22 @@ describe("computeTimesheet", () => {
     expect(result.lateMinutes).toBe(0);
   });
 
+  it("ignores a day's extra time below the overtime minimum", () => {
+    // 17:20 is twenty minutes past the shift; 19:00 is two hours.
+    const result = september(
+      [
+        record(1, "08:00", IN),
+        record(1, "17:20", OUT),
+        record(2, "08:00", IN),
+        record(2, "19:00", OUT)
+      ],
+      [],
+      { overtimeMinimumMinutes: 30 }
+    );
+
+    expect(result.overtimeMinutes).toBe(120);
+  });
+
   it("records a check-in outside every shift as overtime without day credit", () => {
     const result = september([record(1, "20:00", IN), record(1, "22:00", OUT)]);
 
@@ -136,6 +153,56 @@ describe("computeTimesheet", () => {
 
     expect(result.paidLeaveDays).toBe(3);
     expect(result.unpaidLeaveDays).toBe(1);
+  });
+
+  it("leaves a holiday out of the standard and pays it, with work on it as overtime", () => {
+    // Wed 2 September 2026 is National Day.
+    const nationalDay = Date.UTC(2026, 8, 2);
+    const result = computeTimesheet(
+      2026,
+      9,
+      [record(2, "08:00", IN), record(2, "10:00", OUT)],
+      [{ startDate: new Date(Date.UTC(2026, 8, 1)), endDate: new Date(Date.UTC(2026, 8, 3)), isPaid: true }],
+      settings,
+      new Set([nationalDay])
+    );
+
+    expect(result.standardWorkDays).toBe(21);
+    expect(result.holidayDays).toBe(1);
+    expect(result.overtimeMinutes).toBe(120);
+    // The leave covers only the two working days around the holiday.
+    expect(result.paidLeaveDays).toBe(2);
+    expect(result.attendanceDays).toBe(0);
+  });
+
+  it("pays half a day for a morning off and the afternoon worked", () => {
+    const result = september(
+      [record(4, "13:00", IN), record(4, "17:00", OUT)],
+      [{ startDate: new Date(Date.UTC(2026, 8, 4)), endDate: new Date(Date.UTC(2026, 8, 4)), isPaid: true, halfDay: "MORNING" }]
+    );
+
+    expect(result.attendanceDays).toBe(0.5);
+    expect(result.paidLeaveDays).toBe(0.5);
+    expect(result.unpaidLeaveDays).toBe(0);
+  });
+
+  it("covers only half of a day with a half-day leave and no work", () => {
+    const result = september(
+      [],
+      [{ startDate: new Date(Date.UTC(2026, 8, 4)), endDate: new Date(Date.UTC(2026, 8, 4)), isPaid: true, halfDay: "AFTERNOON" }]
+    );
+
+    expect(result.paidLeaveDays).toBe(0.5);
+  });
+
+  it("does not count the half of an unpaid leave day that was worked", () => {
+    const result = september(
+      [record(4, "08:00", IN), record(4, "12:00", OUT)],
+      [{ startDate: new Date(Date.UTC(2026, 8, 4)), endDate: new Date(Date.UTC(2026, 8, 4)), isPaid: false }]
+    );
+
+    expect(result.attendanceDays).toBe(0.5);
+    expect(result.unpaidLeaveDays).toBe(0.5);
   });
 
   it("does not double count a day that is both attended and on paid leave", () => {

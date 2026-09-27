@@ -26,6 +26,7 @@ import {
   AttendanceStatus,
   CareerLevel,
   EmployeeStatus,
+  LeaveHalf,
   LeaveRequestStatus,
   ManagerType,
   NotificationType,
@@ -69,6 +70,9 @@ const EARLY_CHECK_IN_MINUTES = 60;
 
 const { TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED } = TaskStatus;
 const OPEN_TASK_STATUSES = [TODO, IN_PROGRESS, IN_REVIEW];
+/** Levels a lead may hand a stretch task to, and how often they do. */
+const JUNIOR_LEVELS = new Set<CareerLevel>([CareerLevel.INTERN, CareerLevel.FRESHER, CareerLevel.JUNIOR]);
+const MENTORING_CHANCE = 0.1;
 const ACTIVE_LEAVE_STATUSES = [LeaveRequestStatus.PENDING, LeaveRequestStatus.APPROVED];
 const PRIORITY_RANK: Record<TaskPriority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 const PROFICIENCY_RANK: Record<SkillProficiency, number> = {
@@ -94,6 +98,13 @@ type TeamCatalog = {
   pipeline: readonly JobTemplate[];
   /** Small unplanned jobs, filed under the team's monthly support task. */
   quick: readonly JobTemplate[];
+  /**
+   * Small jobs a lead keeps for new people: beginner level in skills an
+   * intern or fresher actually has. Without them every task asks for more
+   * than a newcomer knows, the ranking rightly never proposes them, and the
+   * newcomers never build the record that would let it.
+   */
+  starter?: readonly JobTemplate[];
   supportTitle: string;
 };
 type ProjectTemplate = {
@@ -177,6 +188,10 @@ const CATALOGS: Record<string, TeamCatalog> = {
       job("Viết unit test và e2e cho {x}", [8, 16], ["TESTING", I, REQ], ["TYPESCRIPT", I, IMP]),
       job("Review mã nguồn và hoàn thiện tài liệu API {x}", [4, 8], ["CODE_REVIEW", A, REQ], ["REST_API", I, NICE])
     ],
+    starter: [
+      job("Viết thêm test cho API {x} theo mẫu có sẵn", [2, 4], ["NODEJS", B, REQ], ["TYPESCRIPT", B, NICE]),
+      job("Bổ sung mô tả Swagger cho các API {x}", [2, 3], ["REST_API", B, REQ])
+    ],
     quick: [
       job("Sửa lỗi 500 khi xuất báo cáo {x}", [2, 6], ["NESTJS", I, REQ], ["POSTGRESQL", I, IMP]),
       job("Bổ sung bộ lọc cho API {x}", [3, 6], ["NESTJS", I, REQ], ["PRISMA", I, IMP]),
@@ -195,6 +210,10 @@ const CATALOGS: Record<string, TeamCatalog> = {
       job("Tích hợp API {x} và xử lý trạng thái tải", [6, 12], ["JAVASCRIPT", I, REQ], ["REACT", I, IMP]),
       job("Responsive và hoàn thiện UI {x} theo thiết kế", [6, 10], ["CSS", I, REQ], ["HTML", I, IMP], ["TAILWIND", B, NICE]),
       job("Viết test component cho {x}", [6, 10], ["TESTING", I, REQ], ["REACT", I, IMP])
+    ],
+    starter: [
+      job("Sửa nội dung và nhãn hiển thị trên màn {x}", [2, 4], ["HTML", B, REQ]),
+      job("Bổ sung kiểm tra dữ liệu nhập đơn giản cho form {x}", [2, 4], ["JAVASCRIPT", B, REQ], ["HTML", B, NICE])
     ],
     quick: [
       job("Sửa lỗi vỡ bố cục bảng {x} trên màn hình nhỏ", [2, 5], ["CSS", I, REQ]),
@@ -216,6 +235,10 @@ const CATALOGS: Record<string, TeamCatalog> = {
       job("Viết widget test cho {x}", [6, 10], ["TESTING", I, REQ], ["DART", I, IMP]),
       job("Build và phát hành bản thử nghiệm có {x}", [4, 8], ["MOBILE_CI_CD", I, REQ], ["ANDROID", B, NICE])
     ],
+    starter: [
+      job("Chỉnh khoảng cách và màu theo thiết kế ở màn {x}", [2, 4], ["FLUTTER", B, REQ]),
+      job("Viết model và parse JSON cho {x}", [2, 4], ["DART", B, REQ], ["FLUTTER", B, NICE])
+    ],
     quick: [
       job("Sửa lỗi crash Android khi mở {x}", [3, 6], ["ANDROID", I, REQ], ["FLUTTER", I, IMP]),
       job("Tối ưu thời gian tải màn {x}", [4, 8], ["FLUTTER", A, REQ]),
@@ -233,6 +256,9 @@ const CATALOGS: Record<string, TeamCatalog> = {
       job("Tự động hóa kiểm thử {x} bằng Playwright", [10, 18], ["PLAYWRIGHT", I, REQ], ["AUTOMATION_TESTING", I, REQ]),
       job("Kiểm thử hiệu năng {x}", [6, 10], ["PERFORMANCE_TESTING", I, REQ]),
       job("Kiểm thử hồi quy trước khi phát hành {x}", [6, 12], ["MANUAL_TESTING", I, REQ], ["AUTOMATION_TESTING", B, NICE])
+    ],
+    starter: [
+      job("Chạy lại bộ test thủ công cho {x} và ghi kết quả", [2, 4], ["MANUAL_TESTING", B, REQ])
     ],
     quick: [
       job("Tái hiện và xác minh lỗi khách hàng báo ở {x}", [2, 4], ["MANUAL_TESTING", I, REQ]),
@@ -285,6 +311,9 @@ const CATALOGS: Record<string, TeamCatalog> = {
       job("Đánh giá độ chính xác của {x}", [6, 12], ["MACHINE_LEARNING", I, REQ], ["PYTHON", I, IMP]),
       job("Đóng gói API FastAPI cho {x}", [6, 12], ["FASTAPI", I, REQ], ["DOCKER", B, NICE]),
       job("Theo dõi chất lượng và chi phí vận hành {x}", [4, 8], ["LLM", I, REQ], ["DATA_ENGINEERING", B, NICE])
+    ],
+    starter: [
+      job("Làm sạch và gắn nhãn dữ liệu mẫu cho {x}", [2, 4], ["PYTHON", B, REQ])
     ],
     quick: [
       job("Cập nhật tài liệu tri thức cho {x}", [2, 4], ["RAG", I, REQ]),
@@ -529,6 +558,15 @@ const ANNUAL_REASONS = [
   "Chuyển nhà."
 ];
 const UNPAID_REASONS = ["Chăm sóc người thân nằm viện.", "Việc cá nhân đột xuất, đã hết phép năm."];
+const CANCEL_REASONS = [
+  "Dự án cần gấp, em xin đi làm lại.",
+  "Kế hoạch gia đình thay đổi, không cần nghỉ nữa.",
+  "Em đổi lịch nghỉ sang dịp khác."
+];
+const CANCEL_KEEP_REASONS = [
+  "Đã sắp xếp người thay, em cứ nghỉ theo kế hoạch.",
+  "Lịch nghỉ đã báo khách hàng, giữ nguyên giúp anh/chị nhé."
+];
 const REJECTION_REASONS = [
   "Trùng thời điểm bàn giao dự án, đề nghị dời sang tuần sau.",
   "Nhóm đã có hai người nghỉ cùng thời gian này.",
@@ -595,6 +633,10 @@ type Totals = {
   leaveApproved: number;
   leaveRejected: number;
   leaveCancelled: number;
+  halfDayLeaves: number;
+  cancelRequested: number;
+  cancelApproved: number;
+  cancelRejected: number;
   projects: string[];
   projectsStarted: string[];
   projectsCompleted: string[];
@@ -609,10 +651,19 @@ type Totals = {
   cancelled: number;
 };
 
+/**
+ * Public holidays from the holidays table (seeded by its migration), loaded
+ * once in main(): nobody works, files leave or is absent on them.
+ */
+let holidays: ReadonlySet<number> = new Set();
+
 async function main() {
   if (process.env.NODE_ENV === "production") {
     throw new Error("The simulator writes synthetic data and refuses to run with NODE_ENV=production.");
   }
+  holidays = new Set(
+    (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
+  );
 
   const options = parseArgs(process.argv.slice(2));
   const today = companyToday(new Date());
@@ -845,6 +896,10 @@ function createTotals(): Totals {
     leaveApproved: 0,
     leaveRejected: 0,
     leaveCancelled: 0,
+    halfDayLeaves: 0,
+    cancelRequested: 0,
+    cancelApproved: 0,
+    cancelRejected: 0,
     projects: [],
     projectsStarted: [],
     projectsCompleted: [],
@@ -867,9 +922,10 @@ function createTotals(): Totals {
 async function simulateDay(tx: Tx, ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   random = createRandom(hashString(`omnihr-simulation:${iso(day)}`));
 
-  const onLeave = await settleLeaveRequests(tx, ctx, day, totals);
+  await settleCancellationRequests(tx, ctx, day, totals);
+  const { onLeave, halfOff } = await settleLeaveRequests(tx, ctx, day, totals);
   await fileLeaveRequests(tx, ctx, day, onLeave, totals);
-  const presence = await recordAttendance(tx, ctx, day, onLeave, totals);
+  const presence = await recordAttendance(tx, ctx, day, onLeave, totals, halfOff);
   await createNewWork(tx, ctx, state, day, totals);
   await assignTasks(tx, ctx, day, onLeave, totals);
   await progressTasks(tx, ctx, state, day, presence, totals);
@@ -937,9 +993,92 @@ async function settleLeaveRequests(tx: Tx, ctx: Context, day: Date, totals: Tota
 
   const approved = await tx.leaveRequest.findMany({
     where: { status: LeaveRequestStatus.APPROVED, startDate: { lte: day }, endDate: { gte: day } },
-    select: { employeeId: true }
+    select: { employeeId: true, halfDay: true }
   });
-  return new Set(approved.map((request) => request.employeeId));
+  // A half day off still works the other shift, so it does not make the
+  // person unavailable for the day.
+  const onLeave = new Set(approved.filter((request) => !request.halfDay).map((request) => request.employeeId));
+  const halfOff = new Map<number, LeaveHalf>();
+  for (const request of approved) {
+    if (request.halfDay && !onLeave.has(request.employeeId)) {
+      halfOff.set(request.employeeId, request.halfDay);
+    }
+  }
+  return { onLeave, halfOff };
+}
+
+/**
+ * Approved leave that is still ahead is sometimes withdrawn: the employee
+ * asks, the manager (whoever approved it) decides within a few days and
+ * always before the leave starts - mostly yes, sometimes "keep it".
+ */
+async function settleCancellationRequests(tx: Tx, ctx: Context, day: Date, totals: Totals) {
+  const asked = await tx.leaveRequest.findMany({
+    where: { status: LeaveRequestStatus.APPROVED, cancelRequestedAt: { lt: at(day, 0) } },
+    orderBy: { cancelRequestedAt: "asc" }
+  });
+  for (const request of asked) {
+    const employee = ctx.employees.get(request.employeeId);
+    const due = request.startDate <= addWorkdays(day, 1);
+    if (!due && !chance(0.6)) {
+      continue;
+    }
+    const decidedAt = at(day, randomInt(hm("08:30"), hm("16:30")));
+    const accepted = chance(0.8);
+    if (accepted) {
+      await tx.leaveRequest.update({
+        where: { id: request.id },
+        data: { status: LeaveRequestStatus.CANCELLED, canceledAt: decidedAt }
+      });
+      totals.cancelApproved += 1;
+    } else {
+      await tx.leaveRequest.update({
+        where: { id: request.id },
+        data: { cancelRequestedAt: null, cancelRequestReason: null }
+      });
+      totals.cancelRejected += 1;
+    }
+    if (employee) {
+      await notify(tx, ctx, employee.userId, {
+        type: accepted ? NotificationType.LEAVE_CANCEL_APPROVED : NotificationType.LEAVE_CANCEL_REJECTED,
+        title: accepted ? "Leave cancellation approved" : "Leave cancellation rejected",
+        message: accepted
+          ? `Your leave from ${iso(request.startDate)} to ${iso(request.endDate)} was cancelled.`
+          : pick(CANCEL_KEEP_REASONS),
+        entityType: "LeaveRequest",
+        entityId: request.id,
+        createdAt: decidedAt
+      });
+    }
+  }
+
+  const upcoming = await tx.leaveRequest.findMany({
+    where: {
+      status: LeaveRequestStatus.APPROVED,
+      cancelRequestedAt: null,
+      startDate: { gt: addWorkdays(day, 2) }
+    }
+  });
+  for (const request of upcoming) {
+    const employee = ctx.employees.get(request.employeeId);
+    if (!employee || !chance(0.01)) {
+      continue;
+    }
+    const askedAt = at(day, randomInt(hm("08:30"), hm("17:00")));
+    await tx.leaveRequest.update({
+      where: { id: request.id },
+      data: { cancelRequestedAt: askedAt, cancelRequestReason: pick(CANCEL_REASONS) }
+    });
+    totals.cancelRequested += 1;
+    await notify(tx, ctx, request.approverUserId ?? employee.managerUserId, {
+      type: NotificationType.LEAVE_CANCEL_REQUESTED,
+      title: "Leave cancellation requested",
+      message: `${employee.fullName} asked to cancel their leave from ${iso(request.startDate)} to ${iso(request.endDate)}.`,
+      entityType: "LeaveRequest",
+      entityId: request.id,
+      createdAt: askedAt
+    });
+  }
 }
 
 async function fileLeaveRequests(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>, totals: Totals) {
@@ -971,10 +1110,12 @@ async function fileLeaveRequests(tx: Tx, ctx: Context, day: Date, onLeave: Set<n
     if (chance(0.0065)) {
       const startDate = addWorkdays(day, randomInt(3, 15));
       const length = weighted<number>([
-        [1, 0.55],
-        [2, 0.3],
+        [0.5, 0.15],
+        [1, 0.45],
+        [2, 0.25],
         [3, 0.15]
       ]);
+      const halfDay = length === 0.5 ? pick([LeaveHalf.MORNING, LeaveHalf.AFTERNOON]) : null;
       const unpaid = chance(0.1);
       if (!unpaid && (await annualLeaveUsed(tx, ctx, employee.id, startDate)) + length > annualAllowance(ctx)) {
         continue;
@@ -982,12 +1123,16 @@ async function fileLeaveRequests(tx: Tx, ctx: Context, day: Date, onLeave: Set<n
       const created = await createLeave(tx, ctx, employee, {
         typeCode: unpaid ? "UNPAID_LEAVE" : "ANNUAL_LEAVE",
         startDate,
-        endDate: addWorkdays(startDate, length - 1),
+        endDate: halfDay ? startDate : addWorkdays(startDate, length - 1),
+        halfDay,
         reason: pick(unpaid ? UNPAID_REASONS : ANNUAL_REASONS),
         createdAt: at(day, randomInt(hm("08:30"), hm("17:00")))
       });
       if (created) {
         totals.leaveFiled += 1;
+        if (halfDay) {
+          totals.halfDayLeaves += 1;
+        }
       }
     }
   }
@@ -997,7 +1142,15 @@ async function createLeave(
   tx: Tx,
   ctx: Context,
   employee: SimEmployee,
-  input: { typeCode: string; startDate: Date; endDate: Date; reason: string; createdAt: Date; approvedAt?: Date }
+  input: {
+    typeCode: string;
+    startDate: Date;
+    endDate: Date;
+    halfDay?: LeaveHalf | null;
+    reason: string;
+    createdAt: Date;
+    approvedAt?: Date;
+  }
 ) {
   const leaveType = ctx.leaveTypes.get(input.typeCode);
   if (!leaveType) {
@@ -1021,7 +1174,8 @@ async function createLeave(
       leaveTypeId: leaveType.id,
       startDate: input.startDate,
       endDate: input.endDate,
-      totalDays: workdaysBetween(addDays(input.startDate, -1), input.endDate),
+      totalDays: input.halfDay ? 0.5 : workdaysBetween(addDays(input.startDate, -1), input.endDate),
+      halfDay: input.halfDay ?? null,
       reason: input.reason,
       status: input.approvedAt ? LeaveRequestStatus.APPROVED : LeaveRequestStatus.PENDING,
       approverUserId: input.approvedAt ? employee.managerUserId ?? ctx.adminUserId : null,
@@ -1071,7 +1225,14 @@ async function annualLeaveUsed(tx: Tx, ctx: Context, employeeId: number, date: D
  * shift comes from the check-in time, LATE after the shift start, EARLY_OUT
  * when checking out before that shift ends. Returns hours at work per person.
  */
-async function recordAttendance(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>, totals: Totals) {
+async function recordAttendance(
+  tx: Tx,
+  ctx: Context,
+  day: Date,
+  onLeave: Set<number>,
+  totals: Totals,
+  halfOff: Map<number, LeaveHalf> = new Map()
+) {
   const presence = new Map<number, number>();
   const alreadyRecorded = new Set(
     (
@@ -1100,7 +1261,16 @@ async function recordAttendance(tx: Tx, ctx: Context, day: Date, onLeave: Set<nu
 
     let checkIn: number;
     let checkOut: number | null;
-    if (chance(0.02)) {
+    const off = halfOff.get(employee.id);
+    if (off === LeaveHalf.MORNING) {
+      // Morning off on approved leave: in for the afternoon shift.
+      checkIn = randomInt(hm("12:40"), hm("13:05"));
+      checkOut = randomInt(hm("17:00"), hm("17:40"));
+    } else if (off === LeaveHalf.AFTERNOON) {
+      // Afternoon off: the morning shift, then gone at noon.
+      checkIn = randomInt(hm("07:30"), hm("08:00"));
+      checkOut = randomInt(hm("12:00"), hm("12:15"));
+    } else if (chance(0.02)) {
       // Personal errand in the morning, afternoon shift only.
       checkIn = randomInt(hm("12:40"), hm("13:10"));
       checkOut = randomInt(hm("17:00"), hm("17:40"));
@@ -1171,6 +1341,8 @@ type JobPlan = {
   dueDate: Date;
   priority: TaskPriority;
   skills: readonly SkillRequirement[];
+  /** Kept for new people: always marked Intern-Junior. */
+  starter?: boolean;
 };
 
 const NORMAL_PRIORITIES: ReadonlyArray<readonly [TaskPriority, number]> = [
@@ -1261,7 +1433,7 @@ async function createProject(
   do {
     state.sequence += 1;
     code = `${department.code}-${iso(day).slice(2, 4)}${iso(day).slice(5, 7)}-${String(state.sequence).padStart(3, "0")}`;
-  } while (await tx.project.findUnique({ where: { code }, select: { id: true } }));
+  } while (await tx.project.findFirst({ where: { code }, select: { id: true } }));
 
   // Only a department head creates a project, and they manage it.
   const startDate = addWorkdays(day, randomInt(1, 7));
@@ -1352,7 +1524,10 @@ async function createTeamTask(
       },
       select: { id: true }
     });
-    projectId = projects.length && chance(0.75) ? pick(projects).id : null;
+    projectId =
+      projects.length && chance(0.75)
+        ? pick(projects).id
+        : await internalProjectId(tx, ctx, team.departmentId, day);
   }
 
   const leadUserId = leadUserOf(ctx, team);
@@ -1396,7 +1571,15 @@ async function createQuickTask(tx: Tx, ctx: Context, day: Date, team: SimTeam, t
 
   const leadUserId = leadUserOf(ctx, team);
   const title = `${catalog.supportTitle} ${monthLabel(day)}`;
-  const [plan] = planJobs([pick(catalog.quick)], addWorkdays(day, randomInt(0, 1)), day, fill(pick(catalog.topics), day), true);
+  const starter = Boolean(catalog.starter?.length) && chance(0.35);
+  const [plan] = planJobs(
+    [pick(starter ? catalog.starter! : catalog.quick)],
+    addWorkdays(day, randomInt(0, 1)),
+    day,
+    fill(pick(catalog.topics), day),
+    true
+  );
+  plan.starter = starter;
   const createdAt = at(day, randomInt(hm("08:30"), hm("16:00")));
 
   let bucket = await tx.task.findFirst({
@@ -1408,6 +1591,7 @@ async function createQuickTask(tx: Tx, ctx: Context, day: Date, team: SimTeam, t
         title,
         description: "Các yêu cầu hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch trong tháng.",
         technologies: [...catalog.technologies],
+        projectId: await internalProjectId(tx, ctx, team.departmentId, day),
         departmentId: team.departmentId,
         teamId: team.id,
         priority: TaskPriority.MEDIUM,
@@ -1465,6 +1649,7 @@ async function createSubtask(
   createdByUserId: number,
   createdAt: Date
 ) {
+  const levels = levelRangeFor(plan);
   await tx.task.create({
     data: {
       parentTaskId,
@@ -1473,6 +1658,8 @@ async function createSubtask(
       departmentId: team.departmentId,
       teamId: team.id,
       priority: plan.priority,
+      minLevel: levels?.[0] ?? null,
+      maxLevel: levels?.[1] ?? null,
       status: TODO,
       createdByUserId,
       startDate: plan.startDate,
@@ -1491,6 +1678,29 @@ async function createSubtask(
       }
     }
   });
+}
+
+/**
+ * The level range a lead writes on a subtask, judged from how big it is and
+ * how deep the skills go. Three in ten are left empty - leads do not always
+ * fill it in, and the ranking must cope with that.
+ */
+function levelRangeFor(plan: JobPlan): [CareerLevel, CareerLevel] | null {
+  // Work kept for new people is always marked as such.
+  if (plan.starter) {
+    return [CareerLevel.INTERN, CareerLevel.JUNIOR];
+  }
+  if (chance(0.3)) {
+    return null;
+  }
+  const proficiencies = plan.skills.map(([, proficiency]) => proficiency);
+  if (proficiencies.includes(SkillProficiency.EXPERT) || plan.hours > 24) {
+    return [CareerLevel.MIDDLE, CareerLevel.LEAD];
+  }
+  if (proficiencies.includes(SkillProficiency.ADVANCED) || plan.hours > 12) {
+    return [CareerLevel.JUNIOR, CareerLevel.SENIOR];
+  }
+  return plan.hours <= 4 ? [CareerLevel.INTERN, CareerLevel.JUNIOR] : [CareerLevel.FRESHER, CareerLevel.MIDDLE];
 }
 
 // --- Assignment ---------------------------------------------------------------
@@ -1586,6 +1796,14 @@ function chooseAssignee(
   if (chance(0.2)) {
     return pick(candidates);
   }
+  // Sometimes the lead stretches a junior on purpose, skills or not: the way
+  // people learn, and a reason the ranking cannot see.
+  const juniors = candidates.filter((employee) => JUNIOR_LEVELS.has(employee.level));
+  if (juniors.length && chance(MENTORING_CHANCE)) {
+    return juniors.reduce((least, employee) =>
+      (loads.get(employee.id) ?? 0) < (loads.get(least.id) ?? 0) ? employee : least
+    );
+  }
 
   let best = candidates[0];
   let bestScore = Number.NEGATIVE_INFINITY;
@@ -1597,13 +1815,32 @@ function chooseAssignee(
         }, 0) / required.length
       : 0.5;
     const capacity = 1 - Math.min(1, (loads.get(employee.id) ?? 0) / 40);
-    const score = 0.4 * skillMatch + 0.4 * capacity - (employee.id === team.leadId ? 0.15 : 0) + random() * 0.4;
+    const score =
+      0.4 * skillMatch +
+      0.4 * capacity -
+      (employee.id === team.leadId ? 0.15 : 0) +
+      leadAffinity(team.leadId, employee.id) +
+      random() * 0.3;
     if (score > bestScore) {
       best = employee;
       bestScore = score;
     }
   }
   return best;
+}
+
+/**
+ * Why a simulated lead favours someone beyond skills and load: rapport,
+ * trust, habit. Fixed per lead-member pair and invisible to the API, which
+ * sees none of it - so the replayed history is not just the ranking formula
+ * played back, and an evaluation on it cannot score well merely by agreeing
+ * with how the simulator chose. Between -0.15 and +0.15.
+ */
+function leadAffinity(leadId: number | null, employeeId: number) {
+  if (leadId === null) {
+    return 0;
+  }
+  return (hash01(`affinity:${leadId}:${employeeId}`) - 0.5) * 0.3;
 }
 
 async function assign(
@@ -1843,6 +2080,51 @@ async function syncParentTasks(tx: Tx) {
   }
 }
 
+/**
+ * Every team-level task belongs to a project - the API refuses one without.
+ * Operations, support and unplanned work belong to no product, so each
+ * department gets one internal project per year to hold them, the way
+ * companies book such work in practice.
+ */
+export function internalProjectCode(departmentCode: string, year: number) {
+  return `${departmentCode}-OPS-${year}`;
+}
+
+export function isInternalProjectCode(code: string) {
+  return /-OPS-\d{4}$/.test(code);
+}
+
+async function internalProjectId(tx: Tx, ctx: Context, departmentId: number, day: Date) {
+  const department = ctx.departments.get(departmentId);
+  const year = day.getUTCFullYear();
+  const code = internalProjectCode(department?.code ?? `D${departmentId}`, year);
+  const existing = await tx.project.findFirst({ where: { code, deletedAt: null }, select: { id: true } });
+  if (existing) {
+    return existing.id;
+  }
+  const head = department?.headId ? ctx.employees.get(department.headId) : undefined;
+  if (!head) {
+    // The head manages the internal project, as any other of the department's.
+    throw new Error(`Department ${code} has no head to manage its internal project.`);
+  }
+  const project = await tx.project.create({
+    data: {
+      code,
+      name: `Vận hành & hỗ trợ nội bộ ${year}`,
+      description:
+        "Dự án nội bộ theo năm: vận hành, hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch của phòng ban.",
+      status: ProjectStatus.ACTIVE,
+      departmentId,
+      managerId: head.id,
+      createdByUserId: head.userId ?? ctx.adminUserId,
+      startDate: new Date(Date.UTC(year, 0, 1)),
+      endDate: new Date(Date.UTC(year, 11, 31)),
+      createdAt: at(day, hm("08:00"))
+    }
+  });
+  return project.id;
+}
+
 async function syncProjects(tx: Tx, day: Date, totals: Totals) {
   const projects = await tx.project.findMany({
     where: { deletedAt: null, status: { in: [ProjectStatus.PLANNING, ProjectStatus.ACTIVE] } },
@@ -1862,6 +2144,7 @@ async function syncProjects(tx: Tx, day: Date, totals: Totals) {
     }
     if (
       status === ProjectStatus.ACTIVE &&
+      !isInternalProjectCode(project.code) &&
       project.tasks.some((task) => task.status === DONE) &&
       project.tasks.every((task) => task.status === DONE || task.status === CANCELLED)
     ) {
@@ -2019,7 +2302,7 @@ function addDays(date: Date, days: number) {
 
 function isWorkday(date: Date) {
   const day = date.getUTCDay();
-  return day >= 1 && day <= 5;
+  return day >= 1 && day <= 5 && !holidays.has(date.getTime());
 }
 
 /** `count` workdays after `date`, which is first moved forward onto a workday. */
@@ -2093,7 +2376,12 @@ function printSummary(totals: Totals, state: SimulationState) {
   );
   console.info(
     `- Nghỉ phép: ${totals.sickLeaves} nghỉ ốm, ${totals.leaveFiled} đơn mới chờ duyệt, ` +
-      `${totals.leaveApproved} duyệt, ${totals.leaveRejected} từ chối, ${totals.leaveCancelled} hủy`
+      `${totals.leaveApproved} duyệt, ${totals.leaveRejected} từ chối, ${totals.leaveCancelled} hủy, ` +
+      `${totals.halfDayLeaves} đơn nửa ngày`
+  );
+  console.info(
+    `- Xin hủy đơn đã duyệt: ${totals.cancelRequested} yêu cầu, ${totals.cancelApproved} được hủy, ` +
+      `${totals.cancelRejected} giữ nguyên`
   );
 }
 

@@ -1,7 +1,7 @@
 # Tối ưu trọng số xếp hạng gợi ý người nhận việc
 
-- Khoảng dữ liệu: 2026-02-02 → 2026-09-20
-- Số quyết định giao việc tái dựng được: 2769 (1938 để dò trọng số, 831 giữ lại để kiểm chứng)
+- Khoảng dữ liệu: 2026-02-01 → 2026-09-26
+- Số quyết định giao việc tái dựng được: 2621 (1834 để dò trọng số, 787 giữ lại để kiểm chứng)
 - Không gian tìm kiếm: lưới bước 0.05 trên đơn hình 4 chiều (1540 bộ trọng số), không áp sàn cho tín hiệu nào
 - Hàm mục tiêu dùng để chọn: **điểm tổng hợp đa mục tiêu** — phân tách kết quả, trừ vi phạm nghỉ phép, lệch tải so với lead thật và tỉ lệ bỏ rơi người mới
 - Trọng số nghiệp vụ (đặt tay, không tune): phân tách 1 · vi phạm nghỉ phép 0.5 · lệch tải 0.3 · bỏ rơi người mới 0.2
@@ -12,22 +12,22 @@
 
 | Bộ trọng số (kỹ năng / tải việc / lịch nghỉ / lịch sử) | Tập | Điểm tổng hợp | Phân tách | Vi phạm nghỉ | Lệch tải | Bỏ rơi người mới |
 |---|---|---|---|---|---|---|
-| 0.1 / 0.15 / 0.1 / 0.65 | dò | **0.044** | 0.138 | 0.5% | 0.305 | 0.0% |
-| 0.1 / 0.15 / 0.1 / 0.65 | kiểm chứng | **0.126** | 0.197 | 0.4% | 0.228 | 0.0% |
-| 0.6 / 0 / 0.2 / 0.2 | dò | **0.070** | 0.093 | 0.3% | 0.062 | 1.4% |
-| 0.6 / 0 / 0.2 / 0.2 | kiểm chứng | **0.033** | 0.078 | 0.3% | 0.146 | 0.0% |
+| 0.1 / 0.15 / 0.1 / 0.65 | dò | **0.062** | 0.138 | 0.4% | 0.235 | 1.4% |
+| 0.1 / 0.15 / 0.1 / 0.65 | kiểm chứng | **0.185** | 0.207 | 0.7% | 0.062 | 0.0% |
+| 0.1 / 0.15 / 0.25 / 0.5 | dò | **0.078** | 0.143 | 0.2% | 0.203 | 1.4% |
+| 0.1 / 0.15 / 0.25 / 0.5 | kiểm chứng | **0.178** | 0.193 | 0.5% | 0.040 | 0.0% |
 
-Chênh lệch trên tập kiểm chứng: **-0.094** điểm tổng hợp (dựa trên 313 task đúng hạn và 429 task trễ).
+Chênh lệch trên tập kiểm chứng: **-0.007** điểm tổng hợp (dựa trên 316 task đúng hạn và 385 task trễ).
 
 ## 2. Năm bộ trọng số tốt nhất trên tập dò
 
 | Kỹ năng | Tải việc | Lịch nghỉ | Lịch sử | Điểm tổng hợp | Phân tách | Vi phạm nghỉ |
 |---|---|---|---|---|---|---|
-| 0.6 | 0 | 0.2 | 0.2 | 0.070 | 0.093 | 0.3% |
-| 0.7 | 0.15 | 0.05 | 0.1 | 0.070 | 0.098 | 0.4% |
-| 0.6 | 0.1 | 0.25 | 0.05 | 0.069 | 0.090 | 0.3% |
-| 0.65 | 0.1 | 0.15 | 0.1 | 0.068 | 0.097 | 0.3% |
-| 0.6 | 0.05 | 0.3 | 0.05 | 0.067 | 0.083 | 0.2% |
+| 0.1 | 0.15 | 0.25 | 0.5 | 0.078 | 0.143 | 0.2% |
+| 0.1 | 0.2 | 0.2 | 0.5 | 0.076 | 0.149 | 0.3% |
+| 0.1 | 0.25 | 0.1 | 0.55 | 0.073 | 0.148 | 0.4% |
+| 0.05 | 0.15 | 0.35 | 0.45 | 0.073 | 0.136 | 0.2% |
+| 0.1 | 0.2 | 0.15 | 0.55 | 0.072 | 0.144 | 0.3% |
 
 Mặt mục tiêu phẳng quanh đỉnh nghĩa là kết quả không phụ thuộc một điểm may mắn.
 
@@ -37,20 +37,20 @@ Mỗi dòng là bộ trọng số đang dùng với đúng một tín hiệu b�
 
 | Cấu hình | Điểm tổng hợp | Phân tách | Δ phân tách | Vi phạm nghỉ |
 |---|---|---|---|---|
-| Đủ bốn tín hiệu (0.1 / 0.15 / 0.1 / 0.65) | 0.126 | 0.197 | — | 0.4% |
-| Bỏ kỹ năng | 0.120 | 0.198 | +0.001 | 0.5% |
-| Bỏ tải việc | 0.105 | 0.187 | -0.009 | 0.4% |
-| Bỏ lịch nghỉ | 0.116 | 0.192 | -0.005 | 0.5% |
-| Bỏ lịch sử làm việc | 0.043 | 0.107 | -0.090 | 0.3% |
+| Đủ bốn tín hiệu (0.1 / 0.15 / 0.1 / 0.65) | 0.185 | 0.207 | — | 0.7% |
+| Bỏ kỹ năng | 0.173 | 0.204 | -0.003 | 0.7% |
+| Bỏ tải việc | 0.168 | 0.201 | -0.007 | 0.7% |
+| Bỏ lịch nghỉ | 0.179 | 0.212 | +0.004 | 0.7% |
+| Bỏ lịch sử làm việc | 0.078 | 0.118 | -0.090 | 0.3% |
 
 Và nếu chỉ dùng duy nhất một tín hiệu:
 
 | Cấu hình | Phân tách kết quả | Tương quan | Chọn đúng người giỏi nhất |
 |---|---|---|---|
-| Chỉ kỹ năng | 0.037 | 0.140 | 21.5% |
-| Chỉ tải việc | 0.122 | 0.203 | 27.3% |
-| Chỉ lịch nghỉ | 0.036 | -0.233 | 20.2% |
-| Chỉ lịch sử làm việc | 0.204 | 0.786 | 37.5% |
+| Chỉ kỹ năng | 0.074 | 0.109 | 20.1% |
+| Chỉ tải việc | 0.136 | 0.151 | 24.4% |
+| Chỉ lịch nghỉ | 0.042 | -0.204 | 19.7% |
+| Chỉ lịch sử làm việc | 0.203 | 0.776 | 37.0% |
 
 **Cách đọc bảng này.** Phân tách kết quả chỉ biết task có xong đúng hạn hay không, nên nó đo được giá trị của tín hiệu lịch sử rất rõ và gần như không đo được ba tín hiệu còn lại. Điều đó *không* có nghĩa là nên bỏ chúng:
 
@@ -66,7 +66,7 @@ Mới có 0 lượt quản lý chọn từ gợi ý (cần tối thiểu 20 đ�
 
 ## 5. Kết luận
 
-**Giữ nguyên bộ trọng số hiện tại** — bộ trọng số tìm được chỉ hơn bộ hiện tại -0.094 điểm tổng hợp trên tập kiểm chứng (ngưỡng 0.05), chưa đủ để kết luận là tốt hơn thật.
+**Giữ nguyên bộ trọng số hiện tại** — bộ trọng số tìm được chỉ hơn bộ hiện tại -0.007 điểm tổng hợp trên tập kiểm chứng (ngưỡng 0.05), chưa đủ để kết luận là tốt hơn thật.
 
 ## Ghi chú
 

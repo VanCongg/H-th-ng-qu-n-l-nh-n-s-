@@ -13,8 +13,14 @@ import { ApiError } from "../common/api-error";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import { AuthUser, RequestContext } from "../common/types";
-import { pagination, toDateOnly } from "../common/utils";
+import {
+  DEFAULT_WORK_WEEK,
+  pagination,
+  toDateOnly,
+  workdayKeysBetween
+} from "../common/utils";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   SystemSettingsService
@@ -32,8 +38,13 @@ import {
   ScoreWeights,
   SkillAssessment,
   assessSkills,
+  scoreCandidate,
+  taskDifficulty,
+  LevelFit,
+  levelFit,
+  skillScoreWithLevel,
   availabilityScoreFor,
-  combineScores,
+  leaveOverlapDays,
   FAIR_SHARE_WINDOW_DAYS,
   LEAVE_BLOCK_THRESHOLD,
   compareCandidates,
@@ -92,6 +103,8 @@ type SuggestionForSelect = Prisma.AiTaskSuggestionGetPayload<{
   };
 }>;
 
+type WorkCalendar = { workWeek: string[]; holidays: ReadonlySet<number> };
+
 type AvailabilityAssessment = {
   score: number;
   taskWorkDays: number;
@@ -138,7 +151,8 @@ export class AiTaskSuggestionsService {
     private readonly accessControl: AccessControlService,
     private readonly workloadService: TaskWorkloadService,
     private readonly systemSettings: SystemSettingsService,
-    private readonly explainer: SuggestionExplainerClient
+    private readonly explainer: SuggestionExplainerClient,
+    private readonly holidays: HolidaysService
   ) {}
 
   async generate(
@@ -152,7 +166,8 @@ export class AiTaskSuggestionsService {
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, deletedAt: null },
       include: {
-        requiredSkills: { include: { skill: true } }
+        requiredSkills: { include: { skill: true } },
+        parentTask: { select: { minLevel: true, maxLevel: true } }
       }
     });
     if (!task) {
@@ -204,10 +219,17 @@ export class AiTaskSuggestionsService {
     }
 
     const weights = await this.scoreWeights();
+    // A subtask without its own range takes the team task's.
+    const minLevel = task.minLevel ?? task.parentTask?.minLevel ?? null;
+    const maxLevel = task.maxLevel ?? task.parentTask?.maxLevel ?? null;
+    // Harder work leans more on the skill match; see taskDifficulty.
+    const difficulty = taskDifficulty(task.requiredSkills, minLevel);
     const scored = await Promise.all(
       employees.map(async (employee) => {
         const workload = workloads.get(employee.id) ?? this.emptyWorkload(employee.id);
-        const skill = this.skillAssessment(task.requiredSkills, employee.employeeSkills);
+        const assessment = this.skillAssessment(task.requiredSkills, employee.employeeSkills);
+        const level = levelFit(employee.careerLevel, minLevel, maxLevel);
+        const skill = { ...assessment, score: skillScoreWithLevel(assessment.score, level) };
         const availability = options.includeAvailability
           ? await this.availabilityAssessment(
               employee.id,
@@ -220,14 +242,13 @@ export class AiTaskSuggestionsService {
         const availabilityScore = options.includeAvailability ? availability.score : 100;
         const history = histories.get(employee.id);
         const historyScore = history?.score ?? null;
-        const score = combineScores([
-          { value: skill.score, weight: weights.skill },
-          { value: workloadScore, weight: weights.workload },
-          { value: historyScore, weight: weights.history },
-          ...(options.includeAvailability
-            ? [{ value: availabilityScore, weight: weights.availability }]
-            : [])
-        ]);
+        const score = scoreCandidate(weights, {
+          skillScore: skill.score,
+          workloadScore,
+          availabilityScore: options.includeAvailability ? availabilityScore : undefined,
+          historyScore,
+          difficulty
+        });
         const warnings = this.uniqueWarnings([
           ...skill.warnings,
           ...availability.warnings,
@@ -256,7 +277,8 @@ export class AiTaskSuggestionsService {
             skill,
             workload,
             availability,
-            options
+            options,
+            level
           ),
           warnings,
           matchedSkills: skill.matchedSkills,
@@ -724,7 +746,12 @@ export class AiTaskSuggestionsService {
       };
     }
 
-    const taskWorkDays = this.workdayKeysBetween(range.from, range.to).length;
+    const [settings, holidays] = await Promise.all([
+      this.systemSettings.getSettings(),
+      this.holidays.dateSet(range.from, range.to)
+    ]);
+    const calendar = { workWeek: settings.workWeek ?? DEFAULT_WORK_WEEK, holidays };
+    const taskWorkDays = this.workdayKeysBetween(range.from, range.to, calendar).length;
     if (!taskWorkDays) {
       return {
         score: 100,
@@ -747,27 +774,18 @@ export class AiTaskSuggestionsService {
         startDate: { lte: range.to },
         endDate: { gte: range.from }
       },
-      select: { startDate: true, endDate: true, status: true }
+      select: { startDate: true, endDate: true, status: true, halfDay: true }
     });
 
-    const approvedDays = new Set<string>();
-    const pendingDays = new Set<string>();
-    for (const leave of leaves) {
-      const keys = this.overlapWorkdayKeys(
-        leave.startDate,
-        leave.endDate,
-        range.from,
-        range.to
-      );
-      const bucket =
-        leave.status === LeaveRequestStatus.APPROVED ? approvedDays : pendingDays;
-      keys.forEach((key) => bucket.add(key));
-    }
-
-    const approvedOverlapWorkDays = approvedDays.size;
-    const pendingOverlapWorkDays = Array.from(pendingDays).filter(
-      (key) => !approvedDays.has(key)
-    ).length;
+    const overlap = leaveOverlapDays(
+      leaves.map((leave) => ({
+        keys: this.overlapWorkdayKeys(leave.startDate, leave.endDate, range.from, range.to, calendar),
+        approved: leave.status === LeaveRequestStatus.APPROVED,
+        halfDay: leave.halfDay
+      }))
+    );
+    const approvedOverlapWorkDays = overlap.approvedDays;
+    const pendingOverlapWorkDays = overlap.pendingOnlyDays;
     const score = availabilityScoreFor(
       taskWorkDays,
       approvedOverlapWorkDays,
@@ -869,15 +887,31 @@ export class AiTaskSuggestionsService {
     skill: SkillAssessment,
     workload: WorkloadSummary,
     availability: AvailabilityAssessment,
-    options: GenerateOptions
+    options: GenerateOptions,
+    level?: LevelFit
   ) {
-    const skillText = this.skillReason(skill);
+    const skillText = [this.skillReason(skill), this.levelReason(level)]
+      .filter(Boolean)
+      .join(", ");
     const workloadText = `${workload.activeTaskCount} task active, còn ${workload.availableHours}h khả dụng/tuần`;
     const availabilityText = options.includeAvailability
       ? this.availabilityReason(availability)
       : "không dùng lịch nghỉ trong lần chấm điểm này";
     const parts = [skillText, workloadText, availabilityText];
     return `${employee.fullName}: ${parts.join("; ")}.`;
+  }
+
+  /** Only said when the task has a level range to be measured against. */
+  private levelReason(level?: LevelFit) {
+    if (!level || level.fit === "ANY") {
+      return "";
+    }
+    if (level.fit === "FIT") {
+      return "đúng cấp bậc task cần";
+    }
+    return level.fit === "UNDER"
+      ? `thấp hơn cấp bậc task cần ${level.gap} bậc`
+      : `dư trình độ ${level.gap} bậc cho việc này`;
   }
 
   private skillReason(skill: SkillAssessment) {
@@ -953,6 +987,7 @@ export class AiTaskSuggestionsService {
       employeeId,
       activeTaskCount: 0,
       totalEstimatedHours: 0,
+      weeklyLoadHours: 0,
       overdueTaskCount: 0,
       capacityHoursPerWeek: 40,
       availableHours: 40,
@@ -1136,7 +1171,12 @@ export class AiTaskSuggestionsService {
       skill: settings.aiWeightSkill,
       workload: settings.aiWeightWorkload,
       availability: settings.aiWeightAvailability,
-      history: settings.aiWeightHistory
+      history: settings.aiWeightHistory,
+      skillMultipliers: {
+        EASY: settings.aiSkillMultiplierEasy,
+        MEDIUM: settings.aiSkillMultiplierMedium,
+        HARD: settings.aiSkillMultiplierHard
+      }
     });
   }
 
@@ -1157,7 +1197,14 @@ export class AiTaskSuggestionsService {
       options,
       weights: options.includeAvailability
         ? weights
-        : { skill: weights.skill, workload: weights.workload, history: weights.history },
+        : {
+            skill: weights.skill,
+            workload: weights.workload,
+            history: weights.history,
+            skillMultipliers: weights.skillMultipliers
+          },
+      // With the multipliers above, what the skill weight was on this task.
+      taskDifficulty: taskDifficulty(task.requiredSkills, task.minLevel ?? null),
       candidateIds,
       requiredSkills: this.requiredSkillSnapshot(task),
       items: items.map((item) => ({
@@ -1197,6 +1244,7 @@ export class AiTaskSuggestionsService {
         workload: {
           activeTaskCount: item.workload.activeTaskCount,
           totalEstimatedHours: item.workload.totalEstimatedHours,
+          weeklyLoadHours: item.workload.weeklyLoadHours,
           overdueTaskCount: item.workload.overdueTaskCount,
           capacityHoursPerWeek: item.workload.capacityHoursPerWeek,
           availableHours: item.workload.availableHours,
@@ -1301,25 +1349,17 @@ export class AiTaskSuggestionsService {
     leaveStart: Date,
     leaveEnd: Date,
     rangeStart: Date,
-    rangeEnd: Date
+    rangeEnd: Date,
+    calendar: WorkCalendar
   ) {
     const from = leaveStart > rangeStart ? toDateOnly(leaveStart) : toDateOnly(rangeStart);
     const to = leaveEnd < rangeEnd ? toDateOnly(leaveEnd) : toDateOnly(rangeEnd);
-    return this.workdayKeysBetween(from, to);
+    return this.workdayKeysBetween(from, to, calendar);
   }
 
-  private workdayKeysBetween(startDate: Date, endDate: Date) {
-    const keys: string[] = [];
-    const current = toDateOnly(startDate);
-    const end = toDateOnly(endDate);
-    while (current <= end) {
-      const day = current.getUTCDay();
-      if (day !== 0 && day !== 6) {
-        keys.push(this.dateKey(current));
-      }
-      current.setUTCDate(current.getUTCDate() + 1);
-    }
-    return keys;
+  /** The company's work week minus holidays, as every other day count uses. */
+  private workdayKeysBetween(startDate: Date, endDate: Date, calendar: WorkCalendar) {
+    return workdayKeysBetween(startDate, endDate, calendar.workWeek, calendar.holidays);
   }
 
   private dateKeyOrNull(value?: Date | null) {

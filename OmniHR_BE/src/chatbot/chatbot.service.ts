@@ -263,6 +263,8 @@ export class ChatbotService {
     const known: Record<string, string> = {
       LEAVE_REQUEST_OVERLAP:
         "Khoảng nghỉ này trùng với một đơn đang chờ duyệt hoặc đã được duyệt của bạn. Bạn kiểm tra lại ngày nghỉ giúp mình nhé.",
+      LEAVE_BALANCE_INSUFFICIENT:
+        "Số ngày phép năm còn lại của bạn không đủ cho đơn này. Bạn hỏi mình \"tôi còn bao nhiêu ngày phép\" để xem số dư, hoặc chọn nghỉ không lương nhé.",
       LEAVE_REQUEST_INVALID_DAYS:
         "Khoảng nghỉ bạn chọn không có ngày làm việc nào. Bạn chọn lại ngày trong tuần làm việc giúp mình nhé.",
       LEAVE_TYPE_NOT_FOUND:
@@ -367,13 +369,18 @@ export class ChatbotService {
         `- Công việc: ${summary.taskTitle ?? "-"}`,
         `- Dự án: ${summary.projectName ?? "-"}`,
         `- Trạng thái: ${this.taskStatusLabel(summary.currentStatus)} -> ${this.taskStatusLabel(summary.status)}`,
+        ...(summary.status === "IN_REVIEW"
+          ? ["Công việc sẽ được gửi cho quản lý duyệt; quản lý sẽ xác nhận hoàn thành."]
+          : []),
         "Bạn xác nhận cập nhật nhé?",
       ].join("\n");
     }
 
     if (action.type === ChatbotActionType.CANCEL_LEAVE_REQUEST) {
       return [
-        "Tôi đã tìm thấy đơn nghỉ đang chờ duyệt để hủy:",
+        summary.currentStatus === "APPROVED"
+          ? "Đơn nghỉ này đã được duyệt, nên mình sẽ gửi yêu cầu hủy để quản lý quyết định:"
+          : "Tôi đã tìm thấy đơn nghỉ đang chờ duyệt để hủy:",
         `- Loại nghỉ: ${summary.leaveType ?? "-"}`,
         `- Thời gian: ${this.formatDate(summary.startDate)} đến ${this.formatDate(summary.endDate)}`,
         `- Lý do: ${summary.reason ?? "-"}`,
@@ -385,7 +392,13 @@ export class ChatbotService {
       "Tôi đã chuẩn bị nháp đơn nghỉ như sau:",
       `- Loại nghỉ: ${summary.leaveType ?? summary.leaveTypeCode ?? "-"}`,
       `- Thời gian: ${this.formatDate(summary.startDate)} đến ${this.formatDate(summary.endDate)}`,
-      `- Số ngày: ${summary.totalDays ?? "-"}`,
+      `- Số ngày: ${summary.totalDays ?? "-"}${
+        summary.halfDay === "MORNING"
+          ? " (buổi sáng)"
+          : summary.halfDay === "AFTERNOON"
+            ? " (buổi chiều)"
+            : ""
+      }`,
       `- Lý do: ${summary.reason ?? "-"}`,
       "Bạn xác nhận nộp đơn này nhé?",
     ].join("\n");
@@ -444,9 +457,26 @@ export class ChatbotService {
     if (!requests.length) {
       return "Bạn chưa có đơn nghỉ nào gần đây.";
     }
-    const latest = requests[0];
-    const leaveType = this.record(latest.leaveType);
-    return `Đơn nghỉ gần nhất của bạn là ${leaveType.name ?? "đơn nghỉ"} từ ${this.formatDate(latest.startDate)} đến ${this.formatDate(latest.endDate)}, trạng thái ${this.statusLabel(latest.status)}.`;
+    const lines = requests.slice(0, 5).map((request, index) => {
+      const leaveType = this.record(request.leaveType);
+      const half =
+        request.halfDay === "MORNING"
+          ? " (buổi sáng)"
+          : request.halfDay === "AFTERNOON"
+            ? " (buổi chiều)"
+            : "";
+      const period =
+        request.startDate === request.endDate
+          ? `${this.formatDate(request.startDate)}${half}`
+          : `${this.formatDate(request.startDate)} đến ${this.formatDate(request.endDate)}`;
+      // An approved leave its owner asked to withdraw is still approved.
+      const cancelling =
+        request.status === "APPROVED" && request.cancelRequestedAt
+          ? ", đang chờ quản lý duyệt yêu cầu hủy"
+          : "";
+      return `${index + 1}. ${leaveType.name ?? "Đơn nghỉ"} ${period} - ${this.statusLabel(request.status)}${cancelling}`;
+    });
+    return `Các đơn nghỉ gần đây của bạn:\n${lines.join("\n")}`;
   }
 
   private leaveTypesReply(data: unknown) {

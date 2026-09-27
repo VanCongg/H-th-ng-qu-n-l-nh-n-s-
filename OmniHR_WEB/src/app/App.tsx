@@ -86,6 +86,7 @@ export function App() {
                   <Route path="positions" element={<PositionsPage />} />
                   <Route path="leave-balances" element={<LeaveBalancesPage />} />
                   <Route path="leave-types" element={<Navigate to="/admin/leave-balances" replace />} />
+                  <Route path="holidays" element={<Navigate to="/admin/policies" replace />} />
                   <Route path="skills" element={<SkillsPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route

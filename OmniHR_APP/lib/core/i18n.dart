@@ -100,6 +100,75 @@ const Map<String, String> _enDictionary = {
   'Chưa có lượt chấm công trong ngày này': 'No attendance on this day',
   '{count} lượt chấm công': '{count} check-ins',
   'Ngày này chưa ghi nhận chấm công.': 'No attendance recorded for this day.',
+  'Ngày lễ: {name}': 'Public holiday: {name}',
+  'Nghỉ nửa ngày chỉ áp dụng cho đơn một ngày.':
+      'A half-day leave covers a single day.',
+  'Yêu cầu hủy đơn này đang chờ quản lý quyết định.':
+      'Cancelling this leave is already waiting for your manager.',
+  'Đơn nghỉ đã bắt đầu. Hãy trao đổi trực tiếp với quản lý để điều chỉnh.':
+      'This leave has already started. Ask your manager to change it.',
+  'Đơn nghỉ này không có yêu cầu hủy nào.':
+      'Nobody asked to cancel this leave.',
+  'Cấp bậc thấp nhất đang cao hơn cấp bậc cao nhất.':
+      'The lowest level is above the highest.',
+  'Không đủ phép năm: năm {year} còn {left} ngày, đơn này cần {need} ngày.':
+      'Not enough annual leave: {left} day(s) left for {year}, this request needs {need}.',
+  'Số ngày phép năm còn lại không đủ cho đơn này.':
+      'Not enough annual leave left for this request.',
+  'Cấp: {range}': 'Level: {range}',
+  'Cấp: từ {level}': 'Level: {level} and up',
+  'Cấp: tối đa {level}': 'Level: up to {level}',
+  'Không có gì chờ duyệt': 'Nothing to approve',
+  'Đơn nghỉ, yêu cầu hủy và công việc cần bạn duyệt sẽ xuất hiện tại đây.':
+      'Leave requests, cancellations and work waiting on you will show up here.',
+  'Đơn nghỉ chờ duyệt': 'Leave to approve',
+  'Duyệt': 'Approve',
+  'Yêu cầu hủy đơn đã duyệt': 'Requests to cancel approved leave',
+  'Đồng ý hủy': 'Cancel it',
+  'Giữ đơn': 'Keep it',
+  'Lý do xin hủy: {reason}': 'Why cancel: {reason}',
+  'Công việc chờ duyệt': 'Work to review',
+  'Duyệt xong': 'Accept',
+  'Trả lại': 'Send back',
+  'buổi sáng': 'morning',
+  'buổi chiều': 'afternoon',
+  '{days} ngày': '{days} days',
+  'Từ chối đơn nghỉ': 'Reject leave',
+  'Giữ đơn nghỉ': 'Keep the leave',
+  'Gửi': 'Send',
+  'Đã duyệt đơn nghỉ.': 'Leave approved.',
+  'Đã từ chối đơn nghỉ.': 'Leave rejected.',
+  'Đã đồng ý hủy đơn nghỉ.': 'Leave cancelled.',
+  'Đã giữ nguyên đơn nghỉ.': 'The leave stands.',
+  'Đã duyệt hoàn thành công việc.': 'Work accepted as done.',
+  'Đã trả lại để làm tiếp.': 'Sent back for more work.',
+  'Buổi sáng': 'Morning',
+  'Buổi chiều': 'Afternoon',
+  'Cả ngày': 'Full day',
+  'Đang chờ duyệt hủy': 'Cancellation pending',
+  'Xin hủy đơn': 'Ask to cancel',
+  'Xin hủy đơn đã duyệt': 'Cancel an approved leave',
+  'Đơn {type} từ {start} đến {end} đã được duyệt. Yêu cầu hủy sẽ được gửi cho quản lý; đơn vẫn giữ nguyên cho tới khi quản lý đồng ý.':
+      'Your {type} from {start} to {end} is approved. Your manager will be asked to cancel it; it stays approved until they agree.',
+  'Gửi yêu cầu hủy': 'Send request',
+  'Đã gửi yêu cầu hủy, chờ quản lý duyệt.':
+      'Cancellation requested; waiting for your manager.',
+  'Có yêu cầu hủy đơn nghỉ đã duyệt': 'Leave cancellation requested',
+  'Đơn nghỉ đã được hủy': 'Leave cancelled',
+  'Yêu cầu hủy đơn nghỉ bị từ chối': 'Leave cancellation declined',
+  '{name} xin hủy đơn nghỉ từ {start} đến {end}.':
+      '{name} asked to cancel their leave from {start} to {end}.',
+  'Đơn nghỉ từ {start} đến {end} của bạn đã được hủy.':
+      'Your leave from {start} to {end} was cancelled.',
+  'Vị trí chưa đủ tin cậy': 'Location not trusted',
+  'Điện thoại đang dùng ứng dụng giả lập vị trí. Hãy tắt nó rồi chấm công lại.':
+      'A mock location app is active on this phone. Turn it off and try again.',
+  'Vị trí lấy được đã cũ. Hãy bật GPS, chờ vài giây rồi chấm công lại.':
+      'The location fix is too old. Turn on GPS, wait a few seconds and try again.',
+  'Tín hiệu GPS quá yếu để xác định bạn có ở công ty không. Hãy ra gần cửa sổ hoặc chờ GPS ổn định rồi thử lại.':
+      'The GPS signal is too weak to tell whether you are at work. Move near a window or wait for GPS to settle, then try again.',
+  'Ngày nghỉ lễ, không cần chấm công.':
+      'A public holiday: no attendance needed.',
   'Tài khoản chưa có quyền chấm công.':
       'This account cannot record attendance.',
   'Bạn chưa chấm công vào nên không thể chấm công ra.':
@@ -236,6 +305,7 @@ const Map<String, String> _enDictionary = {
   'Sử dụng tài khoản OmniHR để tiếp tục.':
       'Use your OmniHR account to continue.',
   'Tên đăng nhập hoặc email': 'Username or email',
+  'Tên đăng nhập, email hoặc mã nhân viên': 'Username, email or employee code',
   'Vui lòng nhập tên đăng nhập hoặc email': 'Please enter a username or email',
   'Mật khẩu': 'Password',
   'Vui lòng nhập mật khẩu': 'Please enter a password',
@@ -422,6 +492,18 @@ const Map<String, String> _enDictionary = {
       'Position does not belong to selected department.',
   'Không tìm thấy chức danh.': 'Position not found.',
   'Dự án vẫn còn công việc đang thực hiện.': 'Project has active tasks.',
+  'Chỉ trưởng nhóm hoặc trưởng phòng mới được chuyển công việc sang trạng thái này.':
+      'Only the team lead or department head can make this status change.',
+  'Công việc đã đóng.': 'Task is already closed.',
+  'Ngày của công việc phải nằm trong thời gian của dự án.':
+      'Task dates must fall inside the project dates.',
+  'Có công việc con nằm ngoài khoảng ngày mới.':
+      'Some subtasks fall outside the new dates.',
+  'Có công việc nằm ngoài thời gian mới của dự án.':
+      'Some tasks fall outside the new project dates.',
+  'Hãy hoàn thành hoặc hủy các công việc đang mở trước khi đóng dự án.':
+      'Finish or cancel the open tasks before closing the project.',
+  'Mã dự án đã tồn tại.': 'Project code already exists.',
   'Dự án đã đóng.': 'Project is closed.',
   'Không tìm thấy dự án.': 'Project not found.',
   'Dự án nằm ngoài phạm vi quản lý của bạn.': 'Project scope denied.',
@@ -490,6 +572,11 @@ const Map<String, String> _enDictionary = {
   'Đơn nghỉ phép bị từ chối': 'Leave request rejected',
   'Bạn được giao công việc mới': 'New task assigned',
   'Công việc bị trả về để sửa': 'Task returned for rework',
+  'Trạng thái công việc được cập nhật': 'Task status updated',
+  '{actor} đã chuyển công việc "{task}" sang "{status}".':
+      '{actor} moved "{task}" to "{status}".',
+  'Chỉ trưởng nhóm hoặc trưởng phòng mới đổi được trạng thái của công việc này.':
+      'Only the team lead or department head can change this task\'s status.',
   'Bản ghi chấm công được điều chỉnh': 'Attendance record adjusted',
   'Bạn được giao công việc "{task}".': 'You were assigned to "{task}".',
   'Công việc "{task}" cần chỉnh sửa trước khi được duyệt.':

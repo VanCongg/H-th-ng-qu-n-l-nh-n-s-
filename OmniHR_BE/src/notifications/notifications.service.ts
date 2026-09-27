@@ -6,12 +6,14 @@ import { AuthUser } from "../common/types";
 import { pagination } from "../common/utils";
 import { NotificationQueryDto } from "./dto/notification-query.dto";
 import { NotificationsGateway } from "./notifications.gateway";
+import { PushService } from "./push.service";
 
 @Injectable()
 export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly gateway: NotificationsGateway
+    private readonly gateway: NotificationsGateway,
+    private readonly push?: PushService
   ) {}
 
   async create(
@@ -27,6 +29,8 @@ export class NotificationsService {
     });
 
     this.gateway.emitToUser(userId, notification);
+    // Not awaited: a slow or failing push must not hold up the request.
+    void this.push?.send(notification);
 
     return notification;
   }

@@ -163,10 +163,16 @@ Latest results (`gemini-3.5-flash-lite`, hybrid):
 
 | Set | Fully correct | Rule-based alone |
 |---|---|---|
-| dev | 81/82 (98.8%) | 45/82 (54.9%) |
-| test | 80/80 (100%) | 38/80 (47.5%) |
-| dev2 | 50/50 (100%) | 47/50 (94%) |
-| test2 | not run yet (Gemini free-tier daily quota) | 44/50 (88%) |
+| dev | 81/82 (98.8%) | 80/82 (97.6%) |
+| test | 80/80 (100%) | 55/80 (68.8%) |
+| dev2 | 50/50 (100%) | 52/55 (94.5%) |
+| test2 | not run yet (Gemini free-tier daily quota) | 48/54 (88.9%) |
+
+The rule-based column is after the paraphrase rules (`_paraphrase_plan`), which
+were written against the dev set's misses only; before them it read 56.1% / 53.8%
+/ 94.5% / 87.0%. The test set moved from 53.8% to 68.8% without being looked at,
+so that is the honest gain. dev2 and test2 have since grown a few cases, so their
+denominators differ from the hybrid column.
 
 Mean latency is about 1.6 s per message (p95 about 1.9 s). The LLM can still vary between runs, so
 treat the test score as "about 96–100%" rather than a guarantee.

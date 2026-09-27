@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import { AttendanceRecordType, EmployeeStatus, LeaveRequestStatus } from "@prisma/client";
+import {
+  AttendanceRecordType,
+  EmployeeStatus,
+  LeaveRequestStatus,
+  TeamMemberRole
+} from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
@@ -75,9 +80,10 @@ export class DashboardService {
     const [
       teamEmployees,
       pendingTeamLeaves,
+      pendingCancellations,
       teamCheckedInToday,
       latestTeamLeaves,
-      latestSubordinates
+      subordinateRows
     ] = await this.prisma.$transaction([
       this.prisma.employee.count({
         where: currentEmployeeWhere({ id: { in: teamIds } })
@@ -86,6 +92,15 @@ export class DashboardService {
         where: {
           employeeId: { in: teamIds },
           status: LeaveRequestStatus.PENDING,
+          employee: currentEmployeeWhere()
+        }
+      }),
+      // Approved leave its owner asked to withdraw: still waiting on a decision.
+      this.prisma.leaveRequest.count({
+        where: {
+          employeeId: { in: teamIds },
+          status: LeaveRequestStatus.APPROVED,
+          cancelRequestedAt: { not: null },
           employee: currentEmployeeWhere()
         }
       }),
@@ -106,20 +121,44 @@ export class DashboardService {
         orderBy: { createdAt: "desc" },
         take: 5
       }),
+      // Everyone in scope, not the five newest: the card is the manager's
+      // view of who reports to them, and its count must match the stat.
       this.prisma.employee.findMany({
         where: currentEmployeeWhere({ id: { in: teamIds } }),
-        include: { department: true, position: true },
-        orderBy: { createdAt: "desc" },
-        take: 5
+        include: {
+          department: true,
+          position: true,
+          teamMemberships: {
+            where: { isActive: true, team: { deletedAt: null, isActive: true } },
+            select: { role: true, team: { select: { id: true, name: true, leadId: true } } }
+          }
+        },
+        orderBy: { fullName: "asc" },
+        take: 300
       })
     ]);
+
+    // Team leads first - who a head actually works through - then by name.
+    const subordinates = subordinateRows
+      .map(({ teamMemberships, ...employee }) => {
+        const teams = teamMemberships.map((membership) => ({
+          id: membership.team.id,
+          name: membership.team.name,
+          isLead:
+            membership.role === TeamMemberRole.LEAD ||
+            membership.team.leadId === employee.id
+        }));
+        return { ...employee, teams, isTeamLead: teams.some((team) => team.isLead) };
+      })
+      .sort((a, b) => Number(b.isTeamLead) - Number(a.isTeamLead));
 
     return {
       teamEmployees,
       pendingTeamLeaves,
+      pendingCancellations,
       teamCheckedInToday,
       latestTeamLeaves,
-      latestSubordinates
+      subordinates
     };
   }
 

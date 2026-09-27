@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import {
   defaultSystemSettings,
   SystemSettingsService
@@ -36,7 +37,8 @@ describe("AttendanceService", () => {
         audit as unknown as AuditService,
         {} as AccessControlService,
         systemSettings as unknown as SystemSettingsService,
-        {} as NotificationsService
+        {} as NotificationsService,
+        { list: jest.fn().mockResolvedValue([]) } as unknown as HolidaysService
       ),
       prisma
     };
@@ -92,6 +94,79 @@ describe("AttendanceService", () => {
         })
       })
     );
+  });
+
+  it("does not mark a check-in within the grace period as late", async () => {
+    // 01:05 UTC is 08:05 local: five minutes into the morning shift.
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-14T01:05:00Z"));
+    const { service, prisma } = createService({ attendanceGraceMinutes: 10 });
+
+    await service.checkIn(employee, location);
+
+    expect(prisma.attendanceRecord.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          shift: AttendanceShift.MORNING,
+          attendanceStatus: AttendanceStatus.ON_TIME
+        })
+      })
+    );
+  });
+
+  it("does not mark a check-out within the grace period as early", async () => {
+    // 04:55 UTC is 11:55 local, five minutes before the morning shift ends.
+    jest.useFakeTimers().setSystemTime(new Date("2026-09-14T04:55:00Z"));
+    const { service, prisma } = createService({ attendanceGraceMinutes: 10 });
+    prisma.attendanceRecord.findFirst.mockResolvedValueOnce({
+      recordType: AttendanceRecordType.CHECK_IN,
+      shift: AttendanceShift.MORNING
+    });
+
+    await service.checkOut(employee, location);
+
+    expect(prisma.attendanceRecord.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ attendanceStatus: AttendanceStatus.ON_TIME })
+      })
+    );
+  });
+
+  describe("location trust", () => {
+    const office = { companyLatitude: 21.02776, companyLongitude: 105.83416, attendanceRadiusMeters: 150 };
+
+    it.each([
+      [{ isMocked: true }, "ATTENDANCE_LOCATION_MOCKED"],
+      [{ positionAgeSeconds: 900 }, "ATTENDANCE_LOCATION_STALE"],
+      [{ accuracyMeters: 400 }, "ATTENDANCE_LOCATION_INACCURATE"]
+    ])("refuses a fix that cannot prove presence: %o", async (extra, errorCode) => {
+      const { service, prisma } = createService(office);
+
+      await expect(service.checkIn(employee, { ...location, ...extra })).rejects.toMatchObject({
+        errorCode
+      });
+      expect(prisma.attendanceRecord.create).not.toHaveBeenCalled();
+    });
+
+    it("accepts a fresh, real, precise fix", async () => {
+      const { service, prisma } = createService(office);
+
+      await service.checkIn(employee, {
+        ...location,
+        isMocked: false,
+        positionAgeSeconds: 3,
+        accuracyMeters: 25
+      });
+
+      expect(prisma.attendanceRecord.create).toHaveBeenCalled();
+    });
+
+    it("does not judge the fix when the company does not require a location", async () => {
+      const { service, prisma } = createService({ ...office, requireAttendanceLocation: false });
+
+      await service.checkIn(employee, { ...location, isMocked: true });
+
+      expect(prisma.attendanceRecord.create).toHaveBeenCalled();
+    });
   });
 
   it("takes the per-employee lock before checking for duplicates", async () => {

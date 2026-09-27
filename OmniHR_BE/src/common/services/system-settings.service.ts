@@ -22,6 +22,11 @@ export type SystemSettings = {
   attendanceEarlyCheckInMinutes: number;
   /** Late arrival / early leave up to this many minutes is not deducted. */
   attendanceGraceMinutes: number;
+  /**
+   * Time past the shifts counts as overtime only once a day's extra reaches
+   * this many minutes: checking out ten minutes late is not overtime.
+   */
+  overtimeMinimumMinutes: number;
   /** One extra annual leave day per this many full years of service (0 = off). */
   seniorityLeaveEveryYears: number;
   /** Unused annual leave days that roll into the next year (0 = off). */
@@ -35,6 +40,10 @@ export type SystemSettings = {
   aiWeightWorkload: number;
   aiWeightAvailability: number;
   aiWeightHistory: number;
+  /** Skill weight multipliers by task difficulty; fitted with the weights. */
+  aiSkillMultiplierEasy: number;
+  aiSkillMultiplierMedium: number;
+  aiSkillMultiplierHard: number;
   morningShiftStart: string;
   morningShiftEnd: string;
   afternoonShiftStart: string;
@@ -54,12 +63,16 @@ export const defaultSystemSettings: SystemSettings = {
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
   attendanceGraceMinutes: 0,
+  overtimeMinimumMinutes: 30,
   seniorityLeaveEveryYears: 5,
   annualLeaveCarryOverMaxDays: 5,
   aiWeightSkill: DEFAULT_SCORE_WEIGHTS.skill,
   aiWeightWorkload: DEFAULT_SCORE_WEIGHTS.workload,
   aiWeightAvailability: DEFAULT_SCORE_WEIGHTS.availability,
   aiWeightHistory: DEFAULT_SCORE_WEIGHTS.history,
+  aiSkillMultiplierEasy: DEFAULT_SCORE_WEIGHTS.skillMultipliers?.EASY ?? 1,
+  aiSkillMultiplierMedium: DEFAULT_SCORE_WEIGHTS.skillMultipliers?.MEDIUM ?? 1,
+  aiSkillMultiplierHard: DEFAULT_SCORE_WEIGHTS.skillMultipliers?.HARD ?? 1,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
   afternoonShiftStart: "13:00",
@@ -156,6 +169,12 @@ function normalizeSystemSettings(value: unknown): SystemSettings {
       120,
       defaultSystemSettings.attendanceGraceMinutes
     ),
+    overtimeMinimumMinutes: normalizeIntegerInRange(
+      raw.overtimeMinimumMinutes,
+      0,
+      240,
+      defaultSystemSettings.overtimeMinimumMinutes
+    ),
     aiWeightSkill: normalizeNumberInRange(
       raw.aiWeightSkill,
       0,
@@ -179,6 +198,24 @@ function normalizeSystemSettings(value: unknown): SystemSettings {
       0,
       1,
       defaultSystemSettings.aiWeightHistory
+    ),
+    aiSkillMultiplierEasy: normalizeNumberInRange(
+      raw.aiSkillMultiplierEasy,
+      0.25,
+      10,
+      defaultSystemSettings.aiSkillMultiplierEasy
+    ),
+    aiSkillMultiplierMedium: normalizeNumberInRange(
+      raw.aiSkillMultiplierMedium,
+      0.25,
+      10,
+      defaultSystemSettings.aiSkillMultiplierMedium
+    ),
+    aiSkillMultiplierHard: normalizeNumberInRange(
+      raw.aiSkillMultiplierHard,
+      0.25,
+      10,
+      defaultSystemSettings.aiSkillMultiplierHard
     ),
     seniorityLeaveEveryYears: normalizeIntegerInRange(
       raw.seniorityLeaveEveryYears,

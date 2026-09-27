@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/omni_models.dart';
 import 'api_service.dart';
 import 'i18n.dart';
+import 'push_notifications.dart';
 import 'utils.dart';
 
 class AppSession extends ChangeNotifier implements ApiClientSession {
@@ -150,6 +152,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
       language == AppLanguage.en ? 'en' : 'vi',
     );
     notifyListeners();
+    // Push text is written server-side in the language the phone registered.
+    if (isLoggedIn) unawaited(PushNotifications.instance.register(this));
   }
 
   Future<void> login({
@@ -277,6 +281,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   }
 
   Future<void> logout() async {
+    await PushNotifications.instance.unregister(this);
     try {
       await api.post('/auth/logout');
     } catch (_) {

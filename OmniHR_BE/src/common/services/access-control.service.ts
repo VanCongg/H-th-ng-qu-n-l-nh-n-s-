@@ -3,7 +3,6 @@ import { EmployeeStatus, TeamMemberRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ApiError } from "../api-error";
 import { currentEmployeeWhere } from "../prisma-where";
-import { isManagerPosition } from "../position-role";
 import { AuthUser } from "../types";
 import { toDateOnly } from "../utils";
 
@@ -40,16 +39,18 @@ export class AccessControlService {
   }
 
   async ensureCanManageLeave(user: AuthUser, employeeId: number) {
-    if (this.isAdmin(user)) {
-      return;
-    }
-
+    // Before the admin shortcut: nobody approves their own leave, an admin
+    // with an employee record included - another admin or their manager does.
     if (user.employeeId === employeeId) {
       throw new ApiError(
         HttpStatus.FORBIDDEN,
         "You cannot approve or reject your own leave request",
         "MANAGER_SCOPE_DENIED"
       );
+    }
+
+    if (this.isAdmin(user)) {
+      return;
     }
 
     if (!(await this.isSubordinate(user, employeeId))) {
@@ -131,58 +132,29 @@ export class AccessControlService {
       return Array.from(new Set([...manualIds, ...ledTeamIds]));
     }
 
-    const manager = await this.prisma.employee.findFirst({
-      where: currentEmployeeWhere({
-        id: user.employeeId,
-        status: EmployeeStatus.ACTIVE
-      }),
-      select: { departmentId: true }
-    });
-    if (!manager?.departmentId) {
-      return Array.from(new Set([...manualIds, ...ledTeamIds]));
-    }
-
-    const managedDepartment = await this.prisma.department.findFirst({
-      where: {
-        id: manager.departmentId,
-        deletedAt: null,
-        managerId: user.employeeId
-      },
+    // Every department this person heads - not only the one their own
+    // profile sits in. The head manages the whole department: team leads as
+    // well as their members, so a lead's MANAGER role or "*_LEAD" position
+    // does not hide them. Only another department's head is a peer, not a
+    // subordinate.
+    const headedDepartments = await this.prisma.department.findMany({
+      where: { managerId: user.employeeId, deletedAt: null },
       select: { id: true }
     });
-    if (!managedDepartment) {
+    if (!headedDepartments.length) {
       return Array.from(new Set([...manualIds, ...ledTeamIds]));
     }
 
     const departmentRows = await this.prisma.employee.findMany({
       where: currentEmployeeWhere({
-        departmentId: manager.departmentId,
+        departmentId: { in: headedDepartments.map((department) => department.id) },
         id: { not: user.employeeId },
         status: EmployeeStatus.ACTIVE,
-        OR: [
-          { userId: null },
-          {
-            user: {
-              is: {
-                userRoles: {
-                  none: { role: { name: "MANAGER" } }
-                }
-              }
-            }
-          }
-        ]
+        managedDepartments: { none: { deletedAt: null } }
       }),
-      select: {
-        id: true,
-        position: {
-          select: { code: true, name: true }
-        }
-      }
+      select: { id: true }
     });
-
-    const departmentIds = departmentRows
-      .filter((employee) => !isManagerPosition(employee.position))
-      .map((employee) => employee.id);
+    const departmentIds = departmentRows.map((employee) => employee.id);
 
     return Array.from(new Set([...manualIds, ...ledTeamIds, ...departmentIds]));
   }
@@ -213,6 +185,41 @@ export class AccessControlService {
     });
 
     return teams.map((team) => team.id);
+  }
+
+  /** Departments this user heads; empty for someone without an employee profile. */
+  async headedDepartmentIds(user: AuthUser): Promise<number[]> {
+    if (!user.employeeId) {
+      return [];
+    }
+    const departments = await this.prisma.department.findMany({
+      where: { managerId: user.employeeId, isActive: true, deletedAt: null },
+      select: { id: true }
+    });
+    return departments.map((department) => department.id);
+  }
+
+  /**
+   * The team lead, the department head or an admin: whoever may approve a
+   * task, send it back, cancel it or reopen it, beyond what its assignee can.
+   * Nobody reviews their own work, an admin included - a lead who took a
+   * subtask hands it in like anyone else, just as nobody approves their own
+   * leave.
+   */
+  async canReviewTask(
+    user: AuthUser,
+    task: { departmentId: number | null; teamId: number | null; assigneeId: number | null }
+  ): Promise<boolean> {
+    if (task.assigneeId !== null && task.assigneeId === user.employeeId) {
+      return false;
+    }
+    if (this.isAdmin(user)) {
+      return true;
+    }
+    if (task.departmentId && (await this.isDepartmentHead(user, task.departmentId))) {
+      return true;
+    }
+    return Boolean(task.teamId && (await this.isTeamLead(user, task.teamId)));
   }
 
   async isDepartmentHead(user: AuthUser, departmentId: number): Promise<boolean> {

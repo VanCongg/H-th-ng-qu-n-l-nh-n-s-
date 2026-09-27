@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { LeaveRequestStatus, Prisma } from "@prisma/client";
 import { employeeSearchWhere } from "../common/prisma-where";
+import { HolidaysService } from "../common/services/holidays.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { pagination } from "../common/utils";
 import { PrismaService } from "../prisma/prisma.service";
@@ -26,7 +27,8 @@ export const timesheetEmployeeSelect = {
 export class TimesheetService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly systemSettings: SystemSettingsService
+    private readonly systemSettings: SystemSettingsService,
+    private readonly holidays: HolidaysService
   ) {}
 
   async list(query: TimesheetQueryDto) {
@@ -65,6 +67,7 @@ export class TimesheetService {
   ): Promise<Map<number, EmployeeTimesheet>> {
     const settings = await this.systemSettings.getSettings();
     const { start, end } = monthRange(year, month);
+    const holidays = await this.holidays.dateSet(start, end);
     const [records, leaves] = employeeIds.length
       ? await Promise.all([
           this.prisma.attendanceRecord.findMany({
@@ -90,6 +93,7 @@ export class TimesheetService {
               employeeId: true,
               startDate: true,
               endDate: true,
+              halfDay: true,
               leaveType: { select: { isPaid: true } }
             }
           })
@@ -108,7 +112,8 @@ export class TimesheetService {
       list.push({
         startDate: leave.startDate,
         endDate: leave.endDate,
-        isPaid: leave.leaveType.isPaid
+        isPaid: leave.leaveType.isPaid,
+        halfDay: leave.halfDay
       });
       leavesByEmployee.set(leave.employeeId, list);
     }
@@ -121,7 +126,8 @@ export class TimesheetService {
           month,
           recordsByEmployee.get(employeeId) ?? [],
           leavesByEmployee.get(employeeId) ?? [],
-          settings
+          settings,
+          holidays
         )
       ])
     );

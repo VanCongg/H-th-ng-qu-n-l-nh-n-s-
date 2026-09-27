@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TaskWorkloadService } from "../task-workload/task-workload.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
@@ -83,7 +84,8 @@ describe("AiTaskSuggestionsService", () => {
         accessControl as unknown as AccessControlService,
         workloadService as unknown as TaskWorkloadService,
         systemSettings as unknown as SystemSettingsService,
-        explainer as unknown as SuggestionExplainerClient
+        explainer as unknown as SuggestionExplainerClient,
+        { dateSet: jest.fn().mockResolvedValue(new Set()) } as unknown as HolidaysService
       ),
       prisma,
       accessControl,
@@ -421,7 +423,9 @@ describe("AiTaskSuggestionsService", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           inputSnapshot: expect.objectContaining({
-            weights: { skill: 0, workload: 1, availability: 0, history: 0 }
+            weights: expect.objectContaining({ skill: 0, workload: 1, availability: 0, history: 0 }),
+            // The multipliers only mean something alongside the task's difficulty.
+            taskDifficulty: "MEDIUM"
           })
         })
       })

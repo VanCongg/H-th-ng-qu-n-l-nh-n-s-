@@ -118,7 +118,7 @@ export function LoginPage() {
             <TextInput
               size="md"
               radius="xl"
-              label={tx("Username or email")}
+              label={tx("Username, email or employee code")}
               placeholder="superadmin"
               {...form.getInputProps("usernameOrEmail")}
             />

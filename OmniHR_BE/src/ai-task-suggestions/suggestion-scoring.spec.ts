@@ -10,7 +10,14 @@ import {
   historySignal,
   rawHistoryScore,
   usableHistory,
-  usableWeights
+  usableWeights,
+  DEFAULT_TASK_HOURS,
+  leaveOverlapDays,
+  levelFit,
+  scoreCandidate,
+  skillScoreWithLevel,
+  taskDifficulty,
+  weeklyLoad
 } from "./suggestion-scoring";
 
 const NOW = new Date("2026-09-21T00:00:00.000Z");
@@ -177,5 +184,195 @@ describe("fairShares", () => {
 
     expect(shares.get(2)?.penalty).toBe(0);
     expect(shares.get(1)!.penalty).toBeGreaterThan(0);
+  });
+
+  it("keeps growing past twice the share instead of capping", () => {
+    // Average 2, so person 1 carries 3x the team share.
+    const shares = fairShares(new Map([[1, 6], [2, 0], [3, 0]]));
+
+    expect(shares.get(1)?.share).toBeCloseTo(3, 5);
+    expect(shares.get(1)?.penalty).toBeCloseTo(2 * FAIR_SHARE_PENALTY, 5);
+  });
+});
+
+describe("weeklyLoad", () => {
+  // Friday 25 September 2026.
+  const today = new Date(Date.UTC(2026, 8, 25));
+  const day = (d: number, m = 9) => new Date(Date.UTC(2026, m - 1, d));
+
+  it("spreads a long task over the weeks until it is due", () => {
+    // 80 hours due in about eight weeks: ten hours a week, not eighty.
+    const load = weeklyLoad(
+      [{ status: "IN_PROGRESS", estimatedHours: 80, dueDate: day(19, 11) }],
+      today
+    );
+
+    expect(load.remainingHours).toBe(80);
+    expect(load.weeklyHours).toBe(10);
+  });
+
+  it("counts only the hours still left", () => {
+    const load = weeklyLoad(
+      [{ status: "IN_PROGRESS", estimatedHours: 16, actualHours: 12, dueDate: day(26) }],
+      today
+    );
+
+    expect(load.weeklyHours).toBe(4);
+  });
+
+  it("keeps an hour for an open task that has used up its estimate", () => {
+    const load = weeklyLoad(
+      [{ status: "IN_PROGRESS", estimatedHours: 8, actualHours: 10, dueDate: day(28) }],
+      today
+    );
+
+    expect(load.weeklyHours).toBe(1);
+  });
+
+  it("adds nothing for work handed in for review", () => {
+    const load = weeklyLoad(
+      [{ status: "IN_REVIEW", estimatedHours: 20, dueDate: day(20) }],
+      today
+    );
+
+    expect(load).toEqual({ remainingHours: 0, weeklyHours: 0, overdueCount: 0 });
+  });
+
+  it("puts overdue and undated work in this week and counts the overdue", () => {
+    const load = weeklyLoad(
+      [
+        { status: "TODO", estimatedHours: 6, dueDate: day(20) },
+        { status: "TODO", estimatedHours: null }
+      ],
+      today
+    );
+
+    expect(load.weeklyHours).toBe(6 + DEFAULT_TASK_HOURS);
+    expect(load.overdueCount).toBe(1);
+  });
+
+  it("adds nothing yet for a task that starts after the coming week", () => {
+    const load = weeklyLoad(
+      [{ status: "TODO", estimatedHours: 30, startDate: day(15, 10), dueDate: day(30, 10) }],
+      today
+    );
+
+    expect(load.remainingHours).toBe(30);
+    expect(load.weeklyHours).toBe(0);
+  });
+});
+
+describe("leaveOverlapDays", () => {
+  it("counts a half day as half", () => {
+    expect(
+      leaveOverlapDays([{ keys: ["2026-10-09"], approved: true, halfDay: "MORNING" }])
+    ).toEqual({ approvedDays: 0.5, pendingOnlyDays: 0 });
+  });
+
+  it("adds two halves of one date up to the whole day, never more", () => {
+    const result = leaveOverlapDays([
+      { keys: ["2026-10-09"], approved: true, halfDay: "MORNING" },
+      { keys: ["2026-10-09"], approved: true, halfDay: "AFTERNOON" },
+      { keys: ["2026-10-09"], approved: true }
+    ]);
+
+    expect(result.approvedDays).toBe(1);
+  });
+
+  it("adds from pending leave only what approved leave does not already cover", () => {
+    const result = leaveOverlapDays([
+      { keys: ["2026-10-09", "2026-10-12"], approved: true, halfDay: null },
+      { keys: ["2026-10-12", "2026-10-13"], approved: false, halfDay: null },
+      { keys: ["2026-10-14"], approved: false, halfDay: "AFTERNOON" }
+    ]);
+
+    expect(result).toEqual({ approvedDays: 2, pendingOnlyDays: 1.5 });
+  });
+});
+
+describe("levelFit", () => {
+  it("changes nothing without a range or without a level", () => {
+    expect(levelFit("SENIOR", null, null)).toEqual({ fit: "ANY", gap: 0, penalty: 0 });
+    expect(levelFit(null, "JUNIOR", "MIDDLE").penalty).toBe(0);
+  });
+
+  it("keeps the skill score of someone inside the range", () => {
+    const fit = levelFit("JUNIOR", "FRESHER", "MIDDLE");
+    expect(fit).toEqual({ fit: "FIT", gap: 0, penalty: 0 });
+    expect(skillScoreWithLevel(80, fit)).toBe(80);
+  });
+
+  it("costs an overqualified senior a little on simple work", () => {
+    // A fresher-to-junior task: a senior is two levels above it.
+    const fit = levelFit("SENIOR", "FRESHER", "JUNIOR");
+    expect(fit).toMatchObject({ fit: "OVER", gap: 2, penalty: 16 });
+    expect(skillScoreWithLevel(100, fit)).toBe(84);
+  });
+
+  it("costs someone below the range more than someone above it", () => {
+    const under = levelFit("FRESHER", "MIDDLE", null);
+    const over = levelFit("SENIOR", null, "JUNIOR");
+    expect(under).toMatchObject({ fit: "UNDER", gap: 2, penalty: 30 });
+    expect(under.penalty).toBeGreaterThan(over.penalty);
+  });
+
+  it("caps the penalty and never goes below zero", () => {
+    expect(levelFit("INTERN", "LEAD", null).penalty).toBe(45);
+    expect(levelFit("LEAD", null, "INTERN").penalty).toBe(24);
+    expect(skillScoreWithLevel(10, levelFit("INTERN", "LEAD", null))).toBe(0);
+  });
+});
+
+describe("taskDifficulty", () => {
+  const skill = (requiredProficiency: string, importance = "REQUIRED") =>
+    ({ requiredProficiency, importance }) as never;
+
+  it("reads the hardest required skill", () => {
+    expect(taskDifficulty([skill("BEGINNER")])).toBe("EASY");
+    expect(taskDifficulty([skill("BEGINNER"), skill("INTERMEDIATE")])).toBe("MEDIUM");
+    expect(taskDifficulty([skill("INTERMEDIATE"), skill("EXPERT")])).toBe("HARD");
+  });
+
+  it("does not let a nice-to-have skill make the work hard", () => {
+    expect(taskDifficulty([skill("BEGINNER"), skill("EXPERT", "NICE_TO_HAVE")])).toBe("EASY");
+  });
+
+  it("counts the lowest level the task suits", () => {
+    expect(taskDifficulty([skill("BEGINNER")], "MIDDLE")).toBe("MEDIUM");
+    expect(taskDifficulty([], "SENIOR")).toBe("HARD");
+    expect(taskDifficulty([])).toBe("EASY");
+  });
+});
+
+describe("scoreCandidate", () => {
+  const weights = {
+    skill: 0.1,
+    workload: 0.15,
+    availability: 0.1,
+    history: 0.65,
+    skillMultipliers: { EASY: 1, MEDIUM: 2, HARD: 4 }
+  };
+  // Strong in the skill, weak track record.
+  const specialist = { skillScore: 100, workloadScore: 50, availabilityScore: 100, historyScore: 40 };
+
+  it("lets the skill match count more on harder work", () => {
+    const easy = scoreCandidate(weights, { ...specialist, difficulty: "EASY" });
+    const hard = scoreCandidate(weights, { ...specialist, difficulty: "HARD" });
+
+    expect(hard).toBeGreaterThan(easy);
+    // Easy work: 0.1 of 100 + 0.15 of 50 + 0.1 of 100 + 0.65 of 40, over 1.0.
+    expect(easy).toBeCloseTo(53.5, 5);
+    // Hard work: the skill weight is 0.4, the total 1.3.
+    expect(hard).toBeCloseTo((40 + 7.5 + 10 + 26) / 1.3, 5);
+  });
+
+  it("scores like the flat weights without a difficulty", () => {
+    expect(scoreCandidate(weights, specialist)).toBeCloseTo(53.5, 5);
+  });
+
+  it("leaves leave out when it is not part of the run", () => {
+    expect(
+      scoreCandidate(weights, { ...specialist, availabilityScore: undefined, difficulty: "EASY" })
+    ).toBeCloseTo((10 + 7.5 + 26) / 0.9, 5);
   });
 });

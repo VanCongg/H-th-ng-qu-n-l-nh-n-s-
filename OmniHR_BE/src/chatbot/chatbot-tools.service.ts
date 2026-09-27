@@ -5,6 +5,7 @@ import {
   ChatbotActionStatus,
   ChatbotActionType,
   EmployeeStatus,
+  LeaveHalf,
   LeaveRequestStatus,
   Prisma,
   TaskStatus,
@@ -12,17 +13,19 @@ import {
 } from "@prisma/client";
 import { monthRange } from "../attendance/timesheet";
 import { TimesheetService } from "../attendance/timesheet.service";
-import { ANNUAL_LEAVE_CODE } from "../leave-balances/leave-accrual";
+import { ANNUAL_LEAVE_CODE, companyToday } from "../leave-balances/leave-accrual";
 import { LeaveBalancesService } from "../leave-balances/leave-balances.service";
 import { ApiError } from "../common/api-error";
 import { currentEmployeeWhere } from "../common/prisma-where";
 import { AccessControlService } from "../common/services/access-control.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import { AuditService } from "../common/services/audit.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { calculateLeaveDays, toDateOnly } from "../common/utils";
 import { LeaveRequestsService } from "../leave-requests/leave-requests.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { allowedTaskStatuses } from "../tasks/task-status-rules";
 import { TasksService } from "../tasks/tasks.service";
 import {
   AiToolCall,
@@ -60,6 +63,7 @@ export class ChatbotToolsService {
     private readonly leaveBalances: LeaveBalancesService,
     private readonly tasks: TasksService,
     private readonly timesheets: TimesheetService,
+    private readonly holidays: HolidaysService,
   ) {}
 
   availableTools(user: AuthUser): ChatbotToolDefinition[] {
@@ -185,7 +189,7 @@ export class ChatbotToolsService {
       tools.push({
         name: "update_task_status_draft",
         description:
-          "Validate and prepare a status change on a task assigned to the current employee, pending user confirmation",
+          "Validate and prepare a status change on a task assigned to the current employee, pending user confirmation. The employee can start a task, hand it in for review (asking to finish it hands it in) or take it back from review; approving it as done is the reviewer's call and is never drafted here",
       });
     }
 
@@ -962,8 +966,23 @@ export class ChatbotToolsService {
       );
     }
 
+    const halfDay = this.halfDayArg(args.halfDay);
+    if (halfDay && startDate.getTime() !== endDate.getTime()) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Nghỉ nửa ngày chỉ áp dụng cho một ngày. Bạn chọn lại một ngày giúp mình nhé.",
+        "LEAVE_HALF_DAY_RANGE",
+      );
+    }
+
     const settings = await this.systemSettings.getSettings();
-    const totalDays = calculateLeaveDays(startDate, endDate, settings.workWeek);
+    const workingDays = calculateLeaveDays(
+      startDate,
+      endDate,
+      settings.workWeek,
+      await this.holidays.dateSet(startDate, endDate),
+    );
+    const totalDays = halfDay ? workingDays / 2 : workingDays;
     if (totalDays <= 0) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
@@ -972,24 +991,20 @@ export class ChatbotToolsService {
       );
     }
 
-    const overlap = await this.prisma.leaveRequest.findFirst({
-      where: {
-        employeeId,
-        status: {
-          in: [LeaveRequestStatus.PENDING, LeaveRequestStatus.APPROVED],
-        },
-        startDate: { lte: endDate },
-        endDate: { gte: startDate },
-      },
-      select: { id: true },
-    });
-    if (overlap) {
-      throw new ApiError(
-        HttpStatus.BAD_REQUEST,
-        "Leave request overlaps with an existing pending or approved request",
-        "LEAVE_REQUEST_OVERLAP",
-      );
-    }
+    // Refused here rather than after the employee has confirmed.
+    await this.leaveRequests.ensureNoOverlap(
+      employeeId,
+      startDate,
+      endDate,
+      halfDay,
+    );
+    await this.leaveRequests.ensureAnnualBalance(
+      employeeId,
+      leaveType.code,
+      { startDate, endDate, totalDays },
+      settings.workWeek,
+      "availableDays",
+    );
 
     const reason = this.stringArg(args.reason, "Tạo từ HRGenie").slice(0, 1000);
     const payload = {
@@ -999,6 +1014,7 @@ export class ChatbotToolsService {
       startDate: this.dateKey(startDate),
       endDate: this.dateKey(endDate),
       totalDays,
+      halfDay,
       reason,
     };
     const action = await this.prisma.chatbotPendingAction.create({
@@ -1037,7 +1053,7 @@ export class ChatbotToolsService {
     context?: RequestContext,
   ) {
     const employeeId = this.requireEmployee(user);
-    const status = this.taskStatusArg(args.status);
+    const requested = this.taskStatusArg(args.status);
     const taskId = this.optionalIntegerArg(args.taskId);
     const keyword = this.stringArg(args.taskTitle).trim();
 
@@ -1049,13 +1065,7 @@ export class ChatbotToolsService {
         "ROOT_TASK_STATUS_IS_DERIVED",
       );
     }
-    if (task.status === status) {
-      throw new ApiError(
-        HttpStatus.BAD_REQUEST,
-        `Công việc "${task.title}" đã ở trạng thái này rồi.`,
-        "CHATBOT_TASK_STATUS_UNCHANGED",
-      );
-    }
+    const status = this.assigneeTaskStatus(task, requested);
 
     const note = this.stringArg(args.note, "Cập nhật từ HRGenie").slice(0, 500);
     const payload = {
@@ -1093,6 +1103,54 @@ export class ChatbotToolsService {
         payload,
       ),
     };
+  }
+
+  /**
+   * HRGenie moves a task only the way its assignee may, even when the caller
+   * could also review it: approving work stays the reviewer's decision, made
+   * on the web. "Finished" from the assignee therefore means handing it in
+   * for review, and every refusal is explained here rather than surfacing as
+   * an error only once the user has confirmed.
+   */
+  private assigneeTaskStatus(
+    task: { title: string; status: TaskStatus },
+    requested: TaskStatus,
+  ): TaskStatus {
+    let status = requested;
+    if (requested === TaskStatus.DONE) {
+      if (task.status === TaskStatus.IN_REVIEW) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          `Công việc "${task.title}" đang chờ quản lý duyệt. Khi được duyệt, công việc sẽ chuyển sang hoàn thành.`,
+          "CHATBOT_TASK_AWAITING_REVIEW",
+        );
+      }
+      status = TaskStatus.IN_REVIEW;
+    }
+
+    if (task.status === status) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        `Công việc "${task.title}" đã ở trạng thái này rồi.`,
+        "CHATBOT_TASK_STATUS_UNCHANGED",
+      );
+    }
+
+    const allowed = allowedTaskStatuses(task.status, false);
+    if (!allowed.includes(status)) {
+      const current = this.taskStatusLabel(task.status);
+      const message = allowed.length
+        ? `Công việc "${task.title}" đang ở trạng thái ${current}, bạn chỉ có thể chuyển sang ${allowed
+            .map((item) => this.taskStatusLabel(item))
+            .join(" hoặc ")}.`
+        : `Công việc "${task.title}" đã ${current}, không thể đổi trạng thái nữa.`;
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        message,
+        "CHATBOT_TASK_STATUS_NOT_ALLOWED",
+      );
+    }
+    return status;
   }
 
   /**
@@ -1178,10 +1236,21 @@ export class ChatbotToolsService {
         ? this.dateArg(args.startDate, "startDate")
         : undefined;
 
+    // Pending leave is withdrawn at once; approved leave that has not
+    // started yet becomes a cancellation request for the manager.
+    const settings = await this.systemSettings.getSettings();
+    const today = companyToday(settings.timezoneOffsetMinutes);
     const matches = await this.prisma.leaveRequest.findMany({
       where: {
         employeeId,
-        status: LeaveRequestStatus.PENDING,
+        OR: [
+          { status: LeaveRequestStatus.PENDING },
+          {
+            status: LeaveRequestStatus.APPROVED,
+            cancelRequestedAt: null,
+            startDate: { gt: today },
+          },
+        ],
         ...(leaveRequestId ? { id: leaveRequestId } : {}),
         ...(startDate
           ? { startDate: { lte: startDate }, endDate: { gte: startDate } }
@@ -1195,14 +1264,14 @@ export class ChatbotToolsService {
     if (!matches.length) {
       throw new ApiError(
         HttpStatus.NOT_FOUND,
-        "Không tìm thấy đơn nghỉ đang chờ duyệt phù hợp để hủy.",
+        "Không tìm thấy đơn nghỉ nào còn hủy được (đơn đang chờ duyệt, hoặc đơn đã duyệt mà chưa tới ngày nghỉ).",
         "CHATBOT_LEAVE_REQUEST_NOT_FOUND",
       );
     }
     if (matches.length > 1) {
       throw new ApiError(
         HttpStatus.BAD_REQUEST,
-        "Bạn có nhiều đơn nghỉ đang chờ duyệt. Vui lòng nói rõ ngày nghỉ hoặc mã đơn cần hủy.",
+        "Bạn có nhiều đơn nghỉ có thể hủy. Vui lòng nói rõ ngày nghỉ hoặc mã đơn cần hủy.",
         "CHATBOT_LEAVE_REQUEST_AMBIGUOUS",
       );
     }
@@ -1506,6 +1575,8 @@ export class ChatbotToolsService {
     const workDays = new Set(
       settings.workWeek.map((day) => WEEKDAY_INDEX[day.toUpperCase()]),
     );
+    // Nobody is absent on a public holiday.
+    const holidays = await this.holidays.dateSet(start, end);
     const trackedFrom = [start, employee?.hireDate, firstRecord?.workDate]
       .filter((value): value is Date => Boolean(value))
       .map((value) => toDateOnly(value))
@@ -1521,7 +1592,12 @@ export class ChatbotToolsService {
         (leave) =>
           toDateOnly(leave.startDate) <= day && toDateOnly(leave.endDate) >= day,
       );
-      if (workDays.has(day.getUTCDay()) && !attendedDays.has(key) && !onLeave) {
+      if (
+        workDays.has(day.getUTCDay()) &&
+        !holidays.has(day.getTime()) &&
+        !attendedDays.has(key) &&
+        !onLeave
+      ) {
         absentDates.push(key);
       }
     }
@@ -1844,7 +1920,10 @@ export class ChatbotToolsService {
       return {
         result: leaveRequest,
         auditValue: { leaveRequestId: leaveRequest.id },
-        reply: "Đơn nghỉ đang chờ duyệt đã được hủy.",
+        reply:
+          leaveRequest.status === LeaveRequestStatus.CANCELLED
+            ? "Đơn nghỉ đã được hủy."
+            : "Đơn nghỉ đã được duyệt nên mình đã gửi yêu cầu hủy cho quản lý. Đơn vẫn giữ nguyên cho tới khi quản lý đồng ý.",
         data: {
           leaveRequestId: leaveRequest.id,
           status: leaveRequest.status,
@@ -1863,7 +1942,10 @@ export class ChatbotToolsService {
       return {
         result: { id: task.id, status: task.status },
         auditValue: { taskId: task.id, status: task.status },
-        reply: `Đã cập nhật công việc "${task.title}" sang trạng thái ${this.taskStatusLabel(task.status)}.`,
+        reply:
+          task.status === TaskStatus.IN_REVIEW
+            ? `Đã gửi công việc "${task.title}" cho quản lý duyệt. Quản lý sẽ xác nhận hoàn thành.`
+            : `Đã cập nhật công việc "${task.title}" sang trạng thái ${this.taskStatusLabel(task.status)}.`,
         data: {
           taskId: task.id,
           status: task.status,
@@ -1913,7 +1995,16 @@ export class ChatbotToolsService {
       startDate: this.stringArg(payload.startDate),
       endDate: this.stringArg(payload.endDate),
       reason: this.stringArg(payload.reason, "Tạo từ HRGenie").slice(0, 1000),
+      halfDay: this.halfDayArg(payload.halfDay) ?? undefined,
     };
+  }
+
+  /** "MORNING" / "AFTERNOON" from the planner, anything else meaning a full day. */
+  private halfDayArg(value: unknown): LeaveHalf | null {
+    const raw = this.stringArg(value).trim().toUpperCase();
+    return raw === LeaveHalf.MORNING || raw === LeaveHalf.AFTERNOON
+      ? (raw as LeaveHalf)
+      : null;
   }
 
   private cancelLeavePayload(value: unknown) {
@@ -1980,6 +2071,7 @@ export class ChatbotToolsService {
         startDate: payload.startDate,
         endDate: payload.endDate,
         totalDays: payload.totalDays,
+        halfDay: payload.halfDay ?? null,
         reason: payload.reason,
       },
       expiresAt,
@@ -2402,9 +2494,9 @@ export class ChatbotToolsService {
     const statuses = raw.filter((item): item is TaskStatus =>
       Object.values(TaskStatus).includes(item as TaskStatus),
     );
-    return statuses.length
-      ? statuses
-      : [TaskStatus.TODO, TaskStatus.IN_PROGRESS];
+    // Open work includes what is waiting for review: it is still the
+    // employee's until the reviewer accepts it.
+    return statuses.length ? statuses : ACTIVE_TASK_STATUSES;
   }
 
   private workDateFor(recordedAt: Date, timezoneOffsetMinutes: number) {

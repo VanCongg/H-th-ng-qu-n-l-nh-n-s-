@@ -12,7 +12,7 @@ import {
   Min,
   ValidateNested
 } from "class-validator";
-import { TaskPriority, TaskStatus } from "@prisma/client";
+import { CareerLevel, TaskPriority, TaskStatus } from "@prisma/client";
 import { TaskRequiredSkillDto } from "./task-required-skill.dto";
 
 export class CreateTaskDto {
@@ -53,6 +53,16 @@ export class CreateTaskDto {
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;
+
+  /** The least experienced level the work suits; null clears it on update. */
+  @IsOptional()
+  @IsEnum(CareerLevel)
+  minLevel?: CareerLevel | null;
+
+  /** The most experienced level it is worth; null clears it on update. */
+  @IsOptional()
+  @IsEnum(CareerLevel)
+  maxLevel?: CareerLevel | null;
 
   @IsOptional()
   @Type(() => Number)

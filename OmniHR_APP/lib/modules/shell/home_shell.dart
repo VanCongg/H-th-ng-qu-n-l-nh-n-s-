@@ -1,11 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';
+import '../../core/push_notifications.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../shared/widgets/widgets.dart';
-import '../chat/chat_screen.dart';
+import '../chat/genie_chat_route.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
@@ -87,6 +90,22 @@ class _NotificationBellButtonState extends State<_NotificationBellButton> {
   void initState() {
     super.initState();
     _loadUnread();
+    // The bell lives as long as the signed-in home screen, so it is where the
+    // phone registers for push and where a tapped push lands.
+    final push = PushNotifications.instance;
+    push.onMessage = _loadUnread;
+    push.onOpen = () {
+      if (mounted) _openNotifications();
+    };
+    push.register(widget.session);
+  }
+
+  @override
+  void dispose() {
+    final push = PushNotifications.instance;
+    push.onMessage = null;
+    push.onOpen = null;
+    super.dispose();
   }
 
   Future<void> _loadUnread() async {
@@ -241,7 +260,7 @@ class _DraggableHrGenieBubble extends StatefulWidget {
 }
 
 class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _size = 68.0;
   static const _margin = 14.0;
 
@@ -256,6 +275,10 @@ class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
   /// dragging feel heavy.
   late final ValueNotifier<Offset> _offset;
   late final AnimationController _settle;
+
+  /// The lamp being rubbed: a quick shake before the genie comes out.
+  late final AnimationController _rub;
+  final _lampKey = GlobalKey();
   Animation<Offset>? _slide;
   bool _dragging = false;
 
@@ -266,6 +289,10 @@ class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
       vsync: this,
       duration: const Duration(milliseconds: 240),
     )..addListener(() => _offset.value = _slide?.value ?? _offset.value);
+    _rub = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
     // Parks bottom right on first launch.
     _offset = ValueNotifier(
       _restingPlace(
@@ -287,6 +314,7 @@ class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
   @override
   void dispose() {
     _settle.dispose();
+    _rub.dispose();
     _offset.dispose();
     super.dispose();
   }
@@ -358,15 +386,21 @@ class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
     _settleTo(_restingPlace(_offset.value));
   }
 
-  void _onTap() {
+  Future<void> _onTap() async {
     if (_hidden) {
       widget.session.setGenieHidden(false);
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatScreen(session: widget.session),
-      ),
+    // A second tap while the lamp is still shaking would open two chats.
+    if (_rub.isAnimating) return;
+    if (!MediaQuery.of(context).disableAnimations) {
+      await _rub.forward(from: 0);
+      if (!mounted) return;
+    }
+    await openGenieChat(
+      context,
+      widget.session,
+      from: globalRectOf(_lampKey.currentContext),
     );
   }
 
@@ -385,7 +419,13 @@ class _DraggableHrGenieBubbleState extends State<_DraggableHrGenieBubble>
         onPanUpdate: _onPanUpdate,
         onPanEnd: _onPanEnd,
         child: RepaintBoundary(
-          child: _HrGenieBubble(size: _size, hidden: _hidden, onTap: _onTap),
+          child: _HrGenieBubble(
+            size: _size,
+            hidden: _hidden,
+            rub: _rub,
+            lampKey: _lampKey,
+            onTap: _onTap,
+          ),
         ),
       ),
     );
@@ -396,11 +436,15 @@ class _HrGenieBubble extends StatelessWidget {
   const _HrGenieBubble({
     required this.size,
     required this.hidden,
+    required this.rub,
+    required this.lampKey,
     required this.onTap,
   });
 
   final double size;
   final bool hidden;
+  final Animation<double> rub;
+  final Key lampKey;
   final VoidCallback onTap;
 
   @override
@@ -442,9 +486,20 @@ class _HrGenieBubble extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: onTap,
-                child: const Padding(
-                  padding: EdgeInsets.all(7),
-                  child: GenieMascot(),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: AnimatedBuilder(
+                    animation: rub,
+                    // A shake that dies down: fast wobbles, smaller each time.
+                    builder: (context, lamp) => Transform.rotate(
+                      angle:
+                          math.sin(rub.value * math.pi * 6) *
+                          0.3 *
+                          (1 - rub.value),
+                      child: lamp,
+                    ),
+                    child: GenieLamp(key: lampKey),
+                  ),
                 ),
               ),
             ),

@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
 import { AuthUser } from "../common/types";
 import { LeaveRequestsService } from "../leave-requests/leave-requests.service";
@@ -68,9 +69,15 @@ describe("ChatbotToolsService", () => {
       isDepartmentHead: jest.fn().mockResolvedValue(false),
     };
     const systemSettings = { getSettings: jest.fn() };
-    const leaveRequests = { create: jest.fn(), cancel: jest.fn() };
+    const leaveRequests = {
+      create: jest.fn(),
+      cancel: jest.fn(),
+      ensureAnnualBalance: jest.fn(),
+      ensureNoOverlap: jest.fn(),
+    };
     const tasks = { updateStatus: jest.fn() };
     const timesheets = { forEmployees: jest.fn() };
+    const holidays = { dateSet: jest.fn().mockResolvedValue(new Set()) };
 
     return {
       service: new ChatbotToolsService(
@@ -82,6 +89,7 @@ describe("ChatbotToolsService", () => {
         {} as LeaveBalancesService,
         tasks as unknown as TasksService,
         timesheets as unknown as TimesheetService,
+        holidays as unknown as HolidaysService,
       ),
       prisma,
       audit,
@@ -367,6 +375,69 @@ describe("ChatbotToolsService", () => {
 
       expect(result.success).toBe(false);
       expect(result.errorCode).toBe("ROOT_TASK_STATUS_IS_DERIVED");
+    });
+
+    const draftFor = async (status: string, requested: string) => {
+      const { service, prisma } = createService();
+      prisma.task.findMany.mockResolvedValue([
+        {
+          id: 42,
+          parentTaskId: 40,
+          title: "Viết tài liệu API",
+          status,
+          project: { name: "HRGenie" },
+        },
+      ]);
+      prisma.chatbotPendingAction.create.mockResolvedValue({
+        id: 77,
+        expiresAt: new Date("2026-07-01T10:30:00.000Z"),
+      });
+      const result = await service.executeTool(
+        7,
+        {
+          id: "call_1",
+          toolName: "update_task_status_draft",
+          arguments: { taskTitle: "tài liệu API", status: requested },
+        },
+        taskUser,
+      );
+      return { result, prisma };
+    };
+
+    it("hands a finished task in for review instead of marking it done", async () => {
+      const { result } = await draftFor("IN_PROGRESS", "DONE");
+
+      expect(result.success).toBe(true);
+      expect(result.pendingAction?.summary).toEqual(
+        expect.objectContaining({ currentStatus: "IN_PROGRESS", status: "IN_REVIEW" }),
+      );
+    });
+
+    it("never drafts an approval, even for a caller who could review it", async () => {
+      const { result, prisma } = await draftFor("IN_REVIEW", "DONE");
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe("CHATBOT_TASK_AWAITING_REVIEW");
+      expect(result.message).toContain("chờ quản lý duyệt");
+      expect(prisma.chatbotPendingAction.create).not.toHaveBeenCalled();
+    });
+
+    it("lets the assignee take a task back from review", async () => {
+      const { result } = await draftFor("IN_REVIEW", "IN_PROGRESS");
+
+      expect(result.success).toBe(true);
+      expect(result.pendingAction?.summary).toEqual(
+        expect.objectContaining({ status: "IN_PROGRESS" }),
+      );
+    });
+
+    it("explains a move the assignee cannot make before anything is confirmed", async () => {
+      const { result, prisma } = await draftFor("TODO", "DONE");
+
+      expect(result.success).toBe(false);
+      expect(result.errorCode).toBe("CHATBOT_TASK_STATUS_NOT_ALLOWED");
+      expect(result.message).toContain("đang làm");
+      expect(prisma.chatbotPendingAction.create).not.toHaveBeenCalled();
     });
 
     it("updates the task only after the user confirms", async () => {

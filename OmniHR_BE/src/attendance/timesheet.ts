@@ -16,6 +16,7 @@ export type TimesheetSettings = Pick<
   | "workWeek"
   | "timezoneOffsetMinutes"
   | "attendanceGraceMinutes"
+  | "overtimeMinimumMinutes"
   | "morningShiftStart"
   | "morningShiftEnd"
   | "afternoonShiftStart"
@@ -32,15 +33,24 @@ export type TimesheetLeave = {
   startDate: Date;
   endDate: Date;
   isPaid: boolean;
+  /** A half-day leave covers one shift: half the day. */
+  halfDay?: "MORNING" | "AFTERNOON" | null;
 };
 
 export type EmployeeTimesheet = {
   standardWorkDays: number;
+  /** Public holidays on work-week days: paid, and not part of the standard. */
+  holidayDays: number;
   attendanceDays: number;
   paidLeaveDays: number;
   unpaidLeaveDays: number;
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  /**
+   * Time worked beyond the shifts, on days where it reached the overtime
+   * minimum. Recorded, not approved: pay for it still needs the manager's
+   * sign-off, as the Labour Code requires the employee's agreement.
+   */
   overtimeMinutes: number;
   missingCheckOuts: number;
   workedMinutes: number;
@@ -118,18 +128,24 @@ export function resolveShiftWindows(
  *   within the grace period are ignored.
  * - Overtime is time worked after the last shift ends on a work day, plus all
  *   time worked on a non-work day. Arriving before the first shift or working
- *   through lunch is not overtime.
+ *   through lunch is not overtime, and a day's extra below
+ *   `overtimeMinimumMinutes` is not counted at all.
  * - A check-in without a matching check-out still proves presence for the shift
  *   it falls in, but has no end time, so it adds no early-leave or overtime and
  *   is reported in missingCheckOuts for an admin to adjust.
- * - An approved paid leave covers any part of a work day not already attended.
+ * - An approved paid leave covers any part of a work day not already attended;
+ *   a half-day leave covers at most half the day.
+ * - A holiday on a work-week day is paid and left out of the standard; time
+ *   worked on it is overtime, as on a weekend. `holidays` holds UTC-midnight
+ *   timestamps (HolidaysService.dateSet).
  */
 export function computeTimesheet(
   year: number,
   month: number,
   records: TimesheetAttendanceRecord[],
   leaves: TimesheetLeave[],
-  settings: TimesheetSettings
+  settings: TimesheetSettings,
+  holidays: ReadonlySet<number> = new Set()
 ): EmployeeTimesheet {
   const { start, end } = monthRange(year, month);
   const windows = resolveShiftWindows(settings);
@@ -158,6 +174,7 @@ export function computeTimesheet(
 
   const timesheet: EmployeeTimesheet = {
     standardWorkDays: 0,
+    holidayDays: 0,
     attendanceDays: 0,
     paidLeaveDays: 0,
     unpaidLeaveDays: 0,
@@ -173,7 +190,11 @@ export function computeTimesheet(
   };
 
   for (let day = start.getTime(); day <= end.getTime(); day += DAY_MS) {
-    const isWorkDay = workDays.has(new Date(day).getUTCDay());
+    const isHoliday = holidays.has(day);
+    const isWorkDay = workDays.has(new Date(day).getUTCDay()) && !isHoliday;
+    if (isHoliday && workDays.has(new Date(day).getUTCDay())) {
+      timesheet.holidayDays += 1;
+    }
     const dayRecords = (recordsByDay.get(day) ?? []).sort(
       (a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()
     );
@@ -189,9 +210,9 @@ export function computeTimesheet(
     );
 
     if (!isWorkDay) {
-      timesheet.overtimeMinutes += intervals.reduce(
-        (sum, [from, to]) => sum + (to - from),
-        0
+      timesheet.overtimeMinutes += countedOvertime(
+        intervals.reduce((sum, [from, to]) => sum + (to - from), 0),
+        settings.overtimeMinimumMinutes
       );
       continue;
     }
@@ -228,9 +249,12 @@ export function computeTimesheet(
       }
     });
 
-    timesheet.overtimeMinutes += intervals.reduce(
-      (sum, [from, to]) => sum + Math.max(0, to - Math.max(from, lastShiftEnd)),
-      0
+    timesheet.overtimeMinutes += countedOvertime(
+      intervals.reduce(
+        (sum, [from, to]) => sum + Math.max(0, to - Math.max(from, lastShiftEnd)),
+        0
+      ),
+      settings.overtimeMinimumMinutes
     );
 
     const attendedDay = Math.min(1, attendedShare);
@@ -239,11 +263,15 @@ export function computeTimesheet(
       (leave) =>
         leave.startDate.getTime() <= day && leave.endDate.getTime() >= day
     );
-    if (covering.some((leave) => leave.isPaid)) {
-      timesheet.paidLeaveDays += 1 - attendedDay;
-    } else if (covering.length) {
-      timesheet.unpaidLeaveDays += 1;
-    }
+    // How much of the day the leave covers: all of it, or one shift.
+    const coverage = (leave: TimesheetLeave) => (leave.halfDay ? 0.5 : 1);
+    const paidCover = Math.max(0, ...covering.filter((leave) => leave.isPaid).map(coverage));
+    const unpaidCover = Math.max(0, ...covering.filter((leave) => !leave.isPaid).map(coverage));
+    const notWorked = 1 - attendedDay;
+    const paid = Math.min(paidCover, notWorked);
+    timesheet.paidLeaveDays += paid;
+    // Like paid leave: the part of the day actually worked is not unpaid.
+    timesheet.unpaidLeaveDays += Math.min(unpaidCover, notWorked - paid);
   }
 
   return timesheet;
@@ -284,6 +312,11 @@ function pairRecords(
   }
 
   return { intervals, openCheckIns };
+}
+
+/** A day's extra time, or none when it stays under the minimum. */
+function countedOvertime(minutes: number, minimum = 0) {
+  return minutes >= minimum ? minutes : 0;
 }
 
 function parseTime(value: string) {

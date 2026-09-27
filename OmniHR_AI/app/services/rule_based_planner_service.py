@@ -37,6 +37,16 @@ POLICY_FRAMING_PHRASES = (
 
 TASK_TITLE_END_MARKERS = (
     "sang trang thai",
+    # "rút task X về đang làm": cut at the phrase, never at a bare "về",
+    # which titles use too ("Tài liệu về API").
+    "ve trang thai",
+    "ve dang lam",
+    "ve cho",
+    "ve chua lam",
+    # "task X đang chờ duyệt thành hoàn thành": the current status is not
+    # part of the title either.
+    "dang cho",
+    "dang o ",
     "sang ",
     "thanh ",
     "da xong",
@@ -65,12 +75,18 @@ class RuleBasedPlannerService:
         normalized = normalize(text)
         available = {tool.name for tool in request.availableTools}
 
-        if self._is_cancel_leave_request(normalized):
-            return self._cancel_leave_request_plan(request, normalized, available)
-
+        # Before the cancel shortcut: "hủy đơn nghỉ của chị Linh" is a cancel
+        # phrase too, and must be refused rather than drafted.
         forbidden = self._forbidden_plan(text, normalized)
         if forbidden is not None:
             return forbidden
+
+        if self._is_cancel_leave_request(normalized):
+            return self._cancel_leave_request_plan(request, normalized, available)
+
+        paraphrase = self._paraphrase_plan(request, normalized, available)
+        if paraphrase is not None:
+            return paraphrase
 
         personal = self._personal_data_plan(request, text, normalized, available)
         if personal is not None:
@@ -194,7 +210,7 @@ class RuleBasedPlannerService:
         if self._has_any(normalized, "task", "cong viec", "deadline", "den han"):
             return self._tool_plan(
                 "get_my_tasks",
-                {"status": ["TODO", "IN_PROGRESS"], "limit": 10},
+                {"status": ["TODO", "IN_PROGRESS", "IN_REVIEW"], "limit": 10},
                 available,
                 "Tôi sẽ kiểm tra các task đang mở của bạn.",
             )
@@ -235,6 +251,23 @@ class RuleBasedPlannerService:
             stripped = stripped.replace(phrase, " ")
         return re.sub(r"\s+", " ", stripped).strip()
 
+    _POLICY_SYNONYMS = (
+        ("lam o nha", "lam viec tu xa"),
+        ("lam tai nha", "lam viec tu xa"),
+        ("lam them gio", "tang ca"),
+        ("lam them", "tang ca"),
+        ("dung khong het", "cong don phep nam sang nam sau"),
+        ("khong dung het", "cong don phep nam sang nam sau"),
+        ("om dau", "bao hiem"),
+    )
+
+    def _with_policy_synonyms(self, normalized: str) -> str:
+        expanded = normalized
+        for everyday, policy_term in self._POLICY_SYNONYMS:
+            if everyday in expanded:
+                expanded = expanded.replace(everyday, policy_term)
+        return expanded
+
     def _policy_topics_answer(self, normalized: str) -> ChatPlanResponse | None:
         """A policy question we cannot pin down deserves the list of policies
         we do hold, not the generic "what can I help with" reply."""
@@ -264,6 +297,12 @@ class RuleBasedPlannerService:
                 result = self.rag_service.search(
                     RagSearchRequest(query=stripped, topK=1)
                 )
+
+        if not result.items:
+            # Everyday words for what the policies call something else.
+            expanded = self._with_policy_synonyms(normalized)
+            if expanded != normalized:
+                result = self.rag_service.search(RagSearchRequest(query=expanded, topK=1))
 
         if not result.items:
             return self._policy_topics_answer(normalized)
@@ -312,15 +351,27 @@ class RuleBasedPlannerService:
             )
 
         days = self._extract_days(normalized)
+        half_day = self._extract_half_day(normalized)
+        if half_day == "ASK":
+            return ChatPlanResponse(
+                type="answer",
+                intent="CREATE_LEAVE_REQUEST_DRAFT",
+                reply="Bạn muốn nghỉ buổi sáng hay buổi chiều?",
+                confidence=0.76,
+            )
+        if half_day:
+            days = 1
         end_date = start_date + timedelta(days=max(days - 1, 0))
         leave_type_code = self._leave_type_code(normalized)
         reason = self._extract_reason(original_text)
-        arguments = {
+        arguments: dict[str, object] = {
             "leaveTypeCode": leave_type_code,
             "startDate": start_date.isoformat(),
             "endDate": end_date.isoformat(),
             "reason": reason,
         }
+        if half_day:
+            arguments["halfDay"] = half_day
 
         return ChatPlanResponse(
             type="confirmation_required",
@@ -363,7 +414,7 @@ class RuleBasedPlannerService:
         return ChatPlanResponse(
             type="confirmation_required",
             intent="CANCEL_MY_PENDING_LEAVE_REQUEST",
-            reply="Tôi sẽ tìm đơn nghỉ đang chờ duyệt phù hợp và tạo xác nhận hủy.",
+            reply="Tôi sẽ tìm đơn nghỉ phù hợp để hủy; đơn đã duyệt sẽ được gửi quản lý duyệt yêu cầu hủy.",
             toolCalls=[
                 ToolCall(
                     id=f"call_{uuid4().hex[:8]}",
@@ -393,7 +444,7 @@ class RuleBasedPlannerService:
         if "get_my_upcoming_tasks" not in available and "get_my_tasks" in available:
             return self._tool_plan(
                 "get_my_tasks",
-                {"status": ["TODO", "IN_PROGRESS"], "limit": 10},
+                {"status": ["TODO", "IN_PROGRESS", "IN_REVIEW"], "limit": 10},
                 available,
                 "Tôi sẽ kiểm tra các task đang mở của bạn.",
             )
@@ -527,13 +578,181 @@ class RuleBasedPlannerService:
                 "Tôi chỉ có thể cập nhật trạng thái công việc của chính bạn. "
                 "Công việc của người khác thì quản lý hoặc chính người đó cập nhật nhé."
             )
+
+        # Leave is filed and cancelled by the person taking it. The draft would
+        # be created for the caller anyway, so going ahead would quietly do
+        # something other than what was asked.
+        if self._is_leave_action(normalized) and self._is_on_behalf_of_others(text, normalized):
+            return self._forbidden(
+                "Tôi chỉ có thể tạo hoặc hủy đơn nghỉ của chính bạn. "
+                "Người khác cần tự gửi đơn, hoặc liên hệ quản lý của họ nhé."
+            )
         return None
+
+    def _is_leave_action(self, normalized: str) -> bool:
+        if re.search(r"\bai\b", normalized) or self._is_leave_today_query(normalized):
+            return False  # "ai nghỉ phép hôm nay" asks about others, it files nothing
+        return self._is_leave_request(normalized) or self._is_cancel_leave_request(normalized)
+
+    def _is_on_behalf_of_others(self, text: str, normalized: str) -> bool:
+        # Unlike the salary check, "của em" / "cho em" stay out: employees often
+        # call themselves "em" when talking to the assistant.
+        return self._has_any(
+            normalized,
+            "cho anh ", "cho chi ", "ho anh ", "ho chi ", "giup anh ", "giup chi ",
+            "thay anh ", "thay chi ", "thay cho", "cho dong nghiep", "cho nhan vien",
+            "cho ca ", "cho moi nguoi", "cua anh ", "cua chi ", "cua dong nghiep",
+            "cua nhan vien", "cua truong", "cua sep", "cua ca ", "cua moi nguoi",
+            "ca phong", "ca team",
+        ) or re.search(r"(của|cho|hộ|giúp|thay)\s+[A-ZĐ]", text) is not None
 
     def _out_of_scope(self, reply: str) -> ChatPlanResponse:
         return ChatPlanResponse(type="answer", intent="OUT_OF_SCOPE", reply=reply, confidence=0.8)
 
     def _forbidden(self, reply: str) -> ChatPlanResponse:
         return ChatPlanResponse(type="answer", intent="FORBIDDEN_REQUEST", reply=reply, confidence=0.8)
+
+    def _paraphrase_plan(
+        self,
+        request: ChatPlanRequest,
+        normalized: str,
+        available: set[str],
+    ) -> ChatPlanResponse | None:
+        """Everyday wordings the keyword branches below miss. This is the
+        planner's fallback when the LLM is down, so it needs to cope with how
+        people actually ask, not only with the canonical phrasing. Runs before
+        those branches because some of them grab these questions wrongly:
+        "ai vang mat vi nghi phep" contains "nghi phep", which reads as a
+        leave request."""
+        who = re.search(r"\bai\b", normalized) is not None
+        today = self._has_any(normalized, "hom nay", "hnay", "sang nay", "chieu nay")
+        leave_word = self._has_any(normalized, "nghi", "vang")
+
+        # Who is away: today, or in the days ahead.
+        if who and leave_word and self._has_any(normalized, "tuan nay", "tuan sau", "sap toi"):
+            return self._upcoming_leaves_plan(request, normalized, available)
+        if self._has_any(normalized, "lich nghi") and self._has_any(normalized, "team", "nhom", "phong"):
+            return self._upcoming_leaves_plan(request, normalized, available)
+        if who and leave_word and (today or "dang nghi" in normalized):
+            return self._tool_plan(
+                "get_who_is_on_leave_today",
+                {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
+                available,
+                "Tôi sẽ kiểm tra nhân viên nghỉ phép hôm nay trong phạm vi bạn được xem.",
+            )
+
+        # The team's attendance: who came in late.
+        if who and self._has_any(normalized, "di lam muon", "den muon", "di muon", "di tre", "den tre"):
+            return self._tool_plan(
+                "get_team_attendance_summary",
+                {"date": self._today(request).isoformat(), "scope": self._scope(normalized)},
+                available,
+                "Tôi sẽ tổng hợp tình hình chấm công trong phạm vi bạn được xem.",
+            )
+
+        # How many people.
+        if self._has_any(normalized, "bao nhieu", "may") and self._has_any(
+            normalized, "nhan su", "nhan vien", "nguoi"
+        ) and not self._has_any(normalized, "ngay", "gio"):
+            return self._tool_plan(
+                "get_department_headcount",
+                {"scope": self._scope(normalized)},
+                available,
+                "Tôi sẽ đếm số nhân viên đang làm việc trong phạm vi bạn được xem.",
+            )
+
+        # The team's open work.
+        if self._has_any(normalized, "nhom toi", "nhom minh", "team toi", "team minh", "phong toi", "phong minh") and \
+                self._has_any(normalized, "viec", "task") and \
+                self._has_any(normalized, "chua xong", "con bao nhieu", "qua han", "dang mo", "con lai"):
+            return self._tool_plan(
+                "get_team_task_summary",
+                {"scope": self._scope(normalized), "includeOverdue": "qua han" in normalized},
+                available,
+                "Tôi sẽ tổng hợp task trong phạm vi nhóm/phòng ban bạn được xem.",
+            )
+
+        # My leave balance - but not the carry-over rule, which is policy.
+        if self._has_any(normalized, "ngay phep", "ngay nghi phep", "quy phep", "phep nam") and self._has_any(
+            normalized, "con", "bao nhieu", "may ngay", "da dung"
+        ) and not self._has_any(normalized, "khong het", "co mat", "quy dinh", "chinh sach", "cong don"):
+            return self._tool_plan(
+                "get_my_leave_balance",
+                {"year": self._today(request).year},
+                available,
+                "Tôi sẽ kiểm tra số ngày phép còn lại của bạn.",
+            )
+
+        # The leave requests I sent.
+        # ("Who approves my leave?" asks about a person, not the list.)
+        if "don nghi" in normalized and self._has_any(
+            normalized, "liet ke", "da gui", "cua minh", "cua toi", "danh sach", "xem lai"
+        ) and not self._has_any(normalized, "ai phe duyet", "ai duyet", "do ai"):
+            return self._tool_plan(
+                "get_my_leave_requests",
+                {"limit": 5},
+                available,
+                "Tôi sẽ kiểm tra các đơn nghỉ gần đây của bạn.",
+            )
+
+        # Attendance rules (shift times, radius) versus today's own punches.
+        shift_rule = self._has_any(
+            normalized, "bat dau luc", "may gio", "tan lam", "bao xa", "cach van phong", "gio vao lam"
+        )
+        today_punch = self._has_any(
+            normalized, "quet van tay", "vao ca", "check out", "checkout", "check in", "bi tinh di tre",
+            "bi tinh tre", "da cham cong",
+        )
+        if shift_rule and not today and not today_punch:
+            return self._tool_plan(
+                "get_attendance_policy",
+                {},
+                available,
+                "Tôi sẽ kiểm tra cấu hình chấm công hiện tại.",
+            )
+        # Someone else's punches ("team minh co ai chua check in") are the
+        # team branch's, further down.
+        about_others = who or self._has_any(normalized, "team", "nhom", "phong")
+        if not about_others and (
+            today_punch or (today and self._has_any(normalized, "di tre", "di muon", "gio vao"))
+        ):
+            return self._tool_plan(
+                "get_today_attendance",
+                {},
+                available,
+                "Tôi sẽ kiểm tra chấm công hôm nay của bạn.",
+            )
+
+        # My work that is due, late or urgent; then my work at all.
+        if self._has_any(normalized, "viec", "task") and self._has_any(
+            normalized, "toi han", "het han", "tre deadline", "tre han", "gap nhat", "uu tien"
+        ):
+            return self._upcoming_tasks_plan(normalized, available)
+        if self._has_any(normalized, "duoc giao") and self._has_any(normalized, "viec", "task", "gi"):
+            return self._tool_plan(
+                "get_my_tasks",
+                {"status": ["TODO", "IN_PROGRESS", "IN_REVIEW"], "limit": 10},
+                available,
+                "Tôi sẽ kiểm tra các task đang mở của bạn.",
+            )
+
+        # My profile and my manager. "Has my boss approved my leave?" is about
+        # the leave, so a sentence about a request is left to that branch.
+        if self._has_any(normalized, "sep", "cap tren") and "don" not in normalized:
+            return self._tool_plan(
+                "get_my_manager",
+                {},
+                available,
+                "Tôi sẽ kiểm tra quản lý và phòng ban của bạn.",
+            )
+        if self._has_any(normalized, "ma nhan vien", "phong ban nao", "phong nao", "chuc danh cua"):
+            return self._tool_plan(
+                "get_my_profile",
+                {},
+                available,
+                "Tôi sẽ kiểm tra hồ sơ nhân viên của bạn.",
+            )
+        return None
 
     def _personal_data_plan(
         self,
@@ -748,6 +967,9 @@ class RuleBasedPlannerService:
             "qua han",
         ):
             return False
+        # "đã hoàn thành task X chưa?" asks, it does not report.
+        if normalized.rstrip(" ?.!").endswith(" chua"):
+            return False
 
         if self._has_any(
             normalized,
@@ -763,10 +985,33 @@ class RuleBasedPlannerService:
             "cho quan ly duyet",
             "nop task",
             "nop cong viec",
+            "hoan thanh task",
+            "hoan thanh cong viec",
+            "hoan tat task",
+            "hoan tat cong viec",
+            "rut task",
+            "rut cong viec",
+            "rut lai task",
+            "rut lai cong viec",
         ):
             return True
 
-        return self._has_any(normalized, "chuyen", "doi") and "sang" in normalized
+        if self._has_any(normalized, "chuyen", "doi", "cap nhat", "sua") and (
+            " sang " in f" {normalized} " or self._target_status_segment(normalized) is not None
+        ):
+            return True
+        return False
+
+    @staticmethod
+    def _target_status_segment(normalized: str) -> str | None:
+        """The words after "sang", "thành" or "về": where the task is going,
+        as opposed to where it is now ("task X đang chờ duyệt thành hoàn
+        thành"). The "thành" of "hoàn thành" is a status, not a marker."""
+        for pattern in (r"\bsang\s+(.+)$", r"(?<!hoan )\bthanh\s+(.+)$", r"\bve\s+(.+)$"):
+            match = re.search(pattern, normalized)
+            if match:
+                return match.group(1)
+        return None
 
     def _task_status_plan(
         self,
@@ -830,6 +1075,18 @@ class RuleBasedPlannerService:
         )
 
     def _task_status_from_text(self, normalized: str) -> str | None:
+        # The target named after "sang/thành/về" wins over a status the
+        # message mentions as the current one.
+        segment = self._target_status_segment(normalized)
+        if segment is not None:
+            status = self._status_in(segment)
+            if status is not None:
+                return status
+        if self._has_any(normalized, "rut task", "rut cong viec", "rut lai"):
+            return "IN_PROGRESS"
+        return self._status_in(normalized)
+
+    def _status_in(self, normalized: str) -> str | None:
         # Ordered so the more specific wording wins: "xong" also appears in
         # "chua xong", and "cho duyet" contains "duyet".
         if self._has_any(
@@ -886,7 +1143,11 @@ class RuleBasedPlannerService:
         return title or None
 
     def _is_leave_request(self, normalized: str) -> bool:
-        return self._has_any(normalized, "muon nghi", "xin nghi", "nghi phep", "nghi om") and not self._has_any(
+        asks = self._has_any(
+            normalized, "muon nghi", "xin nghi", "nghi phep", "nghi om", "cho toi nghi", "cho minh nghi",
+            "toi nghi mot buoi", "toi nghi 1 buoi",
+        ) or re.search(r"\bnghi \d+ ngay\b", normalized) is not None
+        return asks and not self._has_any(
             normalized,
             "huy",
             "con bao nhieu",
@@ -901,7 +1162,9 @@ class RuleBasedPlannerService:
 
     def _is_cancel_leave_request(self, normalized: str) -> bool:
         # The only request an employee can cancel here is a leave request.
-        return self._has_any(normalized, "huy don", "huy nghi", "huy phep", "khong nghi nua") or (
+        return self._has_any(
+            normalized, "huy don", "huy nghi", "huy phep", "khong nghi nua", "rut lai don", "rut don nghi"
+        ) or (
             self._has_any(normalized, "huy") and self._has_any(normalized, "don nghi", "nghi phep")
         )
 
@@ -913,6 +1176,16 @@ class RuleBasedPlannerService:
             return today + timedelta(days=1)
         if "hom nay" in normalized:
             return today
+
+        weekday = self._weekday_in(normalized)
+        if weekday is not None:
+            monday = today - timedelta(days=today.weekday())
+            if "tuan sau" in normalized:
+                monday += timedelta(days=7)
+                return monday + timedelta(days=weekday)
+            day = monday + timedelta(days=weekday)
+            # "thu 6" alone means the coming one, never a day already past.
+            return day if day >= today or "tuan nay" in normalized else day + timedelta(days=7)
 
         match = re.search(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b", normalized)
         if not match:
@@ -929,11 +1202,35 @@ class RuleBasedPlannerService:
         except ValueError:
             return None
 
+    _WEEKDAYS = {
+        "2": 0, "hai": 0, "3": 1, "ba": 1, "4": 2, "tu": 2,
+        "5": 3, "nam": 3, "6": 4, "sau": 4, "7": 5, "bay": 5,
+    }
+
+    def _weekday_in(self, normalized: str) -> int | None:
+        """Monday = 0 for "thu 2/hai" ... "thu 7/bay", 6 for "chu nhat"."""
+        if "chu nhat" in normalized:
+            return 6
+        match = re.search(r"\bthu (2|3|4|5|6|7|hai|ba|tu|nam|sau|bay)\b", normalized)
+        return self._WEEKDAYS[match.group(1)] if match else None
+
     def _extract_days(self, normalized: str) -> int:
         match = re.search(r"\b(\d{1,2})\s*ngay\b", normalized)
         if not match:
             return 1
         return max(1, min(int(match.group(1)), 30))
+
+    def _extract_half_day(self, normalized: str) -> str | None:
+        """MORNING / AFTERNOON for one shift off, "ASK" for "nửa ngày" with
+        no shift named. Only unmistakable phrases count: "sang" alone is also
+        "next" ("sang tuần sau")."""
+        if re.search(r"\bbuoi sang\b|\bsang (nay|mai|thu|ngay)\b|\bnghi sang\b", normalized):
+            return "MORNING"
+        if re.search(r"\bbuoi chieu\b|\bchieu (nay|mai|thu|ngay)\b|\bnghi chieu\b", normalized):
+            return "AFTERNOON"
+        if "nua ngay" in normalized:
+            return "ASK"
+        return None
 
     def _leave_type_code(self, normalized: str) -> str:
         if "khong luong" in normalized:

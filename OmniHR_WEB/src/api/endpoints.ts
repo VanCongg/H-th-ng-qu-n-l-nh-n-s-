@@ -1,6 +1,7 @@
 import { api } from "./axios";
 import type {
   AdminDashboard,
+  Holiday,
   ApiEnvelope,
   AttendanceRecord,
   AuthUser,
@@ -23,6 +24,7 @@ import type {
   Project,
   Role,
   Skill,
+  GroupedTasks,
   Task,
   TaskAssignment,
   Team,
@@ -143,6 +145,11 @@ export const tasksApi = {
     unwrap<Paginated<Task>>(api.get("/tasks", { params })),
   team: (params?: QueryParams) =>
     unwrap<Paginated<Task>>(api.get("/tasks/team", { params })),
+  listGrouped: (params?: QueryParams) =>
+    unwrap<GroupedTasks>(api.get("/tasks", { params: { ...params, groupByRoot: true } })),
+  /** The team board: one page of team tasks, each with its subtasks. */
+  teamGrouped: (params?: QueryParams) =>
+    unwrap<GroupedTasks>(api.get("/tasks/team", { params: { ...params, groupByRoot: true } })),
   me: (params?: QueryParams) =>
     unwrap<Paginated<Task>>(api.get("/tasks/me", { params })),
   get: (id: number) => unwrap<Task>(api.get(`/tasks/${id}`)),
@@ -225,6 +232,16 @@ export const attendanceApi = {
     unwrap<AttendanceRecord>(api.patch(`/attendance/${id}`, payload))
 };
 
+export const holidaysApi = {
+  list: (year?: number) =>
+    unwrap<Holiday[]>(api.get("/holidays", { params: year ? { year } : undefined })),
+  create: (payload: { date: string; name: string }) =>
+    unwrap<Holiday>(api.post("/holidays", payload)),
+  update: (id: number, payload: { date?: string; name?: string }) =>
+    unwrap<Holiday>(api.patch(`/holidays/${id}`, payload)),
+  remove: (id: number) => unwrap<Holiday>(api.delete(`/holidays/${id}`))
+};
+
 export const leaveTypesApi = {
   list: () => unwrap<LeaveType[]>(api.get("/leave-types")),
   create: (payload: Record<string, unknown>) =>
@@ -253,8 +270,14 @@ export const leaveRequestsApi = {
     unwrap<LeaveRequest>(
       api.post(`/leave-requests/${id}/reject`, { rejectionReason })
     ),
-  cancel: (id: number) =>
-    unwrap<LeaveRequest>(api.post(`/leave-requests/${id}/cancel`))
+  cancel: (id: number, reason?: string) =>
+    unwrap<LeaveRequest>(api.post(`/leave-requests/${id}/cancel`, reason ? { reason } : {})),
+  approveCancellation: (id: number) =>
+    unwrap<LeaveRequest>(api.post(`/leave-requests/${id}/cancel-request/approve`)),
+  rejectCancellation: (id: number, rejectionReason: string) =>
+    unwrap<LeaveRequest>(
+      api.post(`/leave-requests/${id}/cancel-request/reject`, { rejectionReason })
+    )
 };
 
 export const usersApi = {

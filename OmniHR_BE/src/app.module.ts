@@ -21,6 +21,7 @@ import { EmployeeSkillsModule } from "./employee-skills/employee-skills.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { LeaveBalancesModule } from "./leave-balances/leave-balances.module";
 import { LeaveRequestsModule } from "./leave-requests/leave-requests.module";
+import { HolidaysModule } from "./holidays/holidays.module";
 import { LeaveTypesModule } from "./leave-types/leave-types.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PermissionsModule } from "./permissions/permissions.module";
@@ -102,6 +103,9 @@ function rejectInsecureProductionConfig(
           .valid("true", "false")
           .default("true"),
         AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: Joi.number().default(8000),
+        // Optional: a Firebase service account (JSON or base64 of it). Unset,
+        // notifications still reach the app's list but no push is sent.
+        FIREBASE_SERVICE_ACCOUNT_JSON: Joi.string().allow("").default(""),
         CHATBOT_RATE_LIMIT_TTL_SECONDS: Joi.number().default(60),
         CHATBOT_RATE_LIMIT_MAX: Joi.number().default(20),
         CHATBOT_RATE_LIMIT_PER_MINUTE: Joi.number().default(20),
@@ -142,6 +146,7 @@ function rejectInsecureProductionConfig(
     EmployeeManagersModule,
     AttendanceModule,
     LeaveTypesModule,
+    HolidaysModule,
     LeaveRequestsModule,
     LeaveBalancesModule,
     AuditLogsModule,

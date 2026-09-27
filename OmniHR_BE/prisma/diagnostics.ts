@@ -27,8 +27,8 @@ import {
   COLD_START_TASKS,
   DEFAULT_SCORE_WEIGHTS,
   ScoreWeights,
-  combineScores,
-  compareCandidates
+  compareCandidates,
+  scoreCandidate
 } from "../src/ai-task-suggestions/suggestion-scoring";
 import {
   Candidate,
@@ -73,12 +73,7 @@ async function main() {
 // ---------------------------------------------------------------------------
 
 function scoreWith(weights: ScoreWeights, candidate: Candidate) {
-  return combineScores([
-    { value: candidate.skillScore, weight: weights.skill },
-    { value: candidate.workloadScore, weight: weights.workload },
-    { value: candidate.availabilityScore, weight: weights.availability },
-    { value: candidate.historyScore, weight: weights.history }
-  ]);
+  return scoreCandidate(weights, candidate);
 }
 
 function rank(weights: ScoreWeights, candidates: Candidate[]): Ranked {

@@ -71,7 +71,7 @@ Tham số được phép:
   - Dùng taskId khi người dùng nói mã số công việc, ngược lại dùng taskTitle là phần tên công việc họ nhắc tới.
   - Thiếu status hoặc thiếu cả taskId lẫn taskTitle => hỏi lại, KHÔNG gọi tool.
   - Đây là thao tác ghi: confirmationRequired = true.
-- create_leave_request_draft: leaveTypeCode, startDate, endDate, reason
+- create_leave_request_draft: leaveTypeCode, startDate, endDate, reason, halfDay (MORNING | AFTERNOON, chỉ khi xin nghỉ một buổi của một ngày: "nghỉ chiều mai", "nghỉ buổi sáng thứ 6"; startDate = endDate)
   - leaveTypeCode CHỈ nhận một trong: ANNUAL_LEAVE, SICK_LEAVE, UNPAID_LEAVE, MATERNITY_LEAVE, MARRIAGE_LEAVE, BEREAVEMENT_LEAVE.
     Ốm/bệnh => SICK_LEAVE; không lương => UNPAID_LEAVE; kết hôn/cưới => MARRIAGE_LEAVE; tang => BEREAVEMENT_LEAVE;
     thai sản => MATERNITY_LEAVE; không nói rõ loại => ANNUAL_LEAVE. Không hỏi lại loại nghỉ.
@@ -103,8 +103,11 @@ Ví dụ intent:
 - Dự án mình đang tham gia, ai quản lý dự án của mình => GET_MY_PROJECTS + get_my_projects.
 - Kỹ năng, trình độ, số năm kinh nghiệm ghi trong hồ sơ của mình => GET_MY_SKILLS + get_my_skills.
 - Thành viên/đồng nghiệp trong nhóm của mình, trưởng nhóm của mình => GET_MY_TEAM_MEMBERS + get_my_team_members.
-- Đổi trạng thái công việc của chính mình ("chuyển task X sang đang làm", "đánh dấu ... đã xong", "nhận việc ...")
+- Đổi trạng thái công việc của chính mình ("chuyển task X sang đang làm", "đánh dấu ... đã xong", "nhận việc ...",
+  "hoàn thành task X", "cập nhật task X thành ...", "gửi duyệt task X", "rút task X về đang làm")
   => UPDATE_TASK_STATUS_DRAFT + update_task_status_draft, confirmationRequired = true.
+  status là trạng thái ĐÍCH (sau "sang/thành/về"), không phải trạng thái hiện tại được nhắc trong câu.
+  Nhân viên nói đã xong => status = DONE; NestJS tự chuyển thành gửi quản lý duyệt, HRGenie không bao giờ duyệt thay quản lý.
   Đổi trạng thái công việc của NGƯỜI KHÁC => FORBIDDEN_REQUEST, không gọi tool.
 - Thống kê task của bản thân theo tháng (hoàn thành bao nhiêu, đúng hạn/trễ hạn, số giờ log, hiệu suất làm task)
   => GET_MY_TASK_STATS + get_my_task_stats. Danh sách task đang mở => GET_MY_TASKS; task sắp tới hạn => GET_MY_UPCOMING_TASKS.

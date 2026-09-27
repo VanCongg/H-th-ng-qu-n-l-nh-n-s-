@@ -4,6 +4,7 @@ import {
   carriedOverDays,
   companyToday,
   fullYearsOfService,
+  leaveDaysBetween,
   leaveDaysInYear,
   monthsWorkedInYear
 } from "./leave-accrual";
@@ -136,6 +137,16 @@ describe("leaveDaysInYear", () => {
     expect(leaveDaysInYear(spanning, 2026, WORK_WEEK)).toBe(2);
     expect(leaveDaysInYear(spanning, 2027, WORK_WEEK)).toBe(2);
     expect(leaveDaysInYear(spanning, 2025, WORK_WEEK)).toBe(0);
+  });
+});
+
+describe("leaveDaysBetween", () => {
+  it("counts only the working days up to the cutoff", () => {
+    // 28 Sep 2026 is a Monday; 2 Oct a Friday.
+    const leave = { startDate: date("2026-09-28"), endDate: date("2026-10-02"), totalDays: 5 };
+    expect(leaveDaysBetween(leave, date("2026-01-01"), date("2026-09-30"), WORK_WEEK)).toBe(3);
+    expect(leaveDaysBetween(leave, date("2026-01-01"), date("2026-12-31"), WORK_WEEK)).toBe(5);
+    expect(leaveDaysBetween(leave, date("2026-01-01"), date("2026-08-31"), WORK_WEEK)).toBe(0);
   });
 });
 

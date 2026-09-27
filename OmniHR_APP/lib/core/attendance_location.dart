@@ -95,8 +95,18 @@ Future<Position?> _currentOrLastKnownPosition() async {
   }
 }
 
+/// The fix plus what the server needs to trust it: how precise it is,
+/// whether a mock-location app produced it, and how old it is (a cached fix
+/// may be from yesterday, somewhere else).
 Map<String, Object?> _payloadFromPosition(Position position) {
-  return {'latitude': position.latitude, 'longitude': position.longitude};
+  final age = DateTime.now().difference(position.timestamp).inSeconds;
+  return {
+    'latitude': position.latitude,
+    'longitude': position.longitude,
+    'accuracyMeters': position.accuracy,
+    'isMocked': position.isMocked,
+    'positionAgeSeconds': age < 0 ? 0 : age,
+  };
 }
 
 /// Mirrors the backend's Haversine formula in AttendanceService.distanceMeters

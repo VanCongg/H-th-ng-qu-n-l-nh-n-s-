@@ -27,8 +27,12 @@ import {
   COLD_START_TASKS,
   DEFAULT_SCORE_WEIGHTS,
   ScoreWeights,
-  combineScores,
-  compareCandidates
+  FAIR_SHARE_WINDOW_DAYS,
+  compareCandidates,
+  fairSharePenalty,
+  scoreCandidate,
+  SkillMultipliers,
+  TaskDifficulty
 } from "../src/ai-task-suggestions/suggestion-scoring";
 import {
   Candidate,
@@ -39,7 +43,8 @@ import {
   parseFrom,
   pct,
   prisma,
-  spearman
+  spearman,
+  multiplierLabel
 } from "./evaluate-suggestions";
 
 const SYSTEM_SETTINGS_KEY = "default";
@@ -71,13 +76,6 @@ const DEFAULT_WEIGHT_FLOOR = 0;
  * separation. They are declared, documented and never tuned - tuning them
  * would just be fitting the policy to the data it is meant to constrain.
  */
-/**
- * Fair-share rebalancing, mirrored from the API's post-processing: someone
- * already carrying twice the team's recent share loses this many points.
- */
-const FAIR_SHARE_PENALTY = 10;
-const FAIR_SHARE_WINDOW_DAYS = 14;
-
 /** Cold-start starvation needs a few people, seen a few times, to mean anything. */
 const MIN_COLD_START_PEOPLE = 5;
 const MIN_COLD_START_APPEARANCES = 3;
@@ -126,6 +124,8 @@ type Metrics = {
 type FeedbackDecision = {
   suggestionId: number;
   selectedEmployeeId: number;
+  /** From the suggestion's snapshot; absent on suggestions made before it was recorded. */
+  difficulty: TaskDifficulty | undefined;
   candidates: Array<{
     employeeId: number;
     eligible: boolean;
@@ -161,12 +161,30 @@ async function main() {
   const heldOutSet = decisions.slice(splitAt);
 
   const current = await currentWeights();
-  const scored = weightGrid(step)
+  const byObjective = (
+    left: { metrics: Metrics },
+    right: { metrics: Metrics }
+  ) => objectiveValue(right.metrics, objective) - objectiveValue(left.metrics, objective);
+  // Three passes rather than one grid over all seven numbers, which would be
+  // tens of thousands of evaluations: the four weights with a flat skill
+  // weight, then the difficulty multipliers for those weights, then the four
+  // weights again with the multipliers found.
+  const flat = weightGrid(step)
     .map((weights) => ({ weights, metrics: evaluateWeights(weights, fitSet) }))
-    .sort(
-      (left, right) =>
-        objectiveValue(right.metrics, objective) - objectiveValue(left.metrics, objective)
-    );
+    .sort(byObjective);
+  const firstPass = flat.find((entry) => respectsFloor(entry.weights, floor)) ?? flat[0];
+  const multipliers = multiplierGrid()
+    .map((skillMultipliers) => {
+      const weights = { ...firstPass.weights, skillMultipliers };
+      return { weights, metrics: evaluateWeights(weights, fitSet) };
+    })
+    .sort(byObjective)[0].weights.skillMultipliers;
+  const scored = weightGrid(step)
+    .map((weights) => {
+      const withMultipliers = { ...weights, skillMultipliers: multipliers };
+      return { weights: withMultipliers, metrics: evaluateWeights(withMultipliers, fitSet) };
+    })
+    .sort(byObjective);
   const ranked = scored.filter((entry) => respectsFloor(entry.weights, floor));
   if (!ranked.length) {
     throw new Error(`No weight vector keeps every signal at ${floor}; lower --floor.`);
@@ -223,14 +241,9 @@ async function main() {
 
 /** Mirrors how the API scores a candidate, so the fit measures what ships. */
 function scoreWith(weights: ScoreWeights, candidate: Candidate) {
-  return combineScores([
-    { value: candidate.skillScore, weight: weights.skill },
-    { value: candidate.workloadScore, weight: weights.workload },
-    { value: candidate.availabilityScore, weight: weights.availability },
-    // null for anyone without enough finished tasks, which combineScores
-    // then leaves out of the total rather than scoring them zero.
-    { value: candidate.historyScore, weight: weights.history }
-  ]);
+  // A null history (too few finished tasks) is left out of the total rather
+  // than scored zero; the skill weight scales with the task's difficulty.
+  return scoreCandidate(weights, candidate);
 }
 
 /** Same order the API shows: eligible first, then score, then skill. */
@@ -286,7 +299,7 @@ function fairSharePenalties(
   const penalties = new Map<number, number>();
   for (const [employeeId, count] of counts) {
     const share = average > 0 ? count / average : 0;
-    penalties.set(employeeId, FAIR_SHARE_PENALTY * Math.max(0, share - 1));
+    penalties.set(employeeId, fairSharePenalty(share));
   }
   return penalties;
 }
@@ -451,12 +464,13 @@ function feedbackAgreement(weights: ScoreWeights, feedback: FeedbackDecision[]) 
         employeeId: candidate.employeeId,
         eligible: candidate.eligible,
         skillScore: candidate.skillScore,
-        score: combineScores([
-          { value: candidate.skillScore, weight: weights.skill },
-          { value: candidate.workloadScore, weight: weights.workload },
-          { value: candidate.availabilityScore, weight: weights.availability },
-          { value: candidate.historyScore, weight: weights.history }
-        ])
+        score: scoreCandidate(weights, {
+          skillScore: candidate.skillScore,
+          workloadScore: candidate.workloadScore,
+          availabilityScore: candidate.availabilityScore ?? undefined,
+          historyScore: candidate.historyScore,
+          difficulty: decision.difficulty
+        })
       }))
       .sort((left, right) => compareCandidates(left, right));
     return scored[0]?.employeeId === decision.selectedEmployeeId ? 1 : 0;
@@ -490,6 +504,23 @@ function weightGrid(step: number) {
     }
   }
 
+  return grid;
+}
+
+/**
+ * Skill weight multipliers to try, easy work fixed at 1 as the reference:
+ * the other two only say how much more the skill counts on harder work.
+ */
+function multiplierGrid(): SkillMultipliers[] {
+  const steps = [1, 1.5, 2, 3, 4, 6];
+  const grid: SkillMultipliers[] = [];
+  for (const medium of steps) {
+    for (const hard of steps) {
+      if (hard >= medium) {
+        grid.push({ EASY: 1, MEDIUM: medium, HARD: hard });
+      }
+    }
+  }
   return grid;
 }
 
@@ -538,9 +569,11 @@ async function loadFeedbackDecisions(): Promise<FeedbackDecision[]> {
       }
 
       const eligibleById = eligibilityFromSnapshot(suggestion.inputSnapshot);
+      const snapshot = suggestion.inputSnapshot as { taskDifficulty?: TaskDifficulty } | null;
       return {
         suggestionId: suggestion.id,
         selectedEmployeeId: selected.employeeId,
+        difficulty: snapshot?.taskDifficulty,
         candidates: suggestion.items.map((item) => ({
           employeeId: item.employeeId,
           eligible: eligibleById.get(item.employeeId) ?? true,
@@ -616,7 +649,12 @@ async function currentWeights(): Promise<ScoreWeights> {
     skill: read("aiWeightSkill", DEFAULT_SCORE_WEIGHTS.skill),
     workload: read("aiWeightWorkload", DEFAULT_SCORE_WEIGHTS.workload),
     availability: read("aiWeightAvailability", DEFAULT_SCORE_WEIGHTS.availability),
-    history: read("aiWeightHistory", DEFAULT_SCORE_WEIGHTS.history)
+    history: read("aiWeightHistory", DEFAULT_SCORE_WEIGHTS.history),
+    skillMultipliers: {
+      EASY: read("aiSkillMultiplierEasy", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.EASY ?? 1),
+      MEDIUM: read("aiSkillMultiplierMedium", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.MEDIUM ?? 1),
+      HARD: read("aiSkillMultiplierHard", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.HARD ?? 1)
+    }
   };
 }
 
@@ -633,7 +671,10 @@ async function applyWeights(weights: ScoreWeights) {
     aiWeightSkill: weights.skill,
     aiWeightWorkload: weights.workload,
     aiWeightAvailability: weights.availability,
-    aiWeightHistory: weights.history
+    aiWeightHistory: weights.history,
+    aiSkillMultiplierEasy: weights.skillMultipliers?.EASY ?? 1,
+    aiSkillMultiplierMedium: weights.skillMultipliers?.MEDIUM ?? 1,
+    aiSkillMultiplierHard: weights.skillMultipliers?.HARD ?? 1
   } as unknown as Prisma.InputJsonValue;
 
   await prisma.systemSetting.upsert({
@@ -726,7 +767,7 @@ function buildReport(input: {
 }) {
   const lines: string[] = [];
   const label = (weights: ScoreWeights) =>
-    `${weights.skill} / ${weights.workload} / ${weights.availability} / ${weights.history}`;
+    `${weights.skill}${multiplierLabel(weights)} / ${weights.workload} / ${weights.availability} / ${weights.history}`;
 
   lines.push(
     "# Tối ưu trọng số xếp hạng gợi ý người nhận việc",
@@ -814,7 +855,7 @@ function buildReport(input: {
       `${full.outcomeSeparation.toFixed(3)} | — | ${pct(full.leaveViolation)} |`
   );
 
-  const signals: Array<[string, keyof ScoreWeights]> = [
+  const signals: Array<[string, "skill" | "workload" | "availability" | "history"]> = [
     ["Bỏ kỹ năng", "skill"],
     ["Bỏ tải việc", "workload"],
     ["Bỏ lịch nghỉ", "availability"],
@@ -840,7 +881,13 @@ function buildReport(input: {
     "|---|---|---|---|"
   );
   for (const [name, key] of signals) {
-    const only: ScoreWeights = { skill: 0, workload: 0, availability: 0, history: 0 };
+    const only: ScoreWeights = {
+      skill: 0,
+      workload: 0,
+      availability: 0,
+      history: 0,
+      skillMultipliers: input.current.skillMultipliers
+    };
     only[key] = 1;
     const metrics = evaluateWeights(only, input.heldOutSet);
     lines.push(

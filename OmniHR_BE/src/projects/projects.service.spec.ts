@@ -9,7 +9,14 @@ describe("ProjectsService", () => {
       project: {
         findFirst: jest.fn(),
         update: jest.fn()
-      }
+      },
+      task: {
+        count: jest.fn().mockResolvedValue(0),
+        updateMany: jest.fn()
+      },
+      $transaction: jest.fn((callback: (transaction: unknown) => Promise<unknown>) =>
+        callback(prisma)
+      )
     };
     const audit = {
       log: jest.fn()
@@ -58,5 +65,62 @@ describe("ProjectsService", () => {
       })
     });
     expect(prisma.project.update).not.toHaveBeenCalled();
+  });
+
+  const project = {
+    id: 100,
+    code: "IT-01",
+    status: "ACTIVE",
+    departmentId: 2,
+    managerId: 10,
+    startDate: new Date("2026-06-01T00:00:00.000Z"),
+    endDate: new Date("2026-09-30T00:00:00.000Z")
+  };
+
+  it("keeps a project open while it still has open tasks", async () => {
+    const { service, prisma } = createService();
+    prisma.project.findFirst.mockResolvedValue(project);
+    prisma.task.count.mockResolvedValue(3);
+
+    await expect(
+      service.update(100, { status: "COMPLETED" as never }, actor)
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ errorCode: "PROJECT_HAS_OPEN_TASKS" })
+    });
+    expect(prisma.project.update).not.toHaveBeenCalled();
+  });
+
+  it("clears a date sent as null", async () => {
+    const { service, prisma } = createService();
+    prisma.project.findFirst.mockResolvedValue(project);
+
+    await service.update(100, { endDate: null }, actor);
+
+    expect(prisma.project.update.mock.calls[0][0].data.endDate).toBeNull();
+    expect(prisma.project.update.mock.calls[0][0].data.startDate).toBeUndefined();
+  });
+
+  it("rejects a code another live project uses", async () => {
+    const { service, prisma } = createService();
+    prisma.project.findFirst
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce(project)
+      .mockResolvedValueOnce({ id: 200 });
+
+    await expect(service.update(100, { code: "IT-02" }, actor)).rejects.toMatchObject({
+      response: expect.objectContaining({ errorCode: "PROJECT_CODE_EXISTS" })
+    });
+  });
+
+  it("deletes the closed tasks together with the project", async () => {
+    const { service, prisma } = createService();
+    prisma.project.findFirst.mockResolvedValue(project);
+
+    await service.softDelete(100, actor);
+
+    expect(prisma.task.updateMany).toHaveBeenCalledWith({
+      where: { projectId: 100, deletedAt: null },
+      data: { deletedAt: expect.any(Date) }
+    });
   });
 });

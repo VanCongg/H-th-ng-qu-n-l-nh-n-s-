@@ -2,7 +2,6 @@ import {
   Alert,
   Badge,
   Button,
-  Group,
   Paper,
   Select,
   SimpleGrid,
@@ -16,7 +15,7 @@ import { AlertTriangle, CalendarCheck, CalendarX, ListChecks, Plus, Users } from
 import { useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
 import { departmentsApi, leaveBalancesApi } from "../../api/endpoints";
-import { formatDate, formatDays, yearOptions } from "../../api/format";
+import { formatDate, formatDays, monthOptions, yearOptions } from "../../api/format";
 import type { LeaveBalanceRow, LeaveBalanceStatus, LeaveType } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
 import { PageHeader } from "../../components/PageHeader";
@@ -41,18 +40,19 @@ export function LeaveBalancesPage() {
   const [debouncedSearch] = useDebouncedValue(search, 300);
   const [departmentId, setDepartmentId] = useState<string | null>(null);
   const [year, setYear] = useState(() => new Date().getFullYear());
-  const [balance, setBalance] = useState<string | null>(null);
+  // Empty means the whole year; a month shows the balance at the end of that month.
+  const [month, setMonth] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("code");
   const [page, setPage] = useState(1);
 
   const query = useQuery({
-    queryKey: ["leave-balances", year, departmentId, debouncedSearch, balance, sortBy, page],
+    queryKey: ["leave-balances", year, month, departmentId, debouncedSearch, sortBy, page],
     queryFn: () =>
       leaveBalancesApi.list({
         year,
+        month: month ? Number(month) : undefined,
         departmentId: departmentId ? Number(departmentId) : undefined,
         search: debouncedSearch || undefined,
-        balance: balance ?? undefined,
         sortBy,
         page,
         limit: 20
@@ -151,7 +151,7 @@ export function LeaveBalancesPage() {
       ) : null}
 
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <Group align="flex-end" wrap="wrap">
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} spacing="sm">
           <TextInput
             label={tx("Search employee")}
             value={search}
@@ -159,7 +159,6 @@ export function LeaveBalancesPage() {
               setSearch(event.currentTarget.value);
               setPage(1);
             }}
-            w={240}
           />
           <Select
             label={tx("Department")}
@@ -168,7 +167,14 @@ export function LeaveBalancesPage() {
             clearable
             value={departmentId}
             onChange={resetPage(setDepartmentId)}
-            w={220}
+          />
+          <Select
+            label={tx("Month")}
+            placeholder={tx("Whole year")}
+            data={monthOptions(tx("Month"))}
+            clearable
+            value={month}
+            onChange={resetPage(setMonth)}
           />
           <Select
             label={tx("Year")}
@@ -179,20 +185,6 @@ export function LeaveBalancesPage() {
               setYear(Number(value));
               setPage(1);
             }}
-            w={120}
-          />
-          <Select
-            label={tx("Leave balance")}
-            placeholder={tx("All balances")}
-            data={[
-              { value: "AVAILABLE", label: tx("More than 2 days left") },
-              { value: "LOW", label: tx("2 days or fewer left") },
-              { value: "EXHAUSTED", label: tx("No leave left") }
-            ]}
-            clearable
-            value={balance}
-            onChange={resetPage(setBalance)}
-            w={220}
           />
           <Select
             label={tx("Sort by")}
@@ -207,9 +199,8 @@ export function LeaveBalancesPage() {
               setSortBy(value ?? "code");
               setPage(1);
             }}
-            w={200}
           />
-        </Group>
+        </SimpleGrid>
       </Paper>
 
       <DataTable<LeaveBalanceRow>

@@ -51,46 +51,24 @@ export function UsersPage() {
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
-  const [positionFilter, setPositionFilter] = useState<string | null>(null);
   const [employeeStatusFilter, setEmployeeStatusFilter] = useState<string | null>(null);
-  const [careerLevelFilter, setCareerLevelFilter] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [accountStatusFilter, setAccountStatusFilter] = useState<string | null>(null);
-  const [passwordChangeFilter, setPasswordChangeFilter] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const query = useQuery({
     queryKey: [
       "users",
       search,
       departmentFilter,
-      positionFilter,
       employeeStatusFilter,
-      careerLevelFilter,
       roleFilter,
-      accountStatusFilter,
-      passwordChangeFilter,
       page
     ],
     queryFn: () =>
       usersApi.list({
         search: search || undefined,
         departmentId: departmentFilter ? Number(departmentFilter) : undefined,
-        positionId: positionFilter ? Number(positionFilter) : undefined,
         employeeStatus: employeeStatusFilter || undefined,
-        careerLevel: careerLevelFilter || undefined,
         roleId: roleFilter ? Number(roleFilter) : undefined,
-        isActive:
-          accountStatusFilter === "active"
-            ? true
-            : accountStatusFilter === "inactive"
-              ? false
-              : undefined,
-        mustChangePassword:
-          passwordChangeFilter === "required"
-            ? true
-            : passwordChangeFilter === "not-required"
-              ? false
-              : undefined,
         page,
         limit: 20
       })
@@ -369,12 +347,8 @@ export function UsersPage() {
     setSearchDraft("");
     setSearch("");
     setDepartmentFilter(null);
-    setPositionFilter(null);
     setEmployeeStatusFilter(null);
-    setCareerLevelFilter(null);
     setRoleFilter(null);
-    setAccountStatusFilter(null);
-    setPasswordChangeFilter(null);
     setPage(1);
   }
 
@@ -408,41 +382,16 @@ export function UsersPage() {
       value: String(item.id),
       label: item.name
     }));
-  const filterPositionOptions = (positionsQuery.data ?? [])
-    .filter(
-      (item) =>
-        item.isActive &&
-        (!departmentFilter ||
-          (item.departmentId && String(item.departmentId) === departmentFilter))
-    )
-    .map((item) => ({
-      value: String(item.id),
-      label: item.department
-        ? `${item.name} - ${formatDepartmentName(item.department, tx)}`
-        : item.name
-    }));
   const careerOptions = careerLevelOptions(te);
   const employeeStatusOptions = ["ACTIVE", "INACTIVE", "TERMINATED"].map((value) => ({
     value,
     label: te(value)
   }));
-  const accountStatusOptions = [
-    { value: "active", label: tx("Active account") },
-    { value: "inactive", label: tx("Locked account") }
-  ];
-  const passwordChangeOptions = [
-    { value: "required", label: tx("Must change password") },
-    { value: "not-required", label: tx("Password already changed") }
-  ];
   const hasActiveFilters = Boolean(
     search ||
       departmentFilter ||
-      positionFilter ||
       employeeStatusFilter ||
-      careerLevelFilter ||
-      roleFilter ||
-      accountStatusFilter ||
-      passwordChangeFilter
+      roleFilter
   );
   const skillOptions = (skillsQuery.data?.items ?? [])
     .filter(
@@ -593,20 +542,6 @@ export function UsersPage() {
               clearable
               onChange={(value) => {
                 setDepartmentFilter(value);
-                setPositionFilter(null);
-                setPage(1);
-              }}
-            />
-            <Select
-              label={tx("Position")}
-              placeholder={tx("All positions")}
-              data={filterPositionOptions}
-              value={positionFilter}
-              searchable
-              clearable
-              disabled={!filterPositionOptions.length}
-              onChange={(value) => {
-                setPositionFilter(value);
                 setPage(1);
               }}
             />
@@ -622,17 +557,6 @@ export function UsersPage() {
               }}
             />
             <Select
-              label={tx("Career level")}
-              placeholder={tx("All levels")}
-              data={careerOptions}
-              value={careerLevelFilter}
-              clearable
-              onChange={(value) => {
-                setCareerLevelFilter(value);
-                setPage(1);
-              }}
-            />
-            <Select
               label={tx("Roles")}
               placeholder={tx("All roles")}
               data={roleOptions}
@@ -640,28 +564,6 @@ export function UsersPage() {
               clearable
               onChange={(value) => {
                 setRoleFilter(value);
-                setPage(1);
-              }}
-            />
-            <Select
-              label={tx("Account status")}
-              placeholder={tx("All accounts")}
-              data={accountStatusOptions}
-              value={accountStatusFilter}
-              clearable
-              onChange={(value) => {
-                setAccountStatusFilter(value);
-                setPage(1);
-              }}
-            />
-            <Select
-              label={tx("Password state")}
-              placeholder={tx("All password states")}
-              data={passwordChangeOptions}
-              value={passwordChangeFilter}
-              clearable
-              onChange={(value) => {
-                setPasswordChangeFilter(value);
                 setPage(1);
               }}
             />

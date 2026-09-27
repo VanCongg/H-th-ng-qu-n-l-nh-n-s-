@@ -24,11 +24,12 @@ export class CreateProjectDto {
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
+  /** `null` on update clears the date. */
   @IsOptional()
   @IsDateString()
-  startDate?: string;
+  startDate?: string | null;
 
   @IsOptional()
   @IsDateString()
-  endDate?: string;
+  endDate?: string | null;
 }

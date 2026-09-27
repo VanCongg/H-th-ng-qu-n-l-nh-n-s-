@@ -36,28 +36,47 @@ export const DEFAULT_WORK_WEEK = [
   "FRIDAY"
 ];
 
-export function calculateLeaveDays(
+/** No holidays: the default wherever a caller has not loaded them. */
+export const NO_HOLIDAYS: ReadonlySet<number> = new Set();
+
+/**
+ * The working days between two dates, both inclusive, as YYYY-MM-DD keys: a
+ * day of the work week that is not a holiday. `holidays` holds UTC-midnight
+ * timestamps (HolidaysService.dateSet). Every count of working days goes
+ * through here, so leave length, the monthly standard and a task's window
+ * agree on what a working day is.
+ */
+export function workdayKeysBetween(
   startDate: Date,
   endDate: Date,
-  workWeek: string[] = DEFAULT_WORK_WEEK
-): number {
+  workWeek: string[] = DEFAULT_WORK_WEEK,
+  holidays: ReadonlySet<number> = NO_HOLIDAYS
+): string[] {
   const workDayIndexes = new Set(
     workWeek
       .map((day) => DAY_NAME_TO_UTC_INDEX[day.toUpperCase()])
       .filter((index): index is number => index !== undefined)
   );
 
-  let total = 0;
-  const current = new Date(startDate);
-
-  while (current <= endDate) {
-    if (workDayIndexes.has(current.getUTCDay())) {
-      total += 1;
+  const keys: string[] = [];
+  const current = toDateOnly(startDate);
+  const end = toDateOnly(endDate);
+  while (current <= end) {
+    if (workDayIndexes.has(current.getUTCDay()) && !holidays.has(current.getTime())) {
+      keys.push(current.toISOString().slice(0, 10));
     }
     current.setUTCDate(current.getUTCDate() + 1);
   }
+  return keys;
+}
 
-  return total;
+export function calculateLeaveDays(
+  startDate: Date,
+  endDate: Date,
+  workWeek: string[] = DEFAULT_WORK_WEEK,
+  holidays: ReadonlySet<number> = NO_HOLIDAYS
+): number {
+  return workdayKeysBetween(startDate, endDate, workWeek, holidays).length;
 }
 
 export function pagination(page = 1, limit = 20) {

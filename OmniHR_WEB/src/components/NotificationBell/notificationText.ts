@@ -8,8 +8,9 @@ import type { AppLanguage } from "../../store/preferences";
  *
  * The sentences come from, and must keep these exact shapes in:
  *   TASK_ASSIGNED        tasks.service.ts, seed.ts, simulate-day.ts
- *   TASK_STATUS_CHANGED  simulate-day.ts
+ *   TASK_STATUS_CHANGED  tasks.service.ts, simulate-day.ts
  *   LEAVE_APPROVED       leave-requests.service.ts, seed.ts, simulate-day.ts
+ *   LEAVE_CANCEL_*       leave-requests.service.ts
  *   ATTENDANCE_ADJUSTED  attendance.service.ts
  * A message that does not match (a rejection reason, a reworded sentence) is
  * shown as stored, so drift degrades to English rather than to garbled text.
@@ -19,16 +20,33 @@ import type { AppLanguage } from "../../store/preferences";
 const TITLES: Record<string, string> = {
   LEAVE_APPROVED: "Đơn nghỉ phép đã được duyệt",
   LEAVE_REJECTED: "Đơn nghỉ phép bị từ chối",
+  LEAVE_CANCEL_REQUESTED: "Có yêu cầu hủy đơn nghỉ đã duyệt",
+  LEAVE_CANCEL_APPROVED: "Đơn nghỉ đã được hủy",
+  LEAVE_CANCEL_REJECTED: "Yêu cầu hủy đơn nghỉ bị từ chối",
   TASK_ASSIGNED: "Bạn được giao công việc mới",
-  // Only ever emitted for a task sent back for rework; widen if that changes.
   TASK_STATUS_CHANGED: "Công việc bị trả về để sửa",
   ATTENDANCE_ADJUSTED: "Bản ghi chấm công được điều chỉnh"
 };
 
+// TASK_STATUS_CHANGED covers two events, told apart by the stored title:
+// "Task returned for rework" (the type's default above) and this one.
+const STATUS_UPDATED_TITLE = "Task status updated";
+
+const TASK_STATUS_LABELS: Record<string, string> = {
+  TODO: "Cần làm",
+  IN_PROGRESS: "Đang làm",
+  IN_REVIEW: "Đang review",
+  DONE: "Hoàn thành",
+  CANCELLED: "Đã hủy"
+};
+
 const ASSIGNED = /^You were assigned to "(.+)"\.$/s;
 const REWORK = /^"(.+)" needs changes before it can be accepted\.$/s;
+const STATUS_MOVED = /^"(.+)" was moved to ([A-Z_]+) by (.+)\.$/s;
 const LEAVE_APPROVED = /^Your leave request from (.+) to (.+) was approved\.$/;
 const ATTENDANCE = /^An attendance record for (.+) was (created|updated) by an admin\.$/;
+const CANCEL_REQUESTED = /^(.+) asked to cancel their leave from (.+) to (.+)\.$/s;
+const CANCEL_APPROVED = /^Your leave from (.+) to (.+) was cancelled\.$/;
 
 const MONTHS: Record<string, number> = {
   Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
@@ -67,6 +85,9 @@ export function notificationTitle(
   if (language !== "vi") {
     return title;
   }
+  if (type.toUpperCase() === "TASK_STATUS_CHANGED" && title === STATUS_UPDATED_TITLE) {
+    return "Trạng thái công việc được cập nhật";
+  }
   return TITLES[type.toUpperCase()] ?? title;
 }
 
@@ -90,12 +111,26 @@ export function notificationMessage(
       if ((match = REWORK.exec(message))) {
         return `Công việc "${match[1]}" cần chỉnh sửa trước khi được duyệt.`;
       }
+      if ((match = STATUS_MOVED.exec(message))) {
+        const status = TASK_STATUS_LABELS[match[2]] ?? match[2];
+        return `${match[3]} đã chuyển công việc "${match[1]}" sang "${status}".`;
+      }
       break;
     case "LEAVE_APPROVED":
       if ((match = LEAVE_APPROVED.exec(message))) {
         return `Đơn nghỉ phép từ ${messageDate(match[1])} đến ${messageDate(
           match[2]
         )} của bạn đã được duyệt.`;
+      }
+      break;
+    case "LEAVE_CANCEL_REQUESTED":
+      if ((match = CANCEL_REQUESTED.exec(message))) {
+        return `${match[1]} xin hủy đơn nghỉ từ ${messageDate(match[2])} đến ${messageDate(match[3])}.`;
+      }
+      break;
+    case "LEAVE_CANCEL_APPROVED":
+      if ((match = CANCEL_APPROVED.exec(message))) {
+        return `Đơn nghỉ từ ${messageDate(match[1])} đến ${messageDate(match[2])} của bạn đã được hủy.`;
       }
       break;
     case "ATTENDANCE_ADJUSTED":

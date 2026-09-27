@@ -6,7 +6,8 @@ import '../../core/utils.dart';
 import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
 import '../attendance/attendance_screen.dart';
-import '../chat/chat_screen.dart';
+import '../approvals/approvals_screen.dart';
+import '../chat/genie_chat_route.dart';
 import '../leave/leave_screen.dart';
 import '../settings/settings_screen.dart';
 import '../skills/skills_screen.dart';
@@ -17,11 +18,15 @@ class DashboardBundle {
     required this.employee,
     required this.leaveRequests,
     required this.tasks,
+    this.pendingApprovals = 0,
   });
 
   final Employee? employee;
   final List<LeaveRequest> leaveRequests;
   final List<TaskItem> tasks;
+
+  /// What waits on this user's decision; 0 for someone who approves nothing.
+  final int pendingApprovals;
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -59,11 +64,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _safeList('/leave-requests/self', LeaveRequest.fromJson, limit: 5),
       _safeList('/tasks/me', TaskItem.fromJson, limit: 5),
     ]);
+    var pendingApprovals = 0;
+    if (canReviewOnMobile(widget.session.user)) {
+      try {
+        pendingApprovals = (await loadApprovals(widget.session)).total;
+      } catch (_) {
+        // A badge is not worth an error on the home screen.
+      }
+    }
 
     return DashboardBundle(
       employee: employee,
       leaveRequests: results[0].cast<LeaveRequest>(),
       tasks: results[1].cast<TaskItem>(),
+      pendingApprovals: pendingApprovals,
     );
   }
 
@@ -95,11 +109,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  /// The card's icon, which the genie flies out of when the chat opens.
+  final _genieBadgeKey = GlobalKey();
+
   void _openChat() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ChatScreen(session: widget.session),
-      ),
+    openGenieChat(
+      context,
+      widget.session,
+      from: globalRectOf(_genieBadgeKey.currentContext),
     );
   }
 
@@ -129,9 +146,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 user: widget.session.user,
               ),
               const SizedBox(height: 20),
-              _QuickActions(session: widget.session),
+              _QuickActions(
+                session: widget.session,
+                pendingApprovals: data.pendingApprovals,
+                onReturn: _refresh,
+              ),
               const SizedBox(height: 18),
-              _HrGeniePanel(session: widget.session, onOpen: _openChat),
+              _HrGeniePanel(
+                session: widget.session,
+                badgeKey: _genieBadgeKey,
+                onOpen: _openChat,
+              ),
               const SizedBox(height: 18),
               AppPanel(
                 child: Column(
@@ -207,9 +232,18 @@ class _EmployeeOverview extends StatelessWidget {
 }
 
 class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.session});
+  const _QuickActions({
+    required this.session,
+    this.pendingApprovals = 0,
+    this.onReturn,
+  });
 
   final AppSession session;
+  final int pendingApprovals;
+
+  /// Reloads the home screen after a decision screen closes, so the count on
+  /// the approvals button drops as items are handled.
+  final VoidCallback? onReturn;
 
   /// Takes a builder, not a ready-made widget: a route that hands back the
   /// same widget instance every time is skipped by the element tree, so the
@@ -263,6 +297,24 @@ class _QuickActions extends StatelessWidget {
         ]),
         const SizedBox(height: 12),
         _row(context, [
+          if (canReviewOnMobile(session.user))
+            _QuickActionButton(
+              icon: Icons.fact_check_rounded,
+              color: accentColor,
+              label: tx('Chờ duyệt'),
+              badge: pendingApprovals,
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SubScreen(
+                      title: tx('Chờ duyệt'),
+                      child: ApprovalsScreen(session: session),
+                    ),
+                  ),
+                );
+                onReturn?.call();
+              },
+            ),
           _QuickActionButton(
             icon: Icons.psychology_alt_rounded,
             color: brandGreen,
@@ -310,12 +362,16 @@ class _QuickActionButton extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.badge = 0,
   });
 
   final IconData icon;
   final Color color;
   final String label;
   final VoidCallback onTap;
+
+  /// A count shown on the icon, like the notification bell's; hidden at 0.
+  final int badge;
 
   static final _radius = BorderRadius.circular(14);
 
@@ -341,7 +397,38 @@ class _QuickActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppIconBadge(icon: icon, color: color, size: 44),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AppIconBadge(icon: icon, color: color, size: 44),
+                if (badge > 0)
+                  Positioned(
+                    top: -4,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      decoration: BoxDecoration(
+                        color: dangerColor,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: surfaceColor, width: 1.5),
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : '$badge',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 9),
             Text(
               label,
@@ -507,9 +594,14 @@ class _TaskPreview extends StatelessWidget {
 }
 
 class _HrGeniePanel extends StatelessWidget {
-  const _HrGeniePanel({required this.session, required this.onOpen});
+  const _HrGeniePanel({
+    required this.session,
+    required this.badgeKey,
+    required this.onOpen,
+  });
 
   final AppSession session;
+  final Key badgeKey;
   final VoidCallback onOpen;
 
   static final _radius = BorderRadius.circular(14);
@@ -533,6 +625,7 @@ class _HrGeniePanel extends StatelessWidget {
           child: Row(
             children: [
               AppIconBadge(
+                key: badgeKey,
                 icon: hidden
                     ? Icons.visibility_rounded
                     : Icons.auto_awesome_rounded,

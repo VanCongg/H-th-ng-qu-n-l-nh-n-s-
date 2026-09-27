@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
+import { EmployeeStatus } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginDto } from "./dto/login.dto";
@@ -12,6 +13,25 @@ import { AuditService } from "../common/services/audit.service";
 import { AuthUser, RequestContext } from "../common/types";
 import { AUTH_USER_TTL_SECONDS, cacheKeys } from "../redis/cache-keys";
 import { CacheService } from "../redis/cache.service";
+
+type SignInCandidate = {
+  isActive: boolean;
+  deletedAt: Date | null;
+  employee?: { status: EmployeeStatus } | null;
+};
+
+/**
+ * An account works while it is active and not deleted, and while the person
+ * behind it still works here: a terminated employee's login stops with the
+ * contract, even if nobody went on to disable the user account as well.
+ */
+export function canSignIn(user: SignInCandidate) {
+  return (
+    user.isActive &&
+    !user.deletedAt &&
+    user.employee?.status !== EmployeeStatus.TERMINATED
+  );
+}
 
 @Injectable()
 export class AuthService {
@@ -25,14 +45,28 @@ export class AuthService {
 
   async login(dto: LoginDto, context?: RequestContext) {
     const usernameOrEmail = dto.usernameOrEmail.trim();
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { username: { equals: usernameOrEmail, mode: "insensitive" } },
-          { email: { equals: usernameOrEmail, mode: "insensitive" } }
-        ]
-      }
-    });
+    const include = { employee: { select: { status: true } } } as const;
+    // The username or email first, then the employee code (e.g. "IT011"),
+    // so a username that happens to equal someone else's code still logs in
+    // as its own account.
+    const user =
+      (await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: { equals: usernameOrEmail, mode: "insensitive" } },
+            { email: { equals: usernameOrEmail, mode: "insensitive" } }
+          ]
+        },
+        include
+      })) ??
+      (await this.prisma.user.findFirst({
+        where: {
+          employee: {
+            is: { employeeCode: { equals: usernameOrEmail, mode: "insensitive" }, deletedAt: null }
+          }
+        },
+        include
+      }));
 
     if (!user) {
       throw new ApiError(
@@ -42,7 +76,7 @@ export class AuthService {
       );
     }
 
-    if (!user.isActive || user.deletedAt) {
+    if (!canSignIn(user)) {
       throw new ApiError(
         HttpStatus.UNAUTHORIZED,
         "Account is inactive or deleted",
@@ -100,10 +134,11 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub }
+      where: { id: payload.sub },
+      include: { employee: { select: { status: true } } }
     });
 
-    if (!user || !user.isActive || user.deletedAt) {
+    if (!user || !canSignIn(user)) {
       throw new ApiError(
         HttpStatus.UNAUTHORIZED,
         "Invalid refresh token",
@@ -239,7 +274,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        employee: { select: { id: true, deletedAt: true } },
+        employee: { select: { id: true, deletedAt: true, status: true } },
         userRoles: {
           include: {
             role: {
@@ -254,7 +289,7 @@ export class AuthService {
       }
     });
 
-    if (!user || !user.isActive || user.deletedAt) {
+    if (!user || !canSignIn(user)) {
       return null;
     }
 

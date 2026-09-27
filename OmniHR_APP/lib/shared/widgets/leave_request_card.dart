@@ -14,6 +14,8 @@ class LeaveRequestCard extends StatelessWidget {
   });
 
   final LeaveRequest request;
+
+  /// Withdraws a pending request, or asks to withdraw an approved one.
   final VoidCallback? onCancel;
 
   @override
@@ -58,6 +60,15 @@ class LeaveRequestCard extends StatelessWidget {
                 label: '${request.totalDays.toStringAsFixed(1)} ${tx('ngày')}',
                 color: accentColor,
               ),
+              if (request.halfDay == 'MORNING')
+                Pill(label: tx('Buổi sáng'), color: accentColor),
+              if (request.halfDay == 'AFTERNOON')
+                Pill(label: tx('Buổi chiều'), color: accentColor),
+              if (request.cancelRequested)
+                Pill(
+                  label: tx('Đang chờ duyệt hủy'),
+                  color: const Color(0xFFF59F00),
+                ),
             ],
           ),
           const SizedBox(height: 6),
@@ -85,7 +96,9 @@ class LeaveRequestCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: IconButton.filledTonal(
-                tooltip: tx('Hủy đơn'),
+                tooltip: tx(
+                  request.status == 'APPROVED' ? 'Xin hủy đơn' : 'Hủy đơn',
+                ),
                 onPressed: onCancel,
                 style: IconButton.styleFrom(
                   foregroundColor: dangerColor,

@@ -2,6 +2,7 @@ import { List, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { ClipboardCheck, FileText } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";
 import { useTranslation } from "../../i18n";
+import { HolidaysSection } from "./HolidaysSection";
 
 const policySections = [
   {
@@ -83,6 +84,8 @@ export function PoliciesPage() {
           </Stack>
         </Stack>
       </Paper>
+
+      <HolidaysSection />
     </Stack>
   );
 }

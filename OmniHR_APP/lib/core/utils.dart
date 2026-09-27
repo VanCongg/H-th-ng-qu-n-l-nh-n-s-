@@ -217,6 +217,27 @@ Color statusColor(String status) {
   }
 }
 
+const _careerLevelLabels = {
+  'INTERN': 'Intern',
+  'FRESHER': 'Fresher',
+  'JUNIOR': 'Junior',
+  'MIDDLE': 'Middle',
+  'SENIOR': 'Senior',
+  'LEAD': 'Lead',
+};
+
+/// The career levels a task suits, as "Cấp: Fresher - Junior".
+String levelRangeLabel(String? min, String? max) {
+  String name(String level) => _careerLevelLabels[level] ?? level;
+  if (min != null && max != null) {
+    return tx('Cấp: {range}', {
+      'range': min == max ? name(min) : '${name(min)} - ${name(max)}',
+    });
+  }
+  if (min != null) return tx('Cấp: từ {level}', {'level': name(min)});
+  return tx('Cấp: tối đa {level}', {'level': name(max!)});
+}
+
 /// Colour and icon for a `NotificationType` coming from the backend, kept
 /// beside [statusColor] so every list in the app tints the same event the
 /// same way.
@@ -225,7 +246,11 @@ Color notificationColor(String type) {
     case 'LEAVE_APPROVED':
       return const Color(0xFF16A34A);
     case 'LEAVE_REJECTED':
+    case 'LEAVE_CANCEL_REJECTED':
       return dangerColor;
+    case 'LEAVE_CANCEL_REQUESTED':
+    case 'LEAVE_CANCEL_APPROVED':
+      return const Color(0xFFF59F00);
     case 'TASK_ASSIGNED':
     case 'TASK_STATUS_CHANGED':
       return brandColor;
@@ -244,18 +269,26 @@ Color notificationColor(String type) {
 /// than only the ones created from now on. [fallback] is the stored title,
 /// used for a type this build does not know about yet.
 ///
-/// TASK_STATUS_CHANGED is only ever emitted for a task sent back for rework,
-/// by both the API and the simulator; widen the wording if that changes.
+/// TASK_STATUS_CHANGED covers two events told apart by the stored title:
+/// "Task returned for rework" (the default here) and "Task status updated".
 String notificationTitle(String type, String fallback) {
   switch (type.toUpperCase()) {
     case 'LEAVE_APPROVED':
       return tx('Đơn nghỉ phép đã được duyệt');
     case 'LEAVE_REJECTED':
       return tx('Đơn nghỉ phép bị từ chối');
+    case 'LEAVE_CANCEL_REQUESTED':
+      return tx('Có yêu cầu hủy đơn nghỉ đã duyệt');
+    case 'LEAVE_CANCEL_APPROVED':
+      return tx('Đơn nghỉ đã được hủy');
+    case 'LEAVE_CANCEL_REJECTED':
+      return tx('Yêu cầu hủy đơn nghỉ bị từ chối');
     case 'TASK_ASSIGNED':
       return tx('Bạn được giao công việc mới');
     case 'TASK_STATUS_CHANGED':
-      return tx('Công việc bị trả về để sửa');
+      return fallback == 'Task status updated'
+          ? tx('Trạng thái công việc được cập nhật')
+          : tx('Công việc bị trả về để sửa');
     case 'ATTENDANCE_ADJUSTED':
       return tx('Bản ghi chấm công được điều chỉnh');
     default:
@@ -266,8 +299,9 @@ String notificationTitle(String type, String fallback) {
 // The English sentences the server stores as a notification message. Each one
 // is written in several places, and all of them must keep these exact shapes:
 //   TASK_ASSIGNED        tasks.service.ts, seed.ts, simulate-day.ts
-//   TASK_STATUS_CHANGED  simulate-day.ts
+//   TASK_STATUS_CHANGED  tasks.service.ts, simulate-day.ts
 //   LEAVE_APPROVED       leave-requests.service.ts, seed.ts, simulate-day.ts
+//   LEAVE_CANCEL_*       leave-requests.service.ts
 //   ATTENDANCE_ADJUSTED  attendance.service.ts
 // A message that does not match (a rejection reason, a reworded sentence) is
 // shown exactly as stored, so a drift degrades to English rather than to junk.
@@ -279,8 +313,19 @@ final _reworkMessage = RegExp(
   r'^"(.+)" needs changes before it can be accepted\.$',
   dotAll: true,
 );
+final _statusMovedMessage = RegExp(
+  r'^"(.+)" was moved to ([A-Z_]+) by (.+)\.$',
+  dotAll: true,
+);
 final _leaveApprovedMessage = RegExp(
   r'^Your leave request from (.+) to (.+) was approved\.$',
+);
+final _cancelRequestedMessage = RegExp(
+  r'^(.+) asked to cancel their leave from (.+) to (.+)\.$',
+  dotAll: true,
+);
+final _cancelApprovedMessage = RegExp(
+  r'^Your leave from (.+) to (.+) was cancelled\.$',
 );
 final _attendanceMessage = RegExp(
   r'^An attendance record for (.+) was (created|updated) by an admin\.$',
@@ -339,10 +384,35 @@ String notificationMessage(String type, String message) {
           'task': match.group(1)!,
         });
       }
+      final moved = _statusMovedMessage.firstMatch(message);
+      if (moved != null) {
+        return tx('{actor} đã chuyển công việc "{task}" sang "{status}".', {
+          'actor': moved.group(3)!,
+          'task': moved.group(1)!,
+          'status': friendlyStatus(moved.group(2)!),
+        });
+      }
     case 'LEAVE_APPROVED':
       final match = _leaveApprovedMessage.firstMatch(message);
       if (match != null) {
         return tx('Đơn nghỉ phép từ {start} đến {end} của bạn đã được duyệt.', {
+          'start': _messageDate(match.group(1)!),
+          'end': _messageDate(match.group(2)!),
+        });
+      }
+    case 'LEAVE_CANCEL_REQUESTED':
+      final match = _cancelRequestedMessage.firstMatch(message);
+      if (match != null) {
+        return tx('{name} xin hủy đơn nghỉ từ {start} đến {end}.', {
+          'name': match.group(1)!,
+          'start': _messageDate(match.group(2)!),
+          'end': _messageDate(match.group(3)!),
+        });
+      }
+    case 'LEAVE_CANCEL_APPROVED':
+      final match = _cancelApprovedMessage.firstMatch(message);
+      if (match != null) {
+        return tx('Đơn nghỉ từ {start} đến {end} của bạn đã được hủy.', {
           'start': _messageDate(match.group(1)!),
           'end': _messageDate(match.group(2)!),
         });
@@ -368,7 +438,11 @@ IconData notificationIcon(String type) {
     case 'LEAVE_APPROVED':
       return Icons.event_available_rounded;
     case 'LEAVE_REJECTED':
+    case 'LEAVE_CANCEL_REJECTED':
       return Icons.event_busy_rounded;
+    case 'LEAVE_CANCEL_REQUESTED':
+    case 'LEAVE_CANCEL_APPROVED':
+      return Icons.event_repeat_rounded;
     case 'TASK_ASSIGNED':
       return Icons.assignment_ind_rounded;
     case 'TASK_STATUS_CHANGED':

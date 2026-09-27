@@ -1,7 +1,7 @@
 # Chẩn đoán sức khoẻ của phép đo
 
-- Khoảng dữ liệu: 2026-02-02 → 2026-09-20
-- Số quyết định: 2769
+- Khoảng dữ liệu: 2026-09-17 → 2026-09-26
+- Số quyết định: 104
 - Bộ trọng số đang chạy: 0.1 / 0.15 / 0.1 / 0.65
 
 Ba câu hỏi ở đây không phải "mô hình tốt đến đâu" mà là "con số đo được có đáng tin không".
@@ -12,10 +12,10 @@ Trong bộ mô phỏng, kết quả task được sinh ra từ năng lực ẩn 
 
 | Phiên bản tín hiệu | Tương quan hạng với năng lực ẩn | Số dòng |
 |---|---|---|
-| Bản sạch (không trễ pha, không co rút) | 0.852 | 14973 |
-| **Bản mô hình thực sự thấy** (trễ pha + co rút) | **0.585** | 15778 |
+| Bản sạch (không trễ pha, không co rút) | 0.944 | 605 |
+| **Bản mô hình thực sự thấy** (trễ pha + co rút) | **0.887** | 605 |
 
-Chênh lệch 0.267 là phần rò rỉ mà trễ pha và co rút về prior đã cắt được.
+Chênh lệch 0.057 là phần rò rỉ mà trễ pha và co rút về prior đã cắt được.
 
 ## 2. Kiểm soát âm: xáo tín hiệu lịch sử
 
@@ -23,11 +23,11 @@ Tráo điểm lịch sử giữa các ứng viên trong cùng một quyết đ�
 
 | Cấu hình | Phân tách kết quả |
 |---|---|
-| Mô hình đang chạy | **0.173** |
-| Xáo tín hiệu lịch sử | 0.064 |
-| Bỏ hẳn tín hiệu lịch sử (trọng số 0) | 0.114 |
+| Mô hình đang chạy | **0.005** |
+| Xáo tín hiệu lịch sử | -0.004 |
+| Bỏ hẳn tín hiệu lịch sử (trọng số 0) | -0.032 |
 
-**Đạt.** Xáo tín hiệu kéo điểm xuống tới mức của mô hình không dùng lịch sử và còn thấp hơn 0.050 — đúng như kỳ vọng, vì gán sai lịch sử cho người khác thì tệ hơn là không biết gì về lịch sử. Phần điểm tăng thêm thực sự đến từ việc gán đúng lịch sử cho đúng người.
+**Không đạt.** Xáo tín hiệu gần như không làm giảm điểm — thước đo đang phản ánh thứ gì đó ngoài chất lượng xếp hạng. Không nên báo cáo con số phân tách cho tới khi tìm ra nguyên nhân.
 
 ## 3. Nhóm chưa đủ dữ liệu (cold-start)
 
@@ -35,11 +35,11 @@ Người có dưới 3 task đã hoàn thành (tính theo cửa sổ đã trễ 
 
 | Chỉ số | Giá trị |
 |---|---|
-| Tỉ lệ dòng ứng viên thuộc nhóm cold-start | 31.7% (5002/15778) |
-| Được xếp hạng 1 | 16.6% |
-| Lọt top 3 | 50.5% |
-| **Chưa bao giờ lọt top 3 trong cả kỳ** | **1.4%** |
-| Phân tách kết quả trên riêng các quyết định giao cho người cold-start | 0.109 |
+| Tỉ lệ dòng ứng viên thuộc nhóm cold-start | 3.1% (19/605) |
+| Được xếp hạng 1 | 0.0% |
+| Lọt top 3 | 5.3% |
+| **Chưa bao giờ lọt top 3 trong cả kỳ** | **50.0%** |
+| Phân tách kết quả trên riêng các quyết định giao cho người cold-start | 0.000 |
 
 Chỉ số cuối cần đọc cùng cỡ mẫu: nhóm này ít quyết định nên dao động mạnh.
 

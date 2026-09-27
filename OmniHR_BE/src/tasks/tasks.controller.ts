@@ -48,7 +48,7 @@ export class TasksController {
   @Permissions("TASK_READ_ALL", "TASK_READ_TEAM", "TASK_READ_SELF")
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
-    return this.tasksService.findOne(id, user);
+    return this.tasksService.getOne(id, user);
   }
 
   @Permissions("TASK_CREATE")

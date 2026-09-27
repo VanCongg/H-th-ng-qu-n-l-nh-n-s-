@@ -703,7 +703,16 @@ const teamSeeds: TeamSeed[] = [
   }
 ];
 
+/**
+ * Public holidays from the holidays table (seeded by its migration), loaded
+ * once in main(): nobody works, files leave or is absent on them.
+ */
+let holidays: ReadonlySet<number> = new Set();
+
 async function main() {
+  holidays = new Set(
+    (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
+  );
   const saltRounds = Number(process.env.BCRYPT_SALT_ROUNDS ?? 10);
   const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
 
@@ -1305,8 +1314,14 @@ async function seedProject(
   managerId: number,
   adminUserId: number
 ) {
-  return prisma.project.upsert({
+  // Codes are unique only among live projects, so look the row up by hand.
+  const existing = await prisma.project.findFirst({
     where: { code: projectCode },
+    orderBy: { deletedAt: { sort: "desc", nulls: "first" } },
+    select: { id: true }
+  });
+  return prisma.project.upsert({
+    where: { id: existing?.id ?? -1 },
     create: {
       code: projectCode,
       name: "Chuyển đổi số nội bộ phòng CNTT 2026",
@@ -1758,7 +1773,7 @@ function workdayCount(startDate: string, endDate: string) {
   const end = dateOnly(endDate);
   while (current <= end) {
     const day = current.getUTCDay();
-    if (day !== 0 && day !== 6) {
+    if (day !== 0 && day !== 6 && !holidays.has(current.getTime())) {
       count += 1;
     }
     current.setUTCDate(current.getUTCDate() + 1);

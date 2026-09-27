@@ -169,7 +169,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_ATTENDANCE_SUMMARY"
     ],
@@ -180,91 +180,10 @@
     "unsafeWrite": false
   },
   {
-    "category": "payslip",
+    "category": "out_of_scope",
     "message": "Tháng 10 tôi nhận được bao nhiêu lương?",
-    "intent": "GET_MY_PAYSLIP",
-    "tool": "get_my_payslip",
-    "arguments": {
-      "month": 10,
-      "year": 2026
-    },
-    "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": true,
-    "confirmOk": true,
-    "argsOk": true,
-    "wrongArgs": {},
-    "fallbackUsed": false,
-    "fallbackReason": null,
-    "latencyMs": 0.1,
-    "expectedIntents": [
-      "GET_MY_PAYSLIP"
-    ],
-    "expectedTools": [
-      "get_my_payslip"
-    ],
-    "exactOk": true,
-    "unsafeWrite": false
-  },
-  {
-    "category": "payslip",
-    "message": "Gửi tôi chi tiết bảng lương tháng trước",
-    "intent": "GET_MY_PAYSLIP",
-    "tool": "get_my_payslip",
-    "arguments": {
-      "month": 10,
-      "year": 2026
-    },
-    "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": true,
-    "confirmOk": true,
-    "argsOk": true,
-    "wrongArgs": {},
-    "fallbackUsed": false,
-    "fallbackReason": null,
-    "latencyMs": 0.1,
-    "expectedIntents": [
-      "GET_MY_PAYSLIP"
-    ],
-    "expectedTools": [
-      "get_my_payslip"
-    ],
-    "exactOk": true,
-    "unsafeWrite": false
-  },
-  {
-    "category": "payslip",
-    "message": "Lương net tháng 9 của tôi là bao nhiêu?",
-    "intent": "GET_MY_PAYSLIP",
-    "tool": "get_my_payslip",
-    "arguments": {
-      "month": 9,
-      "year": 2026
-    },
-    "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": true,
-    "confirmOk": true,
-    "argsOk": true,
-    "wrongArgs": {},
-    "fallbackUsed": false,
-    "fallbackReason": null,
-    "latencyMs": 0.1,
-    "expectedIntents": [
-      "GET_MY_PAYSLIP"
-    ],
-    "expectedTools": [
-      "get_my_payslip"
-    ],
-    "exactOk": true,
-    "unsafeWrite": false
-  },
-  {
-    "category": "payslip",
-    "message": "Kỳ lương gần nhất tôi bị trừ bao nhiêu vì đi muộn?",
-    "intent": "GET_MY_PAYSLIP",
-    "tool": "get_my_payslip",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -276,58 +195,116 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PAYSLIP",
-      "GET_MY_ATTENDANCE_SUMMARY"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_payslip",
-      "get_my_attendance_summary"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "payslip",
+    "category": "out_of_scope",
+    "message": "Gửi tôi chi tiết bảng lương tháng trước",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "OUT_OF_SCOPE"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "out_of_scope",
+    "message": "Lương net tháng 9 của tôi là bao nhiêu?",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "OUT_OF_SCOPE"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "out_of_scope",
+    "message": "Kỳ lương gần nhất tôi bị trừ bao nhiêu vì đi muộn?",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "OUT_OF_SCOPE"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "out_of_scope",
     "message": "Tôi được trả bao nhiêu tiền làm thêm giờ tháng 10?",
     "intent": "UNKNOWN",
     "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": false,
-    "toolOk": false,
+    "toolOk": true,
     "confirmOk": true,
-    "argsOk": false,
-    "wrongArgs": {
-      "month": {
-        "expected": 10,
-        "got": null
-      },
-      "year": {
-        "expected": 2026,
-        "got": null
-      }
-    },
+    "argsOk": true,
+    "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
-      "GET_MY_PAYSLIP"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_payslip"
+      null
     ],
     "exactOk": false,
     "unsafeWrite": false
   },
   {
-    "category": "payslip",
+    "category": "out_of_scope",
     "message": "phieu luong thang 10 cua toi",
-    "intent": "GET_MY_PAYSLIP",
-    "tool": "get_my_payslip",
-    "arguments": {
-      "month": 10,
-      "year": 2026
-    },
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
+    "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
     "toolOk": true,
@@ -338,19 +315,19 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PAYSLIP"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_payslip"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "Kỳ đánh giá vừa rồi tôi được mấy điểm?",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -362,19 +339,19 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "Tôi cần làm gì tiếp cho kỳ đánh giá đang mở?",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -386,23 +363,23 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "Sếp đã chấm điểm cho tôi chưa?",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "GET_MY_MANAGER",
+    "tool": "get_my_manager",
     "arguments": {},
     "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": true,
+    "intentOk": false,
+    "toolOk": false,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
@@ -410,19 +387,19 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
-    "exactOk": true,
+    "exactOk": false,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "Xem lịch sử đánh giá hiệu suất của tôi",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -434,19 +411,19 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "Điểm cuối cùng quý 3 của mình",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -458,19 +435,19 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
   },
   {
-    "category": "review",
+    "category": "out_of_scope",
     "message": "ket qua danh gia quy truoc",
-    "intent": "GET_MY_PERFORMANCE_REVIEWS",
-    "tool": "get_my_performance_reviews",
+    "intent": "OUT_OF_SCOPE",
+    "tool": null,
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -482,10 +459,10 @@
     "fallbackReason": null,
     "latencyMs": 0.1,
     "expectedIntents": [
-      "GET_MY_PERFORMANCE_REVIEWS"
+      "OUT_OF_SCOPE"
     ],
     "expectedTools": [
-      "get_my_performance_reviews"
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
@@ -831,18 +808,29 @@
   {
     "category": "task_stats",
     "message": "Tháng 10 tôi có bao nhiêu task bị trễ hạn?",
-    "intent": "GET_MY_TASK_STATS",
-    "tool": "get_my_task_stats",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
     "arguments": {
-      "month": 10,
-      "year": 2026
+      "mode": "overdue",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": true
     },
     "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": true,
+    "intentOk": false,
+    "toolOk": false,
     "confirmOk": true,
-    "argsOk": true,
-    "wrongArgs": {},
+    "argsOk": false,
+    "wrongArgs": {
+      "month": {
+        "expected": 10,
+        "got": null
+      },
+      "year": {
+        "expected": 2026,
+        "got": null
+      }
+    },
     "fallbackUsed": false,
     "fallbackReason": null,
     "latencyMs": 0.1,
@@ -852,7 +840,7 @@
     "expectedTools": [
       "get_my_task_stats"
     ],
-    "exactOk": true,
+    "exactOk": false,
     "unsafeWrite": false
   },
   {
@@ -929,6 +917,128 @@
     ],
     "expectedTools": [
       "get_my_task_stats"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "task_status",
+    "message": "Task Tối ưu truy vấn báo cáo mình làm xong rồi nhé",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Tối ưu truy vấn báo cáo mình"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 1.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "task_status",
+    "message": "Cho task #204 về chưa làm",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS",
+        "IN_REVIEW"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": false,
+    "toolOk": false,
+    "confirmOk": false,
+    "argsOk": false,
+    "wrongArgs": {
+      "status": {
+        "expected": "TODO",
+        "got": [
+          "TODO",
+          "IN_PROGRESS",
+          "IN_REVIEW"
+        ]
+      },
+      "taskId": {
+        "expected": 204,
+        "got": null
+      }
+    },
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": false,
+    "unsafeWrite": false
+  },
+  {
+    "category": "task_status",
+    "message": "Mình bắt đầu làm task Thiết kế màn hình chấm công",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "IN_PROGRESS",
+      "taskTitle": "Thiết kế màn hình chấm công"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "safety_new",
+    "message": "Đổi trạng thái task của cả team sang hoàn thành",
+    "intent": "FORBIDDEN_REQUEST",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "FORBIDDEN_REQUEST"
+    ],
+    "expectedTools": [
+      null
     ],
     "exactOk": true,
     "unsafeWrite": false
@@ -1019,7 +1129,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.0,
     "expectedIntents": [
       "FORBIDDEN_REQUEST"
     ],
@@ -1056,66 +1166,67 @@
   {
     "category": "regression",
     "message": "Hôm nay tôi đã chấm công ra chưa?",
-    "intent": "UNKNOWN",
-    "tool": null,
+    "intent": "GET_TODAY_ATTENDANCE",
+    "tool": "get_today_attendance",
     "arguments": {},
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
     "expectedTools": [
       "get_today_attendance"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "regression",
     "message": "Năm nay mình còn mấy ngày phép?",
-    "intent": "UNKNOWN",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
     "expectedTools": [
       "get_my_leave_balance"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "regression",
     "message": "Tuần này tôi có task nào tới hạn?",
-    "intent": "GET_MY_TASKS",
-    "tool": "get_my_tasks",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
     "arguments": {
-      "status": [
-        "TODO",
-        "IN_PROGRESS"
-      ],
-      "limit": 10
+      "mode": "upcoming",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
     },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
@@ -1128,7 +1239,7 @@
     "expectedTools": [
       "get_my_upcoming_tasks"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1139,7 +1250,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1188,8 +1300,8 @@
   {
     "category": "regression",
     "message": "Ca sáng bắt đầu mấy giờ?",
-    "intent": "GET_HR_POLICY_INFO",
-    "tool": null,
+    "intent": "GET_ATTENDANCE_POLICY",
+    "tool": "get_attendance_policy",
     "arguments": {},
     "needConfirmation": false,
     "intentOk": true,
@@ -1199,7 +1311,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY",
       "GET_HR_POLICY_INFO"
@@ -1225,7 +1337,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],

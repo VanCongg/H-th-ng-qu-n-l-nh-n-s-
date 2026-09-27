@@ -30,11 +30,15 @@ type SettingsFormValues = {
   timezoneOffsetMinutes: number;
   attendanceEarlyCheckInMinutes: number;
   attendanceGraceMinutes: number;
+  overtimeMinimumMinutes: number;
   seniorityLeaveEveryYears: number;
   aiWeightSkill: number;
   aiWeightWorkload: number;
   aiWeightAvailability: number;
   aiWeightHistory: number;
+  aiSkillMultiplierEasy: number;
+  aiSkillMultiplierMedium: number;
+  aiSkillMultiplierHard: number;
   annualLeaveCarryOverMaxDays: number;
   morningShiftStart: string;
   morningShiftEnd: string;
@@ -63,11 +67,15 @@ const initialValues: SettingsFormValues = {
   timezoneOffsetMinutes: 420,
   attendanceEarlyCheckInMinutes: 60,
   attendanceGraceMinutes: 0,
+  overtimeMinimumMinutes: 30,
   seniorityLeaveEveryYears: 5,
   aiWeightSkill: 0.1,
   aiWeightWorkload: 0.15,
   aiWeightAvailability: 0.1,
   aiWeightHistory: 0.65,
+  aiSkillMultiplierEasy: 1,
+  aiSkillMultiplierMedium: 1,
+  aiSkillMultiplierHard: 1,
   annualLeaveCarryOverMaxDays: 5,
   morningShiftStart: "08:00",
   morningShiftEnd: "12:00",
@@ -210,6 +218,17 @@ export function SystemSettingsPage() {
                 {...form.getInputProps("attendanceGraceMinutes")}
               />
               <NumberInput
+                label={tx("Overtime minimum")}
+                description={tx(
+                  "Time past the shifts counts as overtime only when a day's extra reaches this many minutes"
+                )}
+                min={0}
+                max={240}
+                suffix=" min"
+                required
+                {...form.getInputProps("overtimeMinimumMinutes")}
+              />
+              <NumberInput
                 label={tx("Seniority leave step")}
                 description={tx(
                   "One extra annual leave day per this many full years of service (0 turns it off)"
@@ -270,6 +289,21 @@ export function SystemSettingsPage() {
                 required
                 {...form.getInputProps("aiWeightHistory")}
               />
+              {(["Easy", "Medium", "Hard"] as const).map((level) => (
+                <NumberInput
+                  key={level}
+                  label={tx(`Skill weight multiplier: ${level.toLowerCase()} tasks`)}
+                  description={tx(
+                    "Multiplies the skill weight by task difficulty; fitted by the tuner (1 = same weight for every task)"
+                  )}
+                  min={0.25}
+                  max={10}
+                  step={0.5}
+                  decimalScale={2}
+                  required
+                  {...form.getInputProps(`aiSkillMultiplier${level}`)}
+                />
+              ))}
               <Switch
                 label={tx("Require attendance location")}
                 {...form.getInputProps("requireAttendanceLocation", {
@@ -343,6 +377,10 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
       settings.attendanceGraceMinutes,
       initialValues.attendanceGraceMinutes
     ),
+    overtimeMinimumMinutes: numberValue(
+      settings.overtimeMinimumMinutes,
+      initialValues.overtimeMinimumMinutes
+    ),
     aiWeightSkill: numberValue(settings.aiWeightSkill, initialValues.aiWeightSkill),
     aiWeightWorkload: numberValue(
       settings.aiWeightWorkload,
@@ -355,6 +393,18 @@ function settingsToFormValues(settings: Record<string, unknown>): SettingsFormVa
     aiWeightHistory: numberValue(
       settings.aiWeightHistory,
       initialValues.aiWeightHistory
+    ),
+    aiSkillMultiplierEasy: numberValue(
+      settings.aiSkillMultiplierEasy,
+      initialValues.aiSkillMultiplierEasy
+    ),
+    aiSkillMultiplierMedium: numberValue(
+      settings.aiSkillMultiplierMedium,
+      initialValues.aiSkillMultiplierMedium
+    ),
+    aiSkillMultiplierHard: numberValue(
+      settings.aiSkillMultiplierHard,
+      initialValues.aiSkillMultiplierHard
     ),
     seniorityLeaveEveryYears: numberValue(
       settings.seniorityLeaveEveryYears,

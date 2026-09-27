@@ -218,7 +218,7 @@ class _LoginForm extends StatelessWidget {
                         AutofillHints.email,
                       ],
                       decoration: InputDecoration(
-                        labelText: tx('Tên đăng nhập hoặc email'),
+                        labelText: tx('Tên đăng nhập, email hoặc mã nhân viên'),
                         prefixIcon: const Icon(Icons.person_outline_rounded),
                       ),
                       keyboardType: TextInputType.emailAddress,

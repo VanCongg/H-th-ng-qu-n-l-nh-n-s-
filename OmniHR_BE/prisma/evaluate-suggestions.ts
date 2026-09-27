@@ -26,18 +26,29 @@ import {
   DEFAULT_HISTORY_TUNING,
   DEFAULT_SCORE_WEIGHTS,
   HistoryTuning,
+  LeaveOverlap,
+  OpenTaskLoad,
   WORKLOAD_CAPACITY_HOURS_PER_WEEK,
   assessSkills,
   availabilityScoreFor,
   LEAVE_BLOCK_THRESHOLD,
-  combineScores,
   compareCandidates,
   historyPrior,
   historySignal,
+  FLAT_SKILL_MULTIPLIERS,
+  ScoreWeights,
+  scoreCandidate,
+  TaskDifficulty,
+  taskDifficulty,
+  leaveOverlapDays,
+  levelFit,
+  skillScoreWithLevel,
   rawHistoryScore,
   usableHistory,
+  weeklyLoad,
   workloadScoreFor
 } from "../src/ai-task-suggestions/suggestion-scoring";
+import { DEFAULT_WORK_WEEK, workdayKeysBetween } from "../src/common/utils";
 import { buildPersona } from "./simulation-persona";
 
 export const prisma = new PrismaClient();
@@ -59,6 +70,10 @@ export type Candidate = {
   employeeId: number;
   ability: number;
   skillScore: number;
+  /** The skill score before the task's level range is applied. */
+  skillScoreNoLevel: number;
+  /** How demanding the task is; scales the skill weight (see taskDifficulty). */
+  difficulty: TaskDifficulty;
   eligible: boolean;
   workloadScore: number;
   availabilityScore: number;
@@ -90,6 +105,15 @@ type Variant = {
 };
 
 const W = DEFAULT_SCORE_WEIGHTS;
+
+/** " ×1/×2/×4 theo độ khó" when the skill weight adapts, "" when it is flat. */
+export function multiplierLabel(weights: ScoreWeights) {
+  const m = weights.skillMultipliers;
+  if (!m || (m.EASY === 1 && m.MEDIUM === 1 && m.HARD === 1)) {
+    return "";
+  }
+  return ` ×${m.EASY}/×${m.MEDIUM}/×${m.HARD} theo độ khó`;
+}
 /**
  * The first entry is exactly what the API ranks with; the other two drop
  * signals from it, so each row shows what a signal adds on top of the last.
@@ -97,29 +121,41 @@ const W = DEFAULT_SCORE_WEIGHTS;
 const VARIANTS: Variant[] = [
   {
     key: "deployed",
-    label: `Đang chạy (kỹ năng ${W.skill} / tải việc ${W.workload} / lịch nghỉ ${W.availability} / lịch sử ${W.history})`,
-    score: (c) =>
-      combineScores([
-        { value: c.skillScore, weight: W.skill },
-        { value: c.workloadScore, weight: W.workload },
-        { value: c.availabilityScore, weight: W.availability },
-        { value: c.historyScore, weight: W.history }
-      ])
+    label: `Đang chạy (kỹ năng ${W.skill}${multiplierLabel(W)} / tải việc ${W.workload} / lịch nghỉ ${W.availability} / lịch sử ${W.history})`,
+    score: (c) => scoreCandidate(W, c)
+  },
+  {
+    key: "adaptive-124",
+    label: "Trọng số kỹ năng theo độ khó ×1 / ×2 / ×4",
+    score: (c) => scoreCandidate({ ...W, skillMultipliers: { EASY: 1, MEDIUM: 2, HARD: 4 } }, c)
+  },
+  {
+    key: "flat-skill",
+    label: "Như đang chạy nhưng trọng số kỹ năng cố định (không theo độ khó)",
+    score: (c) => scoreCandidate({ ...W, skillMultipliers: FLAT_SKILL_MULTIPLIERS }, c)
+  },
+  {
+    key: "no-level",
+    label: "Như đang chạy nhưng bỏ cấp bậc phù hợp của task",
+    score: (c) => scoreCandidate(W, { ...c, skillScore: c.skillScoreNoLevel })
   },
   {
     key: "no-history",
     label: "Bỏ lịch sử (kỹ năng + tải việc + lịch nghỉ)",
-    score: (c) =>
-      combineScores([
-        { value: c.skillScore, weight: W.skill },
-        { value: c.workloadScore, weight: W.workload },
-        { value: c.availabilityScore, weight: W.availability }
-      ])
+    score: (c) => scoreCandidate(W, { ...c, historyScore: null })
   },
   {
     key: "skill-only",
     label: "Chỉ kỹ năng",
     score: (c) => c.skillScore
+  },
+  {
+    // Not a model: ranks by the simulator's hidden ability, which no real
+    // system can see. It marks the ceiling - how well any ranking could do
+    // on this data - so the others read as a share of what is reachable.
+    key: "oracle",
+    label: "Trần lý thuyết (xếp theo năng lực ẩn - không mô hình nào thấy được)",
+    score: (c) => c.ability * 100
   }
 ];
 
@@ -194,7 +230,7 @@ export function buildDecisions(
       assignedAt: at,
       candidates: withPeerPrior(
         data,
-        memberIds.map((id) => scoreCandidate(data, task, id, at, tuning)),
+        memberIds.map((id) => buildCandidate(data, task, id, at, tuning)),
         at,
         tuning
       ),
@@ -234,7 +270,7 @@ export function parseFrom(args: string[]) {
 // ---------------------------------------------------------------------------
 
 export async function loadData() {
-  const [stateRow, employees, members, tasks, assignments, leaves, reworkNotes] =
+  const [stateRow, employees, members, tasks, assignments, leaves, reworkNotes, holidayRows] =
     await Promise.all([
       prisma.systemSetting.findUnique({ where: { key: "simulation" } }),
       prisma.employee.findMany({
@@ -253,6 +289,9 @@ export async function loadData() {
         where: { deletedAt: null, parentTaskId: { not: null } },
         select: {
           id: true,
+          minLevel: true,
+          maxLevel: true,
+          parentTask: { select: { minLevel: true, maxLevel: true } },
           teamId: true,
           projectId: true,
           assigneeId: true,
@@ -283,6 +322,7 @@ export async function loadData() {
           startDate: true,
           endDate: true,
           status: true,
+          halfDay: true,
           createdAt: true,
           approvedAt: true,
           canceledAt: true,
@@ -292,7 +332,8 @@ export async function loadData() {
       prisma.notification.findMany({
         where: { type: NotificationType.TASK_STATUS_CHANGED, title: "Task returned for rework" },
         select: { entityId: true }
-      })
+      }),
+      prisma.holiday.findMany({ select: { date: true } })
     ]);
 
   if (!stateRow) {
@@ -371,6 +412,7 @@ export async function loadData() {
     reworks,
     leavesByEmployee,
     doneByEmployee,
+    holidays: new Set(holidayRows.map((row) => row.date.getTime())),
     lastSimulatedDate: new Date(`${state.lastDate}T00:00:00.000Z`)
   };
 }
@@ -382,7 +424,7 @@ type TaskRow = NonNullable<ReturnType<Data["tasks"]["get"]>>;
 // Replaying one candidate at assignment time
 // ---------------------------------------------------------------------------
 
-function scoreCandidate(
+function buildCandidate(
   data: Data,
   task: TaskRow,
   employeeId: number,
@@ -390,25 +432,45 @@ function scoreCandidate(
   tuning: ReplayTuning
 ): Candidate & { historyOwn: number | null; historyOwnSampleSize: number } {
   const employee = data.employees.get(employeeId)!;
-  const skill = assessSkills(task.requiredSkills, employee.employeeSkills, at);
+  // Same level fit as the API: the subtask's range, else its team task's.
+  const assessment = assessSkills(task.requiredSkills, employee.employeeSkills, at);
+  const level = levelFit(
+    employee.careerLevel,
+    task.minLevel ?? task.parentTask?.minLevel ?? null,
+    task.maxLevel ?? task.parentTask?.maxLevel ?? null
+  );
+  // EVAL_IGNORE_LEVEL=1 replays the ranking as it was before level ranges,
+  // so eval:diagnostics can be compared with and without them.
+  const skill = {
+    ...assessment,
+    score:
+      process.env.EVAL_IGNORE_LEVEL === "1"
+        ? assessment.score
+        : skillScoreWithLevel(assessment.score, level)
+  };
 
   // Workload: tasks this person held at that moment, as TaskWorkloadService counts them.
-  const today = utcDate(at);
-  let hours = 0;
-  let overdue = 0;
+  // Same weekly-load rule as the API. Hours logged by then are not known from
+  // the final row, so a held task counts its whole estimate as left to do.
+  const held: OpenTaskLoad[] = [];
   for (const holding of data.holdings.get(employeeId) ?? []) {
     if (holding.taskId === task.id || holding.from > at || holding.to <= at.getTime()) {
       continue;
     }
-    const held = data.tasks.get(holding.taskId);
-    if (!held) {
+    const heldTask = data.tasks.get(holding.taskId);
+    if (!heldTask) {
       continue;
     }
-    hours += Number(held.estimatedHours ?? 4);
-    if (held.dueDate && held.dueDate < today) {
-      overdue += 1;
-    }
+    held.push({
+      status: "IN_PROGRESS",
+      estimatedHours: heldTask.estimatedHours === null ? null : Number(heldTask.estimatedHours),
+      startDate: heldTask.startDate,
+      dueDate: heldTask.dueDate
+    });
   }
+  const load = weeklyLoad(held, utcDate(new Date(at.getTime() + TZ_OFFSET_MS)));
+  const hours = load.weeklyHours;
+  const overdue = load.overdueCount;
 
   const availability = availabilityAt(data, employeeId, task, at);
   const finished = (data.doneByEmployee.get(employeeId) ?? []).filter(
@@ -422,6 +484,8 @@ function scoreCandidate(
     employeeId,
     ability: employee.ability,
     skillScore: skill.score,
+    skillScoreNoLevel: assessment.score,
+    difficulty: taskDifficulty(task.requiredSkills, task.minLevel ?? task.parentTask?.minLevel ?? null),
     eligible: skill.eligible,
     workloadScore: workloadScoreFor(hours, overdue, tuning.capacityHours),
     availabilityScore: availability.score,
@@ -453,12 +517,11 @@ function availabilityAt(data: Data, employeeId: number, task: TaskRow, at: Date)
   }
   const from = utcDate(task.startDate ?? task.dueDate!);
   const to = utcDate(task.dueDate ?? task.startDate!);
-  const taskDays = workdayKeys(from, to);
+  const taskDays = workdayKeys(data, from, to);
   if (!taskDays.length) {
     return { score: 100, approvedOverlapRatio: 0 };
   }
-  const approved = new Set<string>();
-  const pending = new Set<string>();
+  const overlaps: LeaveOverlap[] = [];
   for (const leave of data.leavesByEmployee.get(employeeId) ?? []) {
     if (leave.createdAt > at || leave.endDate < from || leave.startDate > to) {
       continue;
@@ -469,17 +532,19 @@ function availabilityAt(data: Data, employeeId: number, task: TaskRow, at: Date)
     if (cancelledByThen || rejectedByThen) {
       continue;
     }
-    const bucket = approvedByThen ? approved : pending;
-    for (const key of workdayKeys(maxDate(leave.startDate, from), minDate(leave.endDate, to))) {
-      bucket.add(key);
-    }
+    overlaps.push({
+      keys: workdayKeys(data, maxDate(leave.startDate, from), minDate(leave.endDate, to)),
+      approved: approvedByThen,
+      halfDay: leave.halfDay
+    });
   }
-  const pendingOnly = Array.from(pending).filter((key) => !approved.has(key)).length;
+  // Same counting as the API: half days count half.
+  const { approvedDays, pendingOnlyDays } = leaveOverlapDays(overlaps);
   return {
-    score: availabilityScoreFor(taskDays.length, approved.size, pendingOnly),
+    score: availabilityScoreFor(taskDays.length, approvedDays, pendingOnlyDays),
     // Reported separately: an approved day off during the task window is a
     // business rule the on-time label cannot see.
-    approvedOverlapRatio: approved.size / taskDays.length
+    approvedOverlapRatio: approvedDays / taskDays.length
   };
 }
 
@@ -660,6 +725,8 @@ function buildReport(decisions: Decision[], from: Date, evalEnd: Date) {
     "- Bộ đang chạy cố ý cân nhắc khối lượng việc và lịch nghỉ, nên không nhắm chọn người giỏi nhất tuyệt đối; bảng 1 chỉ đo riêng khả năng nhận ra năng lực.",
     "- Thứ hạng ở đây đã áp ràng buộc cứng (thiếu kỹ năng bắt buộc, nghỉ quá nửa kỳ task) nhưng chưa trừ điểm cân tải; báo cáo tune-weights đo cả phần đó.",
     "- Dữ liệu là mô phỏng: kết quả kiểm chứng thuật toán bắt được tín hiệu trong kịch bản giả lập, không thay cho đánh giá trên dữ liệu công ty thật.",
+    "- Trưởng nhóm mô phỏng cũng nhìn kỹ năng và tải việc, nên thước đo ở đây là năng lực ẩn và kết quả thực tế, không phải mức trùng với lựa chọn của trưởng nhóm; bộ mô phỏng còn có độ quen giữa trưởng nhóm và thành viên và việc giao để kèm người mới, những yếu tố API không thấy (xem README).",
+    "- Tải việc tính như API: giờ còn lại rải theo số tuần tới hạn; giờ đã log tại thời điểm giao không có trong dữ liệu nên dùng toàn bộ ước tính.",
     ""
   );
   return lines.join("\n");
@@ -712,14 +779,9 @@ function isOnTime(completedAt: Date, dueDate: Date | null) {
   return utcDate(new Date(completedAt.getTime() + TZ_OFFSET_MS)) <= dueDate;
 }
 
-function workdayKeys(from: Date, to: Date) {
-  const keys: string[] = [];
-  for (let day = utcDate(from); day <= to; day = new Date(day.getTime() + DAY_MS)) {
-    if (day.getUTCDay() !== 0 && day.getUTCDay() !== 6) {
-      keys.push(iso(day));
-    }
-  }
-  return keys;
+/** The API's own working-day count (work week minus holidays), so both rank alike. */
+function workdayKeys(data: Pick<Data, "holidays">, from: Date, to: Date) {
+  return workdayKeysBetween(from, to, DEFAULT_WORK_WEEK, data.holidays);
 }
 
 function utcDate(value: Date) {

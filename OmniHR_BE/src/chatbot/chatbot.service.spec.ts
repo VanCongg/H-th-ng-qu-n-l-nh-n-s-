@@ -132,6 +132,44 @@ describe("ChatbotService", () => {
     );
   });
 
+  it("lists recent leave with half days and pending cancellations", async () => {
+    const { service, aiClient, tools } = createService();
+    aiClient.plan.mockResolvedValue({
+      type: "tool_call",
+      reply: "",
+      toolCalls: [{ id: "call_1", toolName: "get_my_leave_requests", arguments: {} }],
+      needConfirmation: false,
+      confidence: 0.9,
+      citations: [],
+    });
+    tools.executeTool.mockResolvedValue({
+      toolName: "get_my_leave_requests",
+      success: true,
+      data: [
+        {
+          leaveType: { name: "Phép năm" },
+          startDate: "2026-10-09",
+          endDate: "2026-10-09",
+          halfDay: "AFTERNOON",
+          status: "PENDING",
+        },
+        {
+          leaveType: { name: "Phép năm" },
+          startDate: "2026-10-19",
+          endDate: "2026-10-21",
+          status: "APPROVED",
+          cancelRequestedAt: "2026-09-26T03:00:00.000Z",
+        },
+      ],
+    });
+
+    const result = await service.sendMessage({ message: "Đơn nghỉ của tôi" }, user);
+
+    expect(result.reply).toContain("(buổi chiều)");
+    expect(result.reply).toContain("đang chờ quản lý duyệt yêu cầu hủy");
+    expect(result.reply.split("\n")).toHaveLength(3);
+  });
+
   it("rejects blank messages before creating a conversation", async () => {
     const { service, history, aiClient } = createService();
 

@@ -103,29 +103,60 @@ class _LeaveScreenState extends State<LeaveScreen> {
     }
   }
 
+  /// A pending request is withdrawn at once; an approved one can only be
+  /// asked for, and stays approved until the manager agrees.
   Future<void> _cancel(LeaveRequest request) async {
+    final approved = request.status == 'APPROVED';
+    final period = {
+      'type': request.leaveType.name,
+      'start': formatDate(request.startDate),
+      'end': formatDate(request.endDate),
+    };
     final confirmed = await showAppConfirm(
       context,
       icon: Icons.cancel_outlined,
       destructive: true,
-      title: tx('Hủy đơn nghỉ phép'),
-      message: tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', {
-        'type': request.leaveType.name,
-        'start': formatDate(request.startDate),
-        'end': formatDate(request.endDate),
-      }),
+      title: tx(approved ? 'Xin hủy đơn đã duyệt' : 'Hủy đơn nghỉ phép'),
+      message: approved
+          ? tx(
+              'Đơn {type} từ {start} đến {end} đã được duyệt. Yêu cầu hủy sẽ '
+              'được gửi cho quản lý; đơn vẫn giữ nguyên cho tới khi quản lý '
+              'đồng ý.',
+              period,
+            )
+          : tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', period),
       cancelLabel: tx('Không hủy'),
-      confirmLabel: tx('Xác nhận hủy'),
+      confirmLabel: tx(approved ? 'Gửi yêu cầu hủy' : 'Xác nhận hủy'),
     );
     if (!confirmed) return;
 
     try {
       await widget.session.api.post('/leave-requests/${request.id}/cancel');
-      if (mounted) showAppSnack(context, tx('Đã hủy đơn nghỉ phép.'));
+      if (mounted) {
+        showAppSnack(
+          context,
+          tx(
+            approved
+                ? 'Đã gửi yêu cầu hủy, chờ quản lý duyệt.'
+                : 'Đã hủy đơn nghỉ phép.',
+          ),
+        );
+      }
       await _refresh();
     } catch (error) {
       if (mounted) showAppSnack(context, error.toString(), error: true);
     }
+  }
+
+  /// Pending: withdraw it. Approved and not started, with no request yet:
+  /// ask to withdraw it. Leave under way is settled with the manager.
+  bool _canCancel(LeaveRequest request) {
+    if (request.status == 'PENDING') return true;
+    if (request.status != 'APPROVED' || request.cancelRequested) return false;
+    final start = dateOf(request.startDate);
+    final now = DateTime.now();
+    return start != null &&
+        start.isAfter(DateTime(now.year, now.month, now.day));
   }
 
   Future<void> _openCreateSheet(LeaveBundle bundle) async {
@@ -138,6 +169,8 @@ class _LeaveScreenState extends State<LeaveScreen> {
     int? leaveTypeId = bundle.types.first.id;
     var startDate = nextWorkingDay(DateTime.now());
     var endDate = nextWorkingDay(DateTime.now());
+    // null = the whole day; a half day only for a one-day request.
+    String? halfDay;
     var submitting = false;
 
     final created = await showModalBottomSheet<bool>(
@@ -218,6 +251,8 @@ class _LeaveScreenState extends State<LeaveScreen> {
                       'startDate': apiDate(startDate),
                       'endDate': apiDate(endDate),
                       'reason': reasonController.text.trim(),
+                      if (halfDay != null && sameDate(startDate, endDate))
+                        'halfDay': halfDay,
                     },
                   );
                   if (context.mounted) Navigator.pop(context, true);
@@ -287,6 +322,30 @@ class _LeaveScreenState extends State<LeaveScreen> {
                         ),
                       ],
                     ),
+                    if (sameDate(startDate, endDate)) ...[
+                      const SizedBox(height: 12),
+                      SegmentedButton<String?>(
+                        segments: [
+                          ButtonSegment(
+                            value: null,
+                            label: Text(tx('Cả ngày')),
+                          ),
+                          ButtonSegment(
+                            value: 'MORNING',
+                            label: Text(tx('Buổi sáng')),
+                          ),
+                          ButtonSegment(
+                            value: 'AFTERNOON',
+                            label: Text(tx('Buổi chiều')),
+                          ),
+                        ],
+                        selected: {halfDay},
+                        onSelectionChanged: submitting
+                            ? null
+                            : (value) =>
+                                  setSheetState(() => halfDay = value.first),
+                      ),
+                    ],
                     if (workingDaysBetween(startDate, endDate) == 0) ...[
                       const SizedBox(height: 10),
                       Container(
@@ -471,7 +530,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
                 ...bundle.requests.map(
                   (request) => LeaveRequestCard(
                     request: request,
-                    onCancel: request.status == 'PENDING'
+                    onCancel: _canCancel(request)
                         ? () => _cancel(request)
                         : null,
                   ),

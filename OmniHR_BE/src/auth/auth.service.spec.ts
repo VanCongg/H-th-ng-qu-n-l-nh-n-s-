@@ -10,6 +10,7 @@ describe("AuthService", () => {
   function createService() {
     const prisma = {
       user: {
+        findFirst: jest.fn(),
         findUnique: jest.fn(),
         findUniqueOrThrow: jest.fn(),
         update: jest.fn()
@@ -190,6 +191,114 @@ describe("AuthService", () => {
       );
 
       expect(cacheStore.has("auth:user:1")).toBe(false);
+    });
+
+    it("treats a terminated employee's account as signed out", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findUnique.mockResolvedValue({
+        ...dbUser,
+        employee: { id: 10, deletedAt: null, status: "TERMINATED" }
+      });
+
+      await expect(service.hydrateAuthUser(1)).resolves.toBeNull();
+    });
+  });
+
+  describe("login by employee code", () => {
+    async function account(id: number) {
+      return {
+        id,
+        username: `user${id}`,
+        email: `user${id}@example.com`,
+        isActive: true,
+        deletedAt: null,
+        mustChangePassword: false,
+        passwordHash: await bcrypt.hash("secret1", 1),
+        employee: { id: 10 + id, deletedAt: null, status: "ACTIVE" },
+        userRoles: []
+      };
+    }
+
+    function stubSession(prisma: ReturnType<typeof createService>["prisma"], jwt: ReturnType<typeof createService>["jwt"], user: unknown) {
+      prisma.user.update.mockResolvedValue({});
+      prisma.user.findUnique.mockResolvedValue(user);
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ refreshTokenVersion: 1 });
+      jwt.signAsync.mockResolvedValue("token");
+    }
+
+    it("finds the account by the employee code when no username or email matches", async () => {
+      const { service, prisma, jwt } = createService();
+      const user = await account(7);
+      prisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(user);
+      stubSession(prisma, jwt, user);
+
+      const session = await service.login({ usernameOrEmail: " it011 ", password: "secret1" });
+
+      expect(session.user.id).toBe(7);
+      expect(prisma.user.findFirst.mock.calls[1][0].where).toEqual({
+        employee: { is: { employeeCode: { equals: "it011", mode: "insensitive" }, deletedAt: null } }
+      });
+    });
+
+    it("prefers the username over someone else's employee code", async () => {
+      const { service, prisma, jwt } = createService();
+      const user = await account(3);
+      prisma.user.findFirst.mockResolvedValueOnce(user);
+      stubSession(prisma, jwt, user);
+
+      await service.login({ usernameOrEmail: "user3", password: "secret1" });
+
+      expect(prisma.user.findFirst).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("terminated employees", () => {
+    it("refuses the login even though the user account is still active", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findFirst.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        deletedAt: null,
+        passwordHash: await bcrypt.hash("secret", 1),
+        employee: { status: "TERMINATED" }
+      });
+
+      await expect(
+        service.login({ usernameOrEmail: "left@example.com", password: "secret" })
+      ).rejects.toMatchObject({ errorCode: "USER_INACTIVE" });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses to refresh a session opened before the termination", async () => {
+      const { service, prisma, jwt } = createService();
+      jwt.verifyAsync.mockResolvedValue({ sub: 1, version: 2 });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        isActive: true,
+        deletedAt: null,
+        refreshTokenVersion: 2,
+        employee: { status: "TERMINATED" }
+      });
+
+      await expect(
+        service.refresh({ refreshToken: "refresh-token-long-enough-for-validation" })
+      ).rejects.toMatchObject({ errorCode: "INVALID_REFRESH_TOKEN" });
+    });
+
+    it("keeps an inactive (not terminated) employee signed in", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        username: "onleave",
+        email: "onleave@example.com",
+        isActive: true,
+        deletedAt: null,
+        mustChangePassword: false,
+        employee: { id: 10, deletedAt: null, status: "INACTIVE" },
+        userRoles: []
+      });
+
+      await expect(service.hydrateAuthUser(1)).resolves.toMatchObject({ employeeId: 10 });
     });
   });
 });

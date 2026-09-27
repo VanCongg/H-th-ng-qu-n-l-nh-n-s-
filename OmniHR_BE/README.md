@@ -86,6 +86,14 @@ DATABASE_URL=postgresql://.../omnihr_eval npm run eval:suggestions
 
 Báo cáo ghi ra `eval_results/suggestions-eval.md`.
 
+**Giới hạn cần nói rõ khi trích dẫn số liệu.** Trưởng nhóm trong mô phỏng cũng chọn người theo kỹ năng và tải việc — chính những tín hiệu ranking dùng. Nếu chỉ có vậy, điểm cao một phần chỉ có nghĩa là ranking *giống bộ mô phỏng*, không phải *đúng với cách quản lý thật chọn người*. Để giảm tính vòng tròn đó, bộ mô phỏng còn có những yếu tố API không nhìn thấy:
+
+- **Độ "quen tay"** giữa từng trưởng nhóm và từng thành viên (±0,15 điểm, cố định theo cặp, `leadAffinity`);
+- **Giao việc để kèm người mới**: 10% số lần trưởng nhóm cố ý giao cho intern/fresher/junior đang ít việc nhất, bất kể kỹ năng;
+- 20% số lần chọn ngẫu nhiên, và **năng lực ẩn** (`simulation-persona.ts`) quyết định kết quả task nhưng không bao giờ được trưởng nhóm hay API đọc.
+
+Vì vậy thước đo chính là **năng lực ẩn** và **kết quả thực tế** (đúng hạn, số lần bị trả về) — không phải "trùng với người trưởng nhóm đã chọn". Dù vậy đây vẫn là dữ liệu giả lập: số liệu chứng minh thuật toán bắt được tín hiệu trong kịch bản này, không thay cho đánh giá trên dữ liệu công ty thật. Các yếu tố ẩn chỉ có hiệu lực với những ngày được mô phỏng sau khi thêm vào; muốn cả lịch sử phản ánh chúng, seed lại một DB đánh giá riêng rồi mô phỏng từ đầu.
+
 `prisma/seed-ai-large.ts` là bộ dữ liệu cũ dùng cấu trúc khác, không tương thích với seed này — đừng chạy nó sau khi reset.
 
 Run the backend with Docker Compose from this folder, not by clicking Run on

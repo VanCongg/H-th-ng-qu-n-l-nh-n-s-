@@ -23,8 +23,57 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Server errors the app words itself, keyed by `errorCode`.
+const _messagesByCode = {
+  'INVALID_CREDENTIALS': 'Tên đăng nhập hoặc mật khẩu không đúng.',
+  'USER_INACTIVE': 'Tài khoản đã bị khóa hoặc không còn hoạt động.',
+  'LEAVE_HALF_DAY_RANGE': 'Nghỉ nửa ngày chỉ áp dụng cho đơn một ngày.',
+  'LEAVE_CANCEL_ALREADY_REQUESTED':
+      'Yêu cầu hủy đơn này đang chờ quản lý quyết định.',
+  'LEAVE_ALREADY_STARTED':
+      'Đơn nghỉ đã bắt đầu. Hãy trao đổi trực tiếp với quản lý để điều chỉnh.',
+  'LEAVE_CANCEL_NOT_REQUESTED': 'Đơn nghỉ này không có yêu cầu hủy nào.',
+  'LEAVE_REQUEST_OVERLAP':
+      'Khoảng nghỉ bị trùng với đơn đang chờ duyệt hoặc đã duyệt.',
+  'LEAVE_REQUEST_INVALID_DAYS': 'Khoảng nghỉ không có ngày làm việc hợp lệ.',
+  'TASK_STATUS_TRANSITION_DENIED':
+      'Chỉ trưởng nhóm hoặc trưởng phòng mới được chuyển công việc sang trạng thái này.',
+  'TASK_LEVEL_RANGE_INVALID':
+      'Cấp bậc thấp nhất đang cao hơn cấp bậc cao nhất.',
+  'ATTENDANCE_LOCATION_MOCKED':
+      'Điện thoại đang dùng ứng dụng giả lập vị trí. Hãy tắt nó rồi chấm công lại.',
+  'ATTENDANCE_LOCATION_STALE':
+      'Vị trí lấy được đã cũ. Hãy bật GPS, chờ vài giây rồi chấm công lại.',
+  'ATTENDANCE_LOCATION_INACCURATE':
+      'Tín hiệu GPS quá yếu để xác định bạn có ở công ty không. Hãy ra gần cửa sổ hoặc chờ GPS ổn định rồi thử lại.',
+};
+
+/// "Not enough annual leave: 2 day(s) left for 2026, this request needs 5".
+final _notEnoughLeave = RegExp(
+  r'^not enough annual leave: ([\d.]+) day\(s\) left for (\d+), this request needs ([\d.]+)$',
+);
+
 String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
   final normalized = message.trim().toLowerCase();
+
+  // By error code first: a code outlives a reworded sentence, and some codes
+  // share a status - a wrong password and an expired session are both 401.
+  final byCode = code == null ? null : _messagesByCode[code];
+  if (byCode != null) return tx(byCode);
+  final balance = _notEnoughLeave.firstMatch(normalized);
+  if (balance != null) {
+    return tx(
+      'Không đủ phép năm: năm {year} còn {left} ngày, đơn này cần {need} ngày.',
+      {
+        'year': balance.group(2)!,
+        'left': balance.group(1)!,
+        'need': balance.group(3)!,
+      },
+    );
+  }
+  if (code == 'LEAVE_BALANCE_INSUFFICIENT') {
+    return tx('Số ngày phép năm còn lại không đủ cho đơn này.');
+  }
 
   if (code == 'FORBIDDEN' || statusCode == 403) {
     return tx('Bạn không có quyền thực hiện thao tác này.');
@@ -164,6 +213,18 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
         'Chức danh không thuộc phòng ban đã chọn.',
     'position not found': 'Không tìm thấy chức danh.',
     'project has active tasks': 'Dự án vẫn còn công việc đang thực hiện.',
+    'only the team lead or department head can make this status change':
+        'Chỉ trưởng nhóm hoặc trưởng phòng mới được chuyển công việc sang trạng thái này.',
+    'task is already closed': 'Công việc đã đóng.',
+    'task dates must fall inside the project dates':
+        'Ngày của công việc phải nằm trong thời gian của dự án.',
+    'some subtasks fall outside the new dates':
+        'Có công việc con nằm ngoài khoảng ngày mới.',
+    'some tasks fall outside the new project dates':
+        'Có công việc nằm ngoài thời gian mới của dự án.',
+    'finish or cancel the open tasks before closing the project':
+        'Hãy hoàn thành hoặc hủy các công việc đang mở trước khi đóng dự án.',
+    'project code already exists': 'Mã dự án đã tồn tại.',
     'project is closed': 'Dự án đã đóng.',
     'project not found': 'Không tìm thấy dự án.',
     'project scope denied': 'Dự án nằm ngoài phạm vi quản lý của bạn.',

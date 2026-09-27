@@ -126,7 +126,16 @@ export type LeaveType = {
   isActive: boolean;
 };
 
+/** A public holiday or compensatory day off; `date` is YYYY-MM-DD at UTC midnight. */
+export type Holiday = {
+  id: number;
+  date: string;
+  name: string;
+};
+
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+export type LeaveHalf = "MORNING" | "AFTERNOON";
 
 export type LeaveRequest = {
   id: number;
@@ -136,10 +145,16 @@ export type LeaveRequest = {
   leaveTypeId: number;
   startDate: string;
   endDate: string;
+  /** 0.5 for a half day. */
   totalDays: number;
+  /** Set when a one-day request covers only one shift. */
+  halfDay?: LeaveHalf | null;
   reason: string;
   status: LeaveStatus;
   rejectionReason?: string | null;
+  /** The employee asked to withdraw this approved leave; a manager decides. */
+  cancelRequestedAt?: string | null;
+  cancelRequestReason?: string | null;
   approver?: UserSummary | null;
   approvedAt?: string | null;
   createdAt: string;
@@ -148,6 +163,9 @@ export type LeaveRequest = {
 export type NotificationType =
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"
+  | "LEAVE_CANCEL_REQUESTED"
+  | "LEAVE_CANCEL_APPROVED"
+  | "LEAVE_CANCEL_REJECTED"
   | "TASK_ASSIGNED"
   | "TASK_STATUS_CHANGED"
   | "ATTENDANCE_ADJUSTED";
@@ -299,9 +317,14 @@ export type TaskRequiredSkill = {
 
 export type Task = {
   id: number;
+  /** Where the caller may move this subtask next; empty for team-level tasks. */
+  allowedStatuses?: TaskStatus[];
   parentTaskId?: number | null;
   parentTask?: Task | null;
   childTasks?: Task[];
+  /** The career levels the work suits; empty on a subtask means its team task's. */
+  minLevel?: CareerLevel | null;
+  maxLevel?: CareerLevel | null;
   projectId?: number | null;
   project?: Project | null;
   departmentId?: number | null;
@@ -324,6 +347,22 @@ export type Task = {
   _count?: { assignments: number; aiTaskSuggestions: number; childTasks: number };
 };
 
+export type TaskQuickFilter = "overdue" | "dueSoon" | "review" | "unassigned";
+
+/** A team task with its subtasks, from a `groupByRoot` listing. */
+export type TaskGroup = Task & {
+  childTasks: Task[];
+  /** The team task matched the filters itself, not only through a subtask. */
+  matchedSelf: boolean;
+  /** Its subtasks that matched the filters. */
+  matchedSubtaskIds: number[];
+};
+
+export type GroupedTasks = Paginated<TaskGroup> & {
+  /** How many subtasks each quick filter would show under the other filters. */
+  summary: Record<TaskQuickFilter, number>;
+};
+
 export type TaskAssignment = {
   id: number;
   taskId: number;
@@ -339,7 +378,10 @@ export type TaskAssignment = {
 export type WorkloadSummary = {
   employeeId: number;
   activeTaskCount: number;
+  /** Work left on open tasks, whenever it is due. */
   totalEstimatedHours: number;
+  /** The part of it landing in the coming week; `availableHours` is measured against this. */
+  weeklyLoadHours: number;
   overdueTaskCount: number;
   capacityHoursPerWeek: number;
   availableHours: number;
@@ -424,12 +466,20 @@ export type AdminDashboard = {
   recentAuditLogs: AuditLog[];
 };
 
+/** Someone in the manager's scope, with the teams they are in; leads come first. */
+export type Subordinate = Employee & {
+  teams: Array<{ id: number; name: string; isLead: boolean }>;
+  isTeamLead: boolean;
+};
+
 export type ManagerDashboard = {
   teamEmployees: number;
   pendingTeamLeaves: number;
+  /** Approved leave whose owner asked to withdraw it. */
+  pendingCancellations: number;
   teamCheckedInToday: number;
   latestTeamLeaves: LeaveRequest[];
-  latestSubordinates: Employee[];
+  subordinates: Subordinate[];
 };
 
 export type EmployeeRef = {
@@ -466,6 +516,7 @@ export type LeaveBalanceRow = AnnualLeaveBalance & {
 export type LeaveBalanceList = Paginated<LeaveBalanceRow> & {
   summary: {
     year: number;
+    month: number | null;
     asOf: string;
     annualAllowance: number;
     seniorityEveryYears: number;

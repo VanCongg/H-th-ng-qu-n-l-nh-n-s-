@@ -24,8 +24,8 @@ import * as path from "path";
 import {
   DEFAULT_SCORE_WEIGHTS,
   ScoreWeights,
-  combineScores,
-  compareCandidates
+  compareCandidates,
+  scoreCandidate
 } from "../src/ai-task-suggestions/suggestion-scoring";
 import {
   Candidate,
@@ -114,13 +114,7 @@ async function main() {
       label:
         `MCDM (đang chạy, trọng số ${weights.skill}/${weights.workload}/` +
         `${weights.availability}/${weights.history})`,
-      score: (candidate) =>
-        combineScores([
-          { value: candidate.skillScore, weight: weights.skill },
-          { value: candidate.workloadScore, weight: weights.workload },
-          { value: candidate.availabilityScore, weight: weights.availability },
-          { value: candidate.historyScore, weight: weights.history }
-        ])
+      score: (candidate) => scoreCandidate(weights, candidate)
     },
     {
       key: "pointwise-base",

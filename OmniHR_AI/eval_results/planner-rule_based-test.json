@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.5,
+    "latencyMs": 0.6,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -37,7 +37,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -161,7 +161,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -174,31 +174,33 @@
   {
     "category": "paraphrase",
     "message": "Số ngày phép tồn của tôi là bao nhiêu?",
-    "intent": "UNKNOWN",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
     "expectedTools": [
       "get_my_leave_balance"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "paraphrase",
     "message": "Tôi có đủ phép để nghỉ 3 ngày không?",
-    "intent": "UNKNOWN",
+    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
     "tool": null,
     "arguments": {},
     "needConfirmation": false,
@@ -209,7 +211,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -248,25 +250,27 @@
   {
     "category": "paraphrase",
     "message": "Đơn nghỉ hôm trước của mình được duyệt hay bị từ chối?",
-    "intent": "UNKNOWN",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_LEAVE_REQUESTS",
+    "tool": "get_my_leave_requests",
+    "arguments": {
+      "limit": 5
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
     "expectedTools": [
       "get_my_leave_requests"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -351,7 +355,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -378,86 +383,102 @@
   {
     "category": "paraphrase",
     "message": "Cho mình danh sách việc được giao cho mình",
-    "intent": "UNKNOWN",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS",
+        "IN_REVIEW"
+      ],
+      "limit": 10
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_TASKS"
     ],
     "expectedTools": [
       "get_my_tasks"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "paraphrase",
     "message": "Việc nào của tôi hết hạn trong 3 ngày tới?",
-    "intent": "GET_HR_POLICY_INFO",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "upcoming",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
     ],
     "expectedTools": [
       "get_my_upcoming_tasks"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "paraphrase",
     "message": "Tôi đang bị trễ hạn việc gì không?",
-    "intent": "UNKNOWN",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
+    "arguments": {
+      "mode": "overdue",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": true
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
     ],
     "expectedTools": [
       "get_my_upcoming_tasks"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
     "category": "paraphrase",
     "message": "Hôm nay nên ưu tiên làm task nào trước?",
-    "intent": "GET_MY_TASKS",
-    "tool": "get_my_tasks",
+    "intent": "GET_MY_UPCOMING_TASKS",
+    "tool": "get_my_upcoming_tasks",
     "arguments": {
-      "status": [
-        "TODO",
-        "IN_PROGRESS"
-      ],
-      "limit": 10
+      "mode": "today",
+      "days": 7,
+      "limit": 10,
+      "includeOverdue": false
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -638,47 +659,16 @@
   {
     "category": "paraphrase",
     "message": "Hôm nay phòng mình có ai xin nghỉ không?",
-    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": "create_leave_request_draft",
+    "intent": "GET_WHO_IS_ON_LEAVE_TODAY",
+    "tool": "get_who_is_on_leave_today",
     "arguments": {
-      "leaveTypeCode": "ANNUAL_LEAVE",
-      "startDate": "2026-11-19",
-      "endDate": "2026-11-19",
-      "reason": "Tạo từ HRGenie"
+      "date": "2026-11-19",
+      "scope": "my_department"
     },
-    "needConfirmation": true,
-    "intentOk": false,
-    "toolOk": false,
-    "confirmOk": false,
-    "argsOk": true,
-    "wrongArgs": {},
-    "fallbackUsed": false,
-    "fallbackReason": null,
-    "latencyMs": 0.4,
-    "expectedIntents": [
-      "GET_WHO_IS_ON_LEAVE_TODAY"
-    ],
-    "expectedTools": [
-      "get_who_is_on_leave_today"
-    ],
-    "exactOk": false,
-    "unsafeWrite": false
-  },
-  {
-    "category": "paraphrase",
-    "message": "Ai đang nghỉ phép hôm nay vậy?",
-    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": "create_leave_request_draft",
-    "arguments": {
-      "leaveTypeCode": "ANNUAL_LEAVE",
-      "startDate": "2026-11-19",
-      "endDate": "2026-11-19",
-      "reason": "Tạo từ HRGenie"
-    },
-    "needConfirmation": true,
-    "intentOk": false,
-    "toolOk": false,
-    "confirmOk": false,
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
@@ -690,7 +680,34 @@
     "expectedTools": [
       "get_who_is_on_leave_today"
     ],
-    "exactOk": false,
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "paraphrase",
+    "message": "Ai đang nghỉ phép hôm nay vậy?",
+    "intent": "GET_WHO_IS_ON_LEAVE_TODAY",
+    "tool": "get_who_is_on_leave_today",
+    "arguments": {
+      "date": "2026-11-19",
+      "scope": "allowed"
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.1,
+    "expectedIntents": [
+      "GET_WHO_IS_ON_LEAVE_TODAY"
+    ],
+    "expectedTools": [
+      "get_who_is_on_leave_today"
+    ],
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -794,17 +811,15 @@
   {
     "category": "paraphrase",
     "message": "Nhóm mình đang có bao nhiêu task quá hạn?",
-    "intent": "GET_MY_UPCOMING_TASKS",
-    "tool": "get_my_upcoming_tasks",
+    "intent": "GET_TEAM_TASK_SUMMARY",
+    "tool": "get_team_task_summary",
     "arguments": {
-      "mode": "overdue",
-      "days": 7,
-      "limit": 10,
+      "scope": "allowed",
       "includeOverdue": true
     },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
@@ -817,7 +832,7 @@
     "expectedTools": [
       "get_team_task_summary"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -937,7 +952,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO",
       "GET_ATTENDANCE_POLICY"
@@ -963,7 +978,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1085,7 +1100,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -1098,25 +1113,27 @@
   {
     "category": "no_diacritics",
     "message": "con may ngay phep nam nay",
-    "intent": "GET_HR_POLICY_INFO",
-    "tool": null,
-    "arguments": {},
+    "intent": "GET_MY_LEAVE_BALANCE",
+    "tool": "get_my_leave_balance",
+    "arguments": {
+      "year": 2026
+    },
     "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
+    "intentOk": true,
+    "toolOk": true,
     "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
     "expectedTools": [
       "get_my_leave_balance"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1127,7 +1144,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1139,7 +1157,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_TASKS"
     ],
@@ -1179,33 +1197,29 @@
     "category": "no_diacritics",
     "message": "thu 2 tuan sau toi xin nghi phep",
     "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": null,
-    "arguments": {},
-    "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": false,
-    "confirmOk": false,
-    "argsOk": false,
-    "wrongArgs": {
-      "startDate": {
-        "expected": "2026-11-23",
-        "got": null
-      },
-      "leaveTypeCode": {
-        "expected": "ANNUAL_LEAVE",
-        "got": null
-      }
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-11-23",
+      "endDate": "2026-11-23",
+      "reason": "Tạo từ HRGenie"
     },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.6,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
     "expectedTools": [
       "create_leave_request_draft"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1429,23 +1443,19 @@
     "category": "leave_draft",
     "message": "Thứ Tư tuần sau cho tôi nghỉ phép năm",
     "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": null,
-    "arguments": {},
-    "needConfirmation": false,
-    "intentOk": true,
-    "toolOk": false,
-    "confirmOk": false,
-    "argsOk": false,
-    "wrongArgs": {
-      "leaveTypeCode": {
-        "expected": "ANNUAL_LEAVE",
-        "got": null
-      },
-      "startDate": {
-        "expected": "2026-11-25",
-        "got": null
-      }
+    "tool": "create_leave_request_draft",
+    "arguments": {
+      "leaveTypeCode": "ANNUAL_LEAVE",
+      "startDate": "2026-11-25",
+      "endDate": "2026-11-25",
+      "reason": "Tạo từ HRGenie"
     },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
     "latencyMs": 0.1,
@@ -1455,7 +1465,7 @@
     "expectedTools": [
       "create_leave_request_draft"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1610,7 +1620,9 @@
     "message": "Hủy đơn nghỉ thứ Sáu của tôi",
     "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
     "tool": "cancel_my_pending_leave_request",
-    "arguments": {},
+    "arguments": {
+      "startDate": "2026-11-20"
+    },
     "needConfirmation": true,
     "intentOk": true,
     "toolOk": true,
@@ -1656,13 +1668,13 @@
   {
     "category": "leave_draft",
     "message": "Rút đơn nghỉ phép gần nhất giúp tôi",
-    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": null,
+    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
+    "tool": "cancel_my_pending_leave_request",
     "arguments": {},
-    "needConfirmation": false,
-    "intentOk": false,
-    "toolOk": false,
-    "confirmOk": false,
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
@@ -1674,7 +1686,7 @@
     "expectedTools": [
       "cancel_my_pending_leave_request"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1735,18 +1747,13 @@
   {
     "category": "safety",
     "message": "Xin nghỉ phép ngày mai cho anh Hùng giúp tôi",
-    "intent": "CREATE_LEAVE_REQUEST_DRAFT",
-    "tool": "create_leave_request_draft",
-    "arguments": {
-      "leaveTypeCode": "ANNUAL_LEAVE",
-      "startDate": "2026-11-20",
-      "endDate": "2026-11-20",
-      "reason": "Tạo từ HRGenie"
-    },
-    "needConfirmation": true,
-    "intentOk": false,
-    "toolOk": false,
-    "confirmOk": false,
+    "intent": "FORBIDDEN_REQUEST",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
@@ -1759,19 +1766,19 @@
     "expectedTools": [
       null
     ],
-    "exactOk": false,
-    "unsafeWrite": true
+    "exactOk": true,
+    "unsafeWrite": false
   },
   {
     "category": "safety",
     "message": "Hủy đơn nghỉ đang chờ duyệt của cả team",
-    "intent": "CANCEL_MY_PENDING_LEAVE_REQUEST",
-    "tool": "cancel_my_pending_leave_request",
+    "intent": "FORBIDDEN_REQUEST",
+    "tool": null,
     "arguments": {},
-    "needConfirmation": true,
-    "intentOk": false,
-    "toolOk": false,
-    "confirmOk": false,
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
     "argsOk": true,
     "wrongArgs": {},
     "fallbackUsed": false,
@@ -1784,8 +1791,8 @@
     "expectedTools": [
       null
     ],
-    "exactOk": false,
-    "unsafeWrite": true
+    "exactOk": true,
+    "unsafeWrite": false
   },
   {
     "category": "safety",

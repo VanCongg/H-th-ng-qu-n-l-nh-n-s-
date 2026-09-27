@@ -9,7 +9,7 @@ describe("AccessControlService", () => {
       employeeManager: { findMany: jest.fn().mockResolvedValue([]) },
       teamMember: { findMany: jest.fn().mockResolvedValue([]) },
       team: { findFirst: jest.fn(), findMany: jest.fn() },
-      department: { findFirst: jest.fn() },
+      department: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       project: { findFirst: jest.fn() },
       task: { findFirst: jest.fn() }
     };
@@ -76,13 +76,21 @@ describe("AccessControlService", () => {
       });
     });
 
-    it("still lets an admin approve their own leave request", async () => {
+    it("blocks an admin from approving their own leave request too", async () => {
       const { service } = createService();
       const selfApprovingAdmin = user({ id: 1, roles: ["ADMIN"], employeeId: 5 });
 
       await expect(
         service.ensureCanManageLeave(selfApprovingAdmin, 5)
-      ).resolves.toBeUndefined();
+      ).rejects.toMatchObject({ errorCode: "MANAGER_SCOPE_DENIED" });
+    });
+
+    it("lets an admin approve anyone else's leave", async () => {
+      const { service, prisma } = createService();
+      const admin = user({ id: 1, roles: ["ADMIN"], employeeId: 5 });
+
+      await expect(service.ensureCanManageLeave(admin, 999)).resolves.toBeUndefined();
+      expect(prisma.employeeManager.findMany).not.toHaveBeenCalled();
     });
 
     it("allows approving a subordinate's request", async () => {
@@ -145,8 +153,7 @@ describe("AccessControlService", () => {
         { employeeId: 44 }
       ]);
       // Not a department head, so the department branch adds nothing.
-      prisma.employee.findFirst.mockResolvedValue({ departmentId: 3 });
-      prisma.department.findFirst.mockResolvedValue(null);
+      prisma.department.findMany.mockResolvedValue([]);
 
       await expect(service.teamEmployeeIds(user())).resolves.toEqual([42, 43, 44]);
     });
@@ -160,23 +167,24 @@ describe("AccessControlService", () => {
 
       expect(result).toEqual([42]);
       // The department lookups are manager-only and must not even be attempted.
-      expect(prisma.department.findFirst).not.toHaveBeenCalled();
+      expect(prisma.department.findMany).not.toHaveBeenCalled();
       expect(prisma.employee.findMany).not.toHaveBeenCalled();
     });
 
-    it("excludes other managers from a department head's scope", async () => {
+    it("gives a department head the whole department, team leads included", async () => {
       const { service, prisma } = createService();
-      prisma.employee.findFirst.mockResolvedValue({ departmentId: 3 });
-      prisma.department.findFirst.mockResolvedValue({ id: 3 });
-      prisma.employee.findMany.mockResolvedValue([
-        { id: 50, position: { code: "BE_DEV", name: "Backend Developer" } },
-        { id: 51, position: { code: "IT_MANAGER", name: "IT Manager" } }
-      ]);
+      prisma.department.findMany.mockResolvedValue([{ id: 3 }, { id: 8 }]);
+      // 50 is a developer, 52 a team lead with the MANAGER role.
+      prisma.employee.findMany.mockResolvedValue([{ id: 50 }, { id: 52 }]);
 
       const result = await service.teamEmployeeIds(user());
 
-      expect(result).toContain(50);
-      expect(result).not.toContain(51);
+      expect(result).toEqual(expect.arrayContaining([50, 52]));
+      const where = JSON.stringify(prisma.employee.findMany.mock.calls[0][0].where);
+      // Every department they head, and never another department's head.
+      expect(where).toContain('"departmentId":{"in":[3,8]}');
+      expect(where).toContain('"managedDepartments":{"none":{"deletedAt":null}}');
+      expect(where).not.toContain("MANAGER");
     });
   });
 
@@ -322,6 +330,33 @@ describe("AccessControlService", () => {
       await expect(
         service.ensureCanUpdateEmployeeSkill(employee(), 21)
       ).rejects.toMatchObject({ errorCode: "MANAGER_SCOPE_DENIED" });
+    });
+  });
+
+  describe("canReviewTask", () => {
+    const leadTask = (assigneeId: number | null) => ({ departmentId: null, teamId: 4, assigneeId });
+
+    it("lets the team lead review a teammate's work", async () => {
+      const { service, prisma } = createService();
+      prisma.team.findFirst.mockResolvedValue({ id: 4 });
+
+      await expect(service.canReviewTask(user(), leadTask(20))).resolves.toBe(true);
+    });
+
+    it("never lets a lead approve work assigned to themselves", async () => {
+      const { service, prisma } = createService();
+      prisma.team.findFirst.mockResolvedValue({ id: 4 });
+
+      await expect(service.canReviewTask(user(), leadTask(5))).resolves.toBe(false);
+      expect(prisma.team.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("lets an admin review anyone else's work but not their own", async () => {
+      const { service } = createService();
+      const admin = user({ roles: ["ADMIN"] });
+
+      await expect(service.canReviewTask(admin, leadTask(20))).resolves.toBe(true);
+      await expect(service.canReviewTask(admin, leadTask(5))).resolves.toBe(false);
     });
   });
 });

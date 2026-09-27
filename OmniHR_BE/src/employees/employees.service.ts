@@ -261,6 +261,22 @@ export class EmployeesService {
         }
       });
 
+      // Terminating ends the sessions already open too, not only new logins:
+      // a refresh token issued last week must not keep the app signed in.
+      if (
+        dto.status === EmployeeStatus.TERMINATED &&
+        oldValue.status !== EmployeeStatus.TERMINATED &&
+        oldValue.userId
+      ) {
+        await tx.user.update({
+          where: { id: oldValue.userId },
+          data: {
+            refreshTokenHash: null,
+            refreshTokenVersion: { increment: 1 }
+          }
+        });
+      }
+
       if (dto.companyEmail && oldValue.userId) {
         await tx.user.update({
           where: { id: oldValue.userId },

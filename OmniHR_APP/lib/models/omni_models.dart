@@ -211,6 +211,10 @@ class LeaveRequest {
     required this.status,
     required this.createdAt,
     this.rejectionReason,
+    this.halfDay,
+    this.cancelRequestedAt,
+    this.cancelRequestReason,
+    this.employee,
   });
 
   final int id;
@@ -223,6 +227,19 @@ class LeaveRequest {
   final String createdAt;
   final String? rejectionReason;
 
+  /// `MORNING` / `AFTERNOON` when a one-day request covers only one shift.
+  final String? halfDay;
+
+  /// Set while the employee's request to withdraw this approved leave waits
+  /// for a manager; the leave stays approved until then.
+  final String? cancelRequestedAt;
+  final String? cancelRequestReason;
+
+  /// Who asked for the leave; sent with a team's requests, not your own.
+  final Employee? employee;
+
+  bool get cancelRequested => status == 'APPROVED' && cancelRequestedAt != null;
+
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
     return LeaveRequest(
       id: intOf(json['id']),
@@ -234,6 +251,12 @@ class LeaveRequest {
       status: textOf(json['status'], 'PENDING'),
       createdAt: textOf(json['createdAt']),
       rejectionReason: json['rejectionReason']?.toString(),
+      halfDay: json['halfDay']?.toString(),
+      cancelRequestedAt: json['cancelRequestedAt']?.toString(),
+      cancelRequestReason: json['cancelRequestReason']?.toString(),
+      employee: json['employee'] is Map
+          ? Employee.fromJson(mapOf(json['employee']))
+          : null,
     );
   }
 }
@@ -297,6 +320,7 @@ class LocationPolicy {
     required this.attendanceRadiusMeters,
     required this.requireAttendanceLocation,
     this.workWeekdays = defaultWorkWeekdays,
+    this.holidays = const {},
   });
 
   /// Monday to Friday, as [DateTime.weekday] values.
@@ -320,6 +344,10 @@ class LocationPolicy {
   /// The company work week from system settings; other days are days off.
   final Set<int> workWeekdays;
 
+  /// Public holidays around this year, by `yyyy-MM-dd`: days off even inside
+  /// the work week, so never shown as missed.
+  final Map<String, String> holidays;
+
   factory LocationPolicy.fromJson(Map<String, dynamic> json) {
     final workWeek = json['workWeek'];
     final workWeekdays = workWeek is List
@@ -328,12 +356,19 @@ class LocationPolicy {
               .whereType<int>()
               .toSet()
         : <int>{};
+    final holidayList = json['holidays'];
+    final holidays = <String, String>{
+      if (holidayList is List)
+        for (final item in holidayList.whereType<Map>())
+          '${item['date']}': '${item['name'] ?? ''}',
+    };
     return LocationPolicy(
       companyLatitude: doubleOf(json['companyLatitude']),
       companyLongitude: doubleOf(json['companyLongitude']),
       attendanceRadiusMeters: doubleOf(json['attendanceRadiusMeters']) ?? 0,
       requireAttendanceLocation: json['requireAttendanceLocation'] == true,
       workWeekdays: workWeekdays.isEmpty ? defaultWorkWeekdays : workWeekdays,
+      holidays: holidays,
     );
   }
 }
@@ -458,11 +493,19 @@ class TaskItem {
     this.actualHours,
     this.requiredSkills = const [],
     this.childTasks = const [],
+    this.allowedStatuses,
+    this.minLevel,
+    this.maxLevel,
   });
 
   final int id;
   final String title;
   final String priority;
+
+  /// The career levels the work suits (the team task's when the subtask has
+  /// none); both null means any level.
+  final String? minLevel;
+  final String? maxLevel;
   final String status;
   final int? parentTaskId;
   final String? description;
@@ -477,6 +520,10 @@ class TaskItem {
   final double? actualHours;
   final List<TaskRequiredSkill> requiredSkills;
   final List<TaskItem> childTasks;
+
+  /// Statuses the signed-in user may move this task to, as the API decides
+  /// them. Null when the server did not say, so every status is offered.
+  final List<String>? allowedStatuses;
 
   bool get isOpen => status != 'DONE' && status != 'CANCELLED';
   bool get isOverdue {
@@ -508,6 +555,8 @@ class TaskItem {
           : intOf(json['parentTaskId']),
       description: json['description']?.toString(),
       priority: textOf(json['priority'], 'MEDIUM'),
+      minLevel: (json['minLevel'] ?? parentTaskMap['minLevel'])?.toString(),
+      maxLevel: (json['maxLevel'] ?? parentTaskMap['maxLevel'])?.toString(),
       status: textOf(json['status'], 'TODO'),
       project: projectMap.isEmpty ? null : Project.fromJson(projectMap),
       department: departmentMap.isEmpty
@@ -528,6 +577,9 @@ class TaskItem {
       childTasks: rawChildTasks
           .map((item) => TaskItem.fromJson(mapOf(item)))
           .toList(),
+      allowedStatuses: json['allowedStatuses'] is List
+          ? stringListOf(json['allowedStatuses'])
+          : null,
     );
   }
 }

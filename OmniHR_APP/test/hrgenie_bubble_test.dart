@@ -4,6 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omnihr_app/app.dart';
 import 'package:omnihr_app/core/session.dart';
+import 'package:omnihr_app/modules/chat/chat_screen.dart';
+import 'package:omnihr_app/shared/widgets/genie_mascot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _user = {
@@ -69,6 +71,30 @@ void main() {
     final back = tester.getRect(find.bySemanticsLabel('HRGenie'));
     expect(back.left, greaterThanOrEqualTo(0));
     expect(back.right, lessThanOrEqualTo(screen.width));
+  });
+
+  testWidgets('tapping the lamp lets the genie out and opens the chat', (
+    tester,
+  ) async {
+    final session = await signedInSession();
+    await tester.pumpWidget(OmniHrApp(session: session));
+    await tester.pumpAndSettle();
+
+    // The bubble shows the lamp; the genie is still inside.
+    expect(find.byType(GenieLamp), findsOneWidget);
+    expect(find.byType(GenieFigure), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('HRGenie'));
+    // The shake, then the route push, then part way into the flight.
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(GenieFigure), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatScreen), findsOneWidget);
+    // Once the chat is in, the genie has dissolved into it.
+    expect(find.byType(GenieFigure), findsNothing);
   });
 
   testWidgets('a tucked away genie stays tucked away on the next launch', (

@@ -10,6 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
 import { AuditService } from "../common/services/audit.service";
 import { AccessControlService } from "../common/services/access-control.service";
+import { HolidaysService } from "../common/services/holidays.service";
 import {
   SystemSettings,
   SystemSettingsService
@@ -43,6 +44,10 @@ const attendanceInclude = {
 
 /** First key of the two-int advisory lock, scoping it to attendance punches. */
 const ATTENDANCE_LOCK_NAMESPACE = 4201;
+/** A fix older than this may have been taken somewhere else. */
+const MAX_POSITION_AGE_SECONDS = 120;
+/** The accuracy a fix may have even with a tighter radius: indoor GPS is rarely better. */
+const MIN_ACCURACY_LIMIT_METERS = 100;
 
 type AttendanceMetadata = {
   shift: AttendanceShift | null;
@@ -60,18 +65,28 @@ export class AttendanceService {
     private readonly audit: AuditService,
     private readonly accessControl: AccessControlService,
     private readonly systemSettings: SystemSettingsService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly holidays: HolidaysService
   ) {}
 
   async getLocationPolicy() {
     const settings = await this.systemSettings.getSettings();
+    // Last year to next year: enough for the calendar to page around today.
+    const thisYear = new Date().getUTCFullYear();
+    const holidays = await this.holidays.list();
     return {
       companyLatitude: settings.companyLatitude,
       companyLongitude: settings.companyLongitude,
       attendanceRadiusMeters: settings.attendanceRadiusMeters,
       requireAttendanceLocation: settings.requireAttendanceLocation,
       // Lets the mobile calendar tell days off from missed work days.
-      workWeek: settings.workWeek
+      workWeek: settings.workWeek,
+      holidays: holidays
+        .filter((holiday) => Math.abs(holiday.date.getUTCFullYear() - thisYear) <= 1)
+        .map((holiday) => ({
+          date: holiday.date.toISOString().slice(0, 10),
+          name: holiday.name
+        }))
     };
   }
 
@@ -440,10 +455,12 @@ export class AttendanceService {
     const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
     // Check-in is allowed at any time; the recorded time is what the timesheet reads.
     // Outside every shift window there is no shift to be on time or late for.
+    // Late means past the grace period, the same line the timesheet draws, so
+    // the badge on the record and the monthly late minutes never disagree.
     return {
       shift: shift?.shift ?? null,
       attendanceStatus: shift
-        ? localMinutes > shift.start
+        ? localMinutes - shift.start > settings.attendanceGraceMinutes
           ? AttendanceStatus.LATE
           : AttendanceStatus.ON_TIME
         : null,
@@ -469,7 +486,8 @@ export class AttendanceService {
     return {
       shift,
       attendanceStatus:
-        shiftDefinition && localMinutes < shiftDefinition.end
+        shiftDefinition &&
+        shiftDefinition.end - localMinutes > settings.attendanceGraceMinutes
           ? AttendanceStatus.EARLY_OUT
           : AttendanceStatus.ON_TIME,
       ...this.resolveLocation(dto, settings)
@@ -526,6 +544,9 @@ export class AttendanceService {
     }
 
     const address = dto.address?.trim() || null;
+    if (settings.requireAttendanceLocation && hasLatitude && hasLongitude) {
+      this.ensureTrustworthyFix(dto, settings.attendanceRadiusMeters);
+    }
     if (!hasLatitude || !hasLongitude) {
       return {
         latitude: null,
@@ -569,6 +590,40 @@ export class AttendanceService {
       address,
       distanceMeters
     };
+  }
+
+  /**
+   * A location only proves presence if it is real, fresh and precise enough
+   * to tell inside the radius from outside it. Each check needs the phone to
+   * report the value, so it stops the common tricks - a mock-location app, a
+   * fix cached at the office yesterday - not a determined forger of requests.
+   */
+  private ensureTrustworthyFix(dto: AttendanceActionDto, radiusMeters: number) {
+    if (dto.isMocked) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Attendance location comes from a mock location app.",
+        "ATTENDANCE_LOCATION_MOCKED"
+      );
+    }
+    if (
+      dto.positionAgeSeconds !== undefined &&
+      dto.positionAgeSeconds > MAX_POSITION_AGE_SECONDS
+    ) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Attendance location is too old.",
+        "ATTENDANCE_LOCATION_STALE"
+      );
+    }
+    const accuracyLimit = Math.max(radiusMeters, MIN_ACCURACY_LIMIT_METERS);
+    if (dto.accuracyMeters !== undefined && dto.accuracyMeters > accuracyLimit) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Attendance location is not accurate enough.",
+        "ATTENDANCE_LOCATION_INACCURATE"
+      );
+    }
   }
 
   private workDateFor(recordedAt: Date, timezoneOffsetMinutes: number) {

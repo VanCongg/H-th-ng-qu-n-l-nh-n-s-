@@ -14,6 +14,7 @@ import { ReqContext } from "../common/decorators/request-context.decorator";
 import { AuthUser, RequestContext } from "../common/types";
 import { CreateLeaveRequestDto } from "./dto/create-leave-request.dto";
 import { LeaveRequestQueryDto } from "./dto/leave-request-query.dto";
+import { CancelLeaveRequestDto } from "./dto/cancel-leave-request.dto";
 import { RejectLeaveRequestDto } from "./dto/reject-leave-request.dto";
 import { LeaveRequestsService } from "./leave-requests.service";
 
@@ -78,13 +79,36 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.reject(id, dto, user, context);
   }
 
+  /** Withdraws a pending request, or asks a manager to withdraw an approved one. */
   @Permissions("LEAVE_CANCEL_SELF")
   @Post(":id/cancel")
   cancel(
     @Param("id", ParseIntPipe) id: number,
+    @Body() dto: CancelLeaveRequestDto,
     @CurrentUser() user: AuthUser,
     @ReqContext() context: RequestContext
   ) {
-    return this.leaveRequestsService.cancel(id, user, context);
+    return this.leaveRequestsService.cancel(id, user, context, dto.reason);
+  }
+
+  @Permissions("LEAVE_APPROVE")
+  @Post(":id/cancel-request/approve")
+  approveCancellation(
+    @Param("id", ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.leaveRequestsService.approveCancellation(id, user, context);
+  }
+
+  @Permissions("LEAVE_REJECT")
+  @Post(":id/cancel-request/reject")
+  rejectCancellation(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: RejectLeaveRequestDto,
+    @CurrentUser() user: AuthUser,
+    @ReqContext() context: RequestContext
+  ) {
+    return this.leaveRequestsService.rejectCancellation(id, dto, user, context);
   }
 }

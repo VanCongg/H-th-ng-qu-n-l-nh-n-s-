@@ -157,6 +157,7 @@ TOOL_ARGUMENT_ALLOWLISTS = {
         "startDate",
         "endDate",
         "reason",
+        "halfDay",
     },
     PlannerToolName.CANCEL_MY_PENDING_LEAVE_REQUEST: {
         "leaveRequestId",

@@ -1,11 +1,13 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
+  CareerLevel,
   Prisma,
   ProjectStatus,
   TaskAssignmentType,
   TaskPriority,
   TaskStatus
 } from "@prisma/client";
+import { CAREER_LEVELS } from "../ai-task-suggestions/suggestion-scoring";
 import { ApiError } from "../common/api-error";
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
@@ -16,10 +18,11 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AssignTaskDto } from "./dto/assign-task.dto";
 import { CreateTaskDto } from "./dto/create-task.dto";
-import { TaskQueryDto } from "./dto/task-query.dto";
+import { TASK_QUICK_FILTERS, TaskQueryDto, TaskQuickFilter } from "./dto/task-query.dto";
 import { TaskRequiredSkillDto } from "./dto/task-required-skill.dto";
 import { UpdateTaskDto } from "./dto/update-task.dto";
 import { UpdateTaskStatusDto } from "./dto/update-task-status.dto";
+import { allowedTaskStatuses, canMoveTaskStatus, completedAtFor } from "./task-status-rules";
 
 /** Not finished yet: what a manager still has to follow up on. */
 const OPEN_TASK_STATUSES = [
@@ -27,6 +30,90 @@ const OPEN_TASK_STATUSES = [
   TaskStatus.IN_PROGRESS,
   TaskStatus.IN_REVIEW
 ];
+
+const CLOSED_TASK_STATUSES: TaskStatus[] = [TaskStatus.DONE, TaskStatus.CANCELLED];
+
+type TeamTaskSortKey = {
+  id: number;
+  status: TaskStatus;
+  dueDate: Date | null;
+  createdAt: Date;
+  projectId: number | null;
+  project: { code: string } | null;
+};
+
+/**
+ * The team board's order: a project's team tasks stay together so a project is
+ * never split across pages, projects with unfinished work come first - the
+ * one due soonest leading - and a finished project goes to the back. Inside a
+ * project, unfinished before finished, then by due date.
+ */
+export function orderTeamTasksByProject<T extends TeamTaskSortKey>(roots: T[]): T[] {
+  const isOpen = (root: T) => OPEN_TASK_STATUSES.includes(root.status as (typeof OPEN_TASK_STATUSES)[number]);
+  const time = (date: Date | null) => (date ? date.getTime() : Number.POSITIVE_INFINITY);
+  const projects = new Map<number | null, T[]>();
+  roots.forEach((root) => projects.set(root.projectId, [...(projects.get(root.projectId) ?? []), root]));
+
+  const projectRank = (items: T[]) => {
+    const open = items.filter(isOpen);
+    return {
+      open: open.length ? 0 : 1,
+      due: Math.min(...(open.length ? open : items).map((item) => time(item.dueDate))),
+      code: items[0].project?.code ?? "~"
+    };
+  };
+  const ranked = Array.from(projects.values()).map((items) => ({ items, rank: projectRank(items) }));
+  ranked.sort(
+    (a, b) => a.rank.open - b.rank.open || a.rank.due - b.rank.due || a.rank.code.localeCompare(b.rank.code)
+  );
+  return ranked.flatMap(({ items }) =>
+    [...items].sort(
+      (a, b) =>
+        Number(!isOpen(a)) - Number(!isOpen(b)) ||
+        time(a.dueDate) - time(b.dueDate) ||
+        b.createdAt.getTime() - a.createdAt.getTime()
+    )
+  );
+}
+
+/** "Due soon" reaches this many days past today. */
+const DUE_SOON_DAYS = 3;
+
+/**
+ * The board's one-tap filters. They look at subtasks only - the units someone
+ * is assigned to and works on - so the count on a chip is the number of rows
+ * that need a hand, not that plus every team task above them.
+ */
+export function quickTaskWhere(
+  quick: TaskQuickFilter,
+  today: Date,
+  viewerEmployeeId: number | null
+): Prisma.TaskWhereInput {
+  const subtask = { parentTaskId: { not: null } };
+  switch (quick) {
+    case "overdue":
+      return { ...subtask, status: { in: OPEN_TASK_STATUSES }, dueDate: { lt: today } };
+    case "dueSoon": {
+      const until = new Date(today);
+      until.setUTCDate(until.getUTCDate() + DUE_SOON_DAYS);
+      return { ...subtask, status: { in: OPEN_TASK_STATUSES }, dueDate: { gte: today, lte: until } };
+    }
+    case "review":
+      // Someone else's work waiting for the viewer; their own goes up a level.
+      return {
+        ...subtask,
+        status: TaskStatus.IN_REVIEW,
+        ...(viewerEmployeeId ? { assigneeId: { not: viewerEmployeeId } } : {})
+      };
+    case "unassigned":
+      return {
+        ...subtask,
+        assigneeId: null,
+        status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] }
+      };
+  }
+}
+const CLOSED_PROJECT_STATUSES: ProjectStatus[] = [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED];
 
 export const taskInclude = {
   parentTask: {
@@ -36,7 +123,9 @@ export const taskInclude = {
       status: true,
       startDate: true,
       dueDate: true,
-      teamId: true
+      teamId: true,
+      minLevel: true,
+      maxLevel: true
     }
   },
   childTasks: {
@@ -88,6 +177,10 @@ export const taskInclude = {
   _count: { select: { assignments: true, aiTaskSuggestions: true, childTasks: true } }
 } satisfies Prisma.TaskInclude;
 
+type TaskWithInclude = Prisma.TaskGetPayload<{ include: typeof taskInclude }>;
+type TaskScope = "all" | "team" | "self";
+type DateRange = { startDate: Date | string | null; dueDate: Date | string | null };
+
 @Injectable()
 export class TasksService {
   constructor(
@@ -99,12 +192,12 @@ export class TasksService {
 
   async findAll(query: TaskQueryDto, user: AuthUser) {
     const where = await this.buildWhere(query, user, "all");
-    return this.paginatedList(where, query);
+    return this.paginatedList(where, query, user, "all");
   }
 
   async findTeam(query: TaskQueryDto, user: AuthUser) {
     const where = await this.buildWhere(query, user, "team");
-    return this.paginatedList(where, query);
+    return this.paginatedList(where, query, user, "team");
   }
 
   async findSelf(query: TaskQueryDto, user: AuthUser) {
@@ -112,7 +205,14 @@ export class TasksService {
       throw new ApiError(HttpStatus.NOT_FOUND, "Employee not found", "EMPLOYEE_NOT_FOUND");
     }
     const where = await this.buildWhere(query, user, "self");
-    return this.paginatedList(where, query);
+    return this.paginatedList(where, query, user, "self");
+  }
+
+  /** One task for display, with the statuses the caller may move it to. */
+  async getOne(id: number, user: AuthUser) {
+    const task = await this.findOne(id, user);
+    const [withStatuses] = await this.withAllowedStatuses([task], user);
+    return withStatuses;
   }
 
   async findOne(id: number, user: AuthUser) {
@@ -129,6 +229,7 @@ export class TasksService {
 
   async create(dto: CreateTaskDto, actor: AuthUser, context?: RequestContext) {
     const scope = await this.resolveCreateTaskScope(dto, actor);
+    this.ensureLevelRange(dto.minLevel, dto.maxLevel);
     this.ensureLevelSpecificFields(
       Boolean(scope.parentTaskId),
       dto.technologies,
@@ -138,6 +239,7 @@ export class TasksService {
     await this.ensureRequiredSkills(dto.requiredSkills);
     this.ensureDateRange(dto.startDate, dto.dueDate);
     this.ensureChildDateRange(scope.parentTask, dto.startDate, dto.dueDate);
+    this.ensureInsideProject(scope.project, dto.startDate, dto.dueDate);
 
     const task = await this.prisma.$transaction(async (tx) => {
       const created = await tx.task.create({
@@ -152,6 +254,8 @@ export class TasksService {
             ? []
             : this.normalizeTechnologies(dto.technologies),
           priority: dto.priority ?? TaskPriority.MEDIUM,
+          minLevel: dto.minLevel ?? null,
+          maxLevel: dto.maxLevel ?? null,
           status: scope.parentTaskId ? (dto.status ?? TaskStatus.TODO) : TaskStatus.TODO,
           assigneeId: dto.assigneeId,
           createdByUserId: actor.id,
@@ -202,6 +306,7 @@ export class TasksService {
         newValue: { assigneeId: dto.assigneeId, assignmentType: "MANUAL" },
         context
       });
+      await this.notifyAssigned(task);
     }
 
     return task;
@@ -220,6 +325,10 @@ export class TasksService {
     const nextDueDate = dto.dueDate !== undefined ? dto.dueDate : oldValue.dueDate;
     const assigneeChanged =
       dto.assigneeId !== undefined && dto.assigneeId !== oldValue.assigneeId;
+    this.ensureLevelRange(
+      dto.minLevel !== undefined ? dto.minLevel : oldValue.minLevel,
+      dto.maxLevel !== undefined ? dto.maxLevel : oldValue.maxLevel
+    );
     this.ensureLevelSpecificFields(
       Boolean(oldValue.parentTaskId),
       dto.technologies,
@@ -244,12 +353,19 @@ export class TasksService {
         "ROOT_TASK_STATUS_IS_DERIVED"
       );
     }
+    if (assigneeChanged) {
+      this.ensureTaskOpen(oldValue);
+    }
     if (dto.assigneeId) {
       await this.ensureAssigneeInTaskTeam(oldValue.teamId, dto.assigneeId);
     }
     await this.ensureRequiredSkills(dto.requiredSkills);
     this.ensureDateRange(nextStartDate, nextDueDate);
     this.ensureChildDateRange(oldValue.parentTask, nextStartDate, nextDueDate);
+    this.ensureInsideProject(oldValue.project, nextStartDate, nextDueDate);
+    if (!oldValue.parentTaskId) {
+      this.ensureChildrenInside(oldValue.childTasks, nextStartDate, nextDueDate);
+    }
 
     const task = await this.prisma.$transaction(async (tx) => {
       if (dto.requiredSkills) {
@@ -274,12 +390,14 @@ export class TasksService {
               ? this.normalizeTechnologies(dto.technologies)
               : undefined,
           priority: dto.priority,
+          minLevel: dto.minLevel,
+          maxLevel: dto.maxLevel,
           status: dto.status,
           startDate: dto.startDate ? toDateOnly(dto.startDate) : undefined,
           dueDate: dto.dueDate ? toDateOnly(dto.dueDate) : undefined,
           estimatedHours: dto.estimatedHours,
           actualHours: dto.actualHours,
-          completedAt: dto.status === TaskStatus.DONE ? new Date() : undefined
+          completedAt: completedAtFor(oldValue.status, dto.status)
         },
         include: taskInclude
       });
@@ -329,6 +447,10 @@ export class TasksService {
         },
         context
       });
+      await this.notifyAssigned(task);
+    }
+    if (dto.status !== undefined && dto.status !== oldValue.status) {
+      await this.notifyStatusChange(oldValue, task.status, actor);
     }
 
     return task;
@@ -343,6 +465,11 @@ export class TasksService {
   ) {
     const oldValue = await this.findOne(id, actor);
     await this.accessControl.ensureCanAssignTask(actor, id, dto.assigneeId);
+    this.ensureTaskOpen(oldValue);
+    if (oldValue.assigneeId === dto.assigneeId) {
+      // Already theirs: no new history row, audit entry or notification.
+      return oldValue;
+    }
     await this.ensureAssigneeInTaskTeam(oldValue.teamId, dto.assigneeId);
     const task = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
@@ -380,16 +507,7 @@ export class TasksService {
       context
     });
 
-    if (task.assignee?.userId) {
-      await this.notifications.create(
-        task.assignee.userId,
-        "TASK_ASSIGNED",
-        "New task assigned",
-        `You were assigned to "${task.title}".`,
-        "Task",
-        task.id
-      );
-    }
+    await this.notifyAssigned(task);
 
     return task;
   }
@@ -409,11 +527,23 @@ export class TasksService {
         "ROOT_TASK_STATUS_IS_DERIVED"
       );
     }
+    if (dto.status === oldValue.status) {
+      return oldValue;
+    }
+    const isReviewer = await this.accessControl.canReviewTask(actor, oldValue);
+    if (!canMoveTaskStatus(oldValue.status, dto.status, isReviewer)) {
+      // Every move the assignee lacks is a reviewer's move, so one sentence fits.
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Only the team lead or department head can make this status change",
+        "TASK_STATUS_TRANSITION_DENIED"
+      );
+    }
     const task = await this.prisma.task.update({
       where: { id },
       data: {
         status: dto.status,
-        completedAt: dto.status === TaskStatus.DONE ? new Date() : null
+        completedAt: completedAtFor(oldValue.status, dto.status)
       },
       include: taskInclude
     });
@@ -429,6 +559,7 @@ export class TasksService {
     });
 
     await this.syncParentStatus(oldValue.parentTaskId);
+    await this.notifyStatusChange(oldValue, task.status, actor);
 
     return task;
   }
@@ -452,10 +583,21 @@ export class TasksService {
         );
       }
     }
-    const task = await this.prisma.task.update({
-      where: { id },
-      data: { status: TaskStatus.CANCELLED, deletedAt: new Date() },
-      include: taskInclude
+    const deletedAt = new Date();
+    const task = await this.prisma.$transaction(async (tx) => {
+      if (!oldValue.parentTaskId) {
+        // The remaining subtasks are finished or cancelled; they go with their
+        // parent, keeping their status so the history still reads true.
+        await tx.task.updateMany({
+          where: { parentTaskId: id, deletedAt: null },
+          data: { deletedAt }
+        });
+      }
+      return tx.task.update({
+        where: { id },
+        data: { status: TaskStatus.CANCELLED, deletedAt },
+        include: taskInclude
+      });
     });
 
     await this.audit.log({
@@ -475,7 +617,15 @@ export class TasksService {
     return task;
   }
 
-  private async paginatedList(where: Prisma.TaskWhereInput, query: TaskQueryDto) {
+  private async paginatedList(
+    where: Prisma.TaskWhereInput,
+    query: TaskQueryDto,
+    user: AuthUser,
+    scope: TaskScope
+  ) {
+    if (query.groupByRoot) {
+      return this.groupedList(where, query, user, scope);
+    }
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const [items, total] = await this.prisma.$transaction([
       this.prisma.task.findMany({
@@ -496,10 +646,153 @@ export class TasksService {
       this.prisma.task.count({ where })
     ]);
 
-    return { items, meta: { total, page, limit } };
+    return {
+      items: await this.withAllowedStatuses(items, user),
+      meta: { total, page, limit }
+    };
   }
 
-  private async buildWhere(query: TaskQueryDto, user: AuthUser, scope: "all" | "team" | "self") {
+  /**
+   * One page of team tasks, each with its subtasks. A team task is on the list
+   * when it or one of its subtasks matches; `matchedSubtaskIds` says which
+   * subtasks did, so a client can show just those while a filter is on.
+   *
+   * The subtasks come from the caller's scope with no other filter, so a team
+   * task never shows a subtask the caller could not list by itself.
+   */
+  private async groupedList(
+    where: Prisma.TaskWhereInput,
+    query: TaskQueryDto,
+    user: AuthUser,
+    scope: TaskScope
+  ) {
+    const { skip, take, page, limit } = pagination(query.page, query.limit);
+    const matched = await this.prisma.task.findMany({
+      where,
+      select: { id: true, parentTaskId: true }
+    });
+    const matchedSelf = new Set<number>();
+    const matchedChildren = new Map<number, number[]>();
+    for (const row of matched) {
+      if (row.parentTaskId) {
+        matchedChildren.set(row.parentTaskId, [...(matchedChildren.get(row.parentTaskId) ?? []), row.id]);
+      } else {
+        matchedSelf.add(row.id);
+      }
+    }
+    const rootIds = Array.from(new Set([...matchedSelf, ...matchedChildren.keys()]));
+
+    const rootKeys = await this.prisma.task.findMany({
+      where: { id: { in: rootIds.length ? rootIds : [-1] }, deletedAt: null },
+      select: {
+        id: true,
+        status: true,
+        dueDate: true,
+        createdAt: true,
+        projectId: true,
+        project: { select: { code: true } }
+      }
+    });
+    const pageIds = orderTeamTasksByProject(rootKeys)
+      .slice(skip, skip + take)
+      .map((root) => root.id);
+    const total = rootKeys.length;
+
+    const scopeWhere = await this.buildWhere(new TaskQueryDto(), user, scope);
+    const [roots, children, summary] = await Promise.all([
+      this.prisma.task.findMany({
+        where: { id: { in: pageIds.length ? pageIds : [-1] } },
+        include: { ...taskInclude, childTasks: false }
+      }),
+      this.prisma.task.findMany({
+        where: { AND: [scopeWhere, { parentTaskId: { in: pageIds.length ? pageIds : [-1] } }] },
+        select: taskInclude.childTasks.select,
+        orderBy: taskInclude.childTasks.orderBy
+      }),
+      this.quickSummary(query, user, scope)
+    ]);
+
+    const childrenWithStatuses = await this.withAllowedStatuses(children, user);
+    const byRoot = new Map<number, typeof childrenWithStatuses>();
+    for (const child of childrenWithStatuses) {
+      const parentId = child.parentTaskId as number;
+      byRoot.set(parentId, [...(byRoot.get(parentId) ?? []), child]);
+    }
+    const rootById = new Map((await this.withAllowedStatuses(roots, user)).map((root) => [root.id, root]));
+    const items = pageIds.flatMap((id) => {
+      const root = rootById.get(id);
+      return root
+        ? [
+            {
+              ...root,
+              childTasks: byRoot.get(id) ?? [],
+              matchedSelf: matchedSelf.has(id),
+              matchedSubtaskIds: matchedChildren.get(id) ?? []
+            }
+          ]
+        : [];
+    });
+
+    return { items, meta: { total, page, limit }, summary };
+  }
+
+  /**
+   * How many subtasks each quick filter would show, under every other filter
+   * currently on - the numbers on the board's chips.
+   */
+  private async quickSummary(query: TaskQueryDto, user: AuthUser, scope: TaskScope) {
+    const where = await this.buildWhere({ ...query, quick: undefined } as TaskQueryDto, user, scope);
+    const today = toDateOnly(new Date());
+    const counts = await Promise.all(
+      TASK_QUICK_FILTERS.map((quick) =>
+        this.prisma.task.count({
+          where: { AND: [where, quickTaskWhere(quick, today, user.employeeId ?? null)] }
+        })
+      )
+    );
+    return Object.fromEntries(TASK_QUICK_FILTERS.map((quick, index) => [quick, counts[index]])) as Record<
+      TaskQuickFilter,
+      number
+    >;
+  }
+
+  /**
+   * Adds `allowedStatuses`: where the caller may move each subtask next, so a
+   * client offers only moves the API will accept. Team-level tasks get none;
+   * their status follows their subtasks.
+   */
+  private async withAllowedStatuses<
+    T extends Pick<
+      TaskWithInclude,
+      "parentTaskId" | "status" | "departmentId" | "teamId" | "assigneeId"
+    >
+  >(items: T[], user: AuthUser) {
+    if (!items.length) {
+      return [];
+    }
+    const isAdmin = this.accessControl.isAdmin(user);
+    const [departmentIds, teamIds] = isAdmin
+      ? [[], []]
+      : await Promise.all([
+          this.accessControl.headedDepartmentIds(user),
+          this.accessControl.managedTeamIds(user)
+        ]);
+    return items.map((item) => {
+      // Mirrors AccessControlService.canReviewTask, own work included.
+      const ownWork = item.assigneeId !== null && item.assigneeId === user.employeeId;
+      const isReviewer =
+        !ownWork &&
+        (isAdmin ||
+          (item.departmentId !== null && departmentIds.includes(item.departmentId)) ||
+          (item.teamId !== null && teamIds.includes(item.teamId)));
+      return {
+        ...item,
+        allowedStatuses: item.parentTaskId ? allowedTaskStatuses(item.status, isReviewer) : []
+      };
+    });
+  }
+
+  private async buildWhere(query: TaskQueryDto, user: AuthUser, scope: TaskScope) {
     const hasDateRange = Boolean(query.fromDate || query.toDate);
     const dueDateRange = hasDateRange
       ? {
@@ -508,8 +801,13 @@ export class TasksService {
         }
       : undefined;
 
-    const base: Prisma.TaskWhereInput = {
+    const unfiltered: Prisma.TaskWhereInput = {
       deletedAt: null,
+      // Rows left behind by a parent or project deleted before deletes cascaded.
+      NOT: [
+        { project: { deletedAt: { not: null } } },
+        { parentTask: { deletedAt: { not: null } } }
+      ],
       parentTaskId: query.parentTaskId,
       projectId: query.projectId,
       departmentId: query.departmentId,
@@ -544,6 +842,14 @@ export class TasksService {
           }
         : {})
     };
+    const base: Prisma.TaskWhereInput = query.quick
+      ? {
+          AND: [
+            unfiltered,
+            quickTaskWhere(query.quick, toDateOnly(new Date()), user.employeeId ?? null)
+          ]
+        }
+      : unfiltered;
 
     if (scope === "self") {
       return { AND: [base, { assigneeId: user.employeeId ?? -1 }] };
@@ -602,7 +908,8 @@ export class TasksService {
           teamId: true,
           status: true,
           startDate: true,
-          dueDate: true
+          dueDate: true,
+          project: { select: { status: true, startDate: true, endDate: true } }
         }
       });
       if (!parentTask) {
@@ -628,6 +935,9 @@ export class TasksService {
           "PARENT_TASK_NOT_AVAILABLE"
         );
       }
+      if (parentTask.project && CLOSED_PROJECT_STATUSES.includes(parentTask.project.status)) {
+        throw new ApiError(HttpStatus.BAD_REQUEST, "Project is closed", "PROJECT_CLOSED");
+      }
       if (dto.projectId && dto.projectId !== parentTask.projectId) {
         throw new ApiError(HttpStatus.BAD_REQUEST, "Subtask project must match its parent", "VALIDATION_ERROR");
       }
@@ -643,7 +953,8 @@ export class TasksService {
         projectId: parentTask.projectId,
         departmentId: parentTask.departmentId,
         teamId: parentTask.teamId,
-        parentTask
+        parentTask,
+        project: parentTask.project
       };
     }
 
@@ -664,12 +975,12 @@ export class TasksService {
 
     const project = await this.prisma.project.findFirst({
       where: { id: dto.projectId, deletedAt: null },
-      select: { id: true, departmentId: true, status: true }
+      select: { id: true, departmentId: true, status: true, startDate: true, endDate: true }
     });
     if (!project) {
       throw new ApiError(HttpStatus.NOT_FOUND, "Project not found", "PROJECT_NOT_FOUND");
     }
-    if (project.status === ProjectStatus.COMPLETED || project.status === ProjectStatus.CANCELLED) {
+    if (CLOSED_PROJECT_STATUSES.includes(project.status)) {
       throw new ApiError(HttpStatus.BAD_REQUEST, "Project is closed", "PROJECT_CLOSED");
     }
 
@@ -703,7 +1014,8 @@ export class TasksService {
       projectId: project.id,
       departmentId: project.departmentId,
       teamId: team.id,
-      parentTask: null
+      parentTask: null,
+      project
     };
   }
 
@@ -761,7 +1073,7 @@ export class TasksService {
   private async syncParentStatus(parentTaskId: number) {
     const children = await this.prisma.task.findMany({
       where: { parentTaskId, deletedAt: null },
-      select: { status: true, actualHours: true }
+      select: { status: true, actualHours: true, completedAt: true }
     });
     const nonCancelled = children.filter((child) => child.status !== TaskStatus.CANCELLED);
     let status: TaskStatus;
@@ -789,9 +1101,150 @@ export class TasksService {
           (total, child) => total + Number(child.actualHours ?? 0),
           0
         ),
-        completedAt: status === TaskStatus.DONE ? new Date() : null
+        // Finished when its last subtask was, not whenever this last ran.
+        completedAt: status === TaskStatus.DONE ? this.latestCompletion(nonCancelled) : null
       }
     });
+  }
+
+  private latestCompletion(children: { completedAt: Date | null }[]) {
+    const times = children
+      .map((child) => child.completedAt?.getTime())
+      .filter((time): time is number => time !== undefined);
+    return times.length ? new Date(Math.max(...times)) : new Date();
+  }
+
+  private ensureTaskOpen(task: Pick<TaskWithInclude, "status" | "project">) {
+    if (CLOSED_TASK_STATUSES.includes(task.status)) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Task is already closed", "TASK_CLOSED");
+    }
+    if (task.project && CLOSED_PROJECT_STATUSES.includes(task.project.status)) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, "Project is closed", "PROJECT_CLOSED");
+    }
+  }
+
+  /** A task's dates must sit inside its project's, where the project has them. */
+  private ensureInsideProject(
+    project: { startDate: Date | null; endDate: Date | null } | null | undefined,
+    startDate?: string | Date | null,
+    dueDate?: string | Date | null
+  ) {
+    if (!project) {
+      return;
+    }
+    const outside =
+      (project.startDate && startDate && toDateOnly(startDate) < toDateOnly(project.startDate)) ||
+      (project.endDate && dueDate && toDateOnly(dueDate) > toDateOnly(project.endDate));
+    if (outside) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Task dates must fall inside the project dates",
+        "TASK_DATE_OUTSIDE_PROJECT"
+      );
+    }
+  }
+
+  /** Narrowing a team-level task must not leave its subtasks outside it. */
+  private ensureChildrenInside(
+    children: DateRange[],
+    startDate?: string | Date | null,
+    dueDate?: string | Date | null
+  ) {
+    const outside = children.some(
+      (child) =>
+        (startDate && child.startDate && toDateOnly(child.startDate) < toDateOnly(startDate)) ||
+        (dueDate && child.dueDate && toDateOnly(child.dueDate) > toDateOnly(dueDate))
+    );
+    if (outside) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Some subtasks fall outside the new dates",
+        "SUBTASK_DATE_OUTSIDE_PARENT"
+      );
+    }
+  }
+
+  private async notifyAssigned(task: Pick<TaskWithInclude, "id" | "title" | "assignee">) {
+    if (!task.assignee?.userId) {
+      return;
+    }
+    await this.notifications.create(
+      task.assignee.userId,
+      "TASK_ASSIGNED",
+      "New task assigned",
+      `You were assigned to "${task.title}".`,
+      "Task",
+      task.id
+    );
+  }
+
+  /**
+   * Tells the other side about a status change: the assignee's move goes to
+   * the team lead and whoever assigned the task (the department head when the
+   * team has no lead); a reviewer's move goes to the assignee.
+   */
+  private async notifyStatusChange(before: TaskWithInclude, status: TaskStatus, actor: AuthUser) {
+    const recipients = new Set<number>();
+    if (before.assignee?.userId) {
+      recipients.add(before.assignee.userId);
+    }
+    const leadUserIds = [
+      before.team?.lead?.userId,
+      ...(before.team?.members ?? [])
+        .filter((member) => member.role === "LEAD")
+        .map((member) => member.employee.userId)
+    ].filter((userId): userId is number => typeof userId === "number");
+    leadUserIds.forEach((userId) => recipients.add(userId));
+    if (before.assignedByUserId) {
+      recipients.add(before.assignedByUserId);
+    }
+    if (!leadUserIds.length && before.department?.managerId) {
+      const head = await this.prisma.employee.findUnique({
+        where: { id: before.department.managerId },
+        select: { userId: true }
+      });
+      if (head?.userId) {
+        recipients.add(head.userId);
+      }
+    }
+    recipients.delete(actor.id);
+    if (!recipients.size) {
+      return;
+    }
+
+    const sentBack =
+      before.status === TaskStatus.IN_REVIEW &&
+      status === TaskStatus.IN_PROGRESS &&
+      actor.employeeId !== before.assigneeId;
+    let title = "Task returned for rework";
+    let message = `"${before.title}" needs changes before it can be accepted.`;
+    if (!sentBack) {
+      const employee = actor.employeeId
+        ? await this.prisma.employee.findUnique({
+            where: { id: actor.employeeId },
+            select: { fullName: true }
+          })
+        : null;
+      title = "Task status updated";
+      message = `"${before.title}" was moved to ${status} by ${employee?.fullName ?? actor.username}.`;
+    }
+    for (const userId of recipients) {
+      await this.notifications.create(userId, "TASK_STATUS_CHANGED", title, message, "Task", before.id);
+    }
+  }
+
+  /** A level range must run from junior to senior, not the other way round. */
+  private ensureLevelRange(
+    minLevel: CareerLevel | null | undefined,
+    maxLevel: CareerLevel | null | undefined
+  ) {
+    if (minLevel && maxLevel && CAREER_LEVELS.indexOf(minLevel) > CAREER_LEVELS.indexOf(maxLevel)) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "The lowest suitable level is above the highest",
+        "TASK_LEVEL_RANGE_INVALID"
+      );
+    }
   }
 
   private ensureLevelSpecificFields(

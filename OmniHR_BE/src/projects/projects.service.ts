@@ -17,6 +17,17 @@ const projectInclude = {
   _count: { select: { tasks: { where: { deletedAt: null } } } }
 } satisfies Prisma.ProjectInclude;
 
+const OPEN_TASK_STATUSES: TaskStatus[] = [TaskStatus.TODO, TaskStatus.IN_PROGRESS, TaskStatus.IN_REVIEW];
+const CLOSED_PROJECT_STATUSES: ProjectStatus[] = [ProjectStatus.COMPLETED, ProjectStatus.CANCELLED];
+
+/** A date field on update: omitted keeps it, `null` clears it, a string sets it. */
+function dateUpdate(value: string | null | undefined) {
+  if (value === undefined) {
+    return undefined;
+  }
+  return value ? toDateOnly(value) : null;
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(
@@ -57,6 +68,7 @@ export class ProjectsService {
   async create(dto: CreateProjectDto, actor: AuthUser, context?: RequestContext) {
     const scope = await this.resolveManagedDepartment(actor);
     this.ensureDateRange(dto.startDate, dto.endDate);
+    await this.ensureCodeAvailable(dto.code);
 
     const project = await this.prisma.project.create({
       data: {
@@ -98,6 +110,15 @@ export class ProjectsService {
     const nextEndDate =
       dto.endDate !== undefined ? dto.endDate : oldValue.endDate;
     this.ensureDateRange(nextStartDate, nextEndDate);
+    if (dto.code !== undefined && dto.code !== oldValue.code) {
+      await this.ensureCodeAvailable(dto.code, id);
+    }
+    if (dto.status && dto.status !== oldValue.status && CLOSED_PROJECT_STATUSES.includes(dto.status)) {
+      await this.ensureNoOpenTasks(id, "Finish or cancel the open tasks before closing the project");
+    }
+    if (dto.startDate !== undefined || dto.endDate !== undefined) {
+      await this.ensureTasksInside(id, nextStartDate, nextEndDate);
+    }
 
     const project = await this.prisma.project.update({
       where: { id },
@@ -106,8 +127,8 @@ export class ProjectsService {
         name: dto.name,
         description: dto.description,
         status: dto.status,
-        startDate: dto.startDate ? toDateOnly(dto.startDate) : undefined,
-        endDate: dto.endDate ? toDateOnly(dto.endDate) : undefined
+        startDate: dateUpdate(dto.startDate),
+        endDate: dateUpdate(dto.endDate)
       },
       include: projectInclude
     });
@@ -128,25 +149,17 @@ export class ProjectsService {
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     await this.ensureCanManageProject(actor, oldValue.departmentId);
-    const activeTasks = await this.prisma.task.count({
-      where: {
-        projectId: id,
-        deletedAt: null,
-        status: { notIn: [TaskStatus.DONE, TaskStatus.CANCELLED] }
-      }
-    });
-    if (activeTasks > 0) {
-      throw new ApiError(
-        HttpStatus.BAD_REQUEST,
-        "Project has active tasks",
-        "VALIDATION_ERROR"
-      );
-    }
+    await this.ensureNoOpenTasks(id, "Project has active tasks");
 
-    const project = await this.prisma.project.update({
-      where: { id },
-      data: { status: ProjectStatus.CANCELLED, deletedAt: new Date() },
-      include: projectInclude
+    const deletedAt = new Date();
+    const project = await this.prisma.$transaction(async (tx) => {
+      // Only finished or cancelled tasks are left; they go with the project.
+      await tx.task.updateMany({ where: { projectId: id, deletedAt: null }, data: { deletedAt } });
+      return tx.project.update({
+        where: { id },
+        data: { status: ProjectStatus.CANCELLED, deletedAt },
+        include: projectInclude
+      });
     });
 
     await this.audit.log({
@@ -253,6 +266,55 @@ export class ProjectsService {
         HttpStatus.FORBIDDEN,
         "Only the department head can manage this project",
         "PROJECT_MANAGER_SCOPE_DENIED"
+      );
+    }
+  }
+
+  /** Codes are unique among live projects; a deleted project's code is free again. */
+  private async ensureCodeAvailable(code: string, exceptId?: number) {
+    const taken = await this.prisma.project.findFirst({
+      where: { code, deletedAt: null, id: exceptId ? { not: exceptId } : undefined },
+      select: { id: true }
+    });
+    if (taken) {
+      throw new ApiError(HttpStatus.CONFLICT, "Project code already exists", "PROJECT_CODE_EXISTS");
+    }
+  }
+
+  private async ensureNoOpenTasks(projectId: number, message: string) {
+    const openTasks = await this.prisma.task.count({
+      where: { projectId, deletedAt: null, status: { in: OPEN_TASK_STATUSES } }
+    });
+    if (openTasks > 0) {
+      throw new ApiError(HttpStatus.BAD_REQUEST, message, "PROJECT_HAS_OPEN_TASKS");
+    }
+  }
+
+  /** New project dates must still hold its team-level tasks (subtasks sit inside those). */
+  private async ensureTasksInside(
+    projectId: number,
+    startDate?: string | Date | null,
+    endDate?: string | Date | null
+  ) {
+    if (!startDate && !endDate) {
+      return;
+    }
+    const outside = await this.prisma.task.count({
+      where: {
+        projectId,
+        parentTaskId: null,
+        deletedAt: null,
+        OR: [
+          ...(startDate ? [{ startDate: { lt: toDateOnly(startDate) } }] : []),
+          ...(endDate ? [{ dueDate: { gt: toDateOnly(endDate) } }] : [])
+        ]
+      }
+    });
+    if (outside > 0) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Some tasks fall outside the new project dates",
+        "TASK_DATE_OUTSIDE_PROJECT"
       );
     }
   }

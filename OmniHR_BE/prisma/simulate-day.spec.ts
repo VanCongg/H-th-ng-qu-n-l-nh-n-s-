@@ -1,4 +1,4 @@
-import { clampToToday, officeFrom } from "./simulate-day";
+import { clampToToday, internalProjectCode, isInternalProjectCode, officeFrom } from "./simulate-day";
 
 describe("simulator date bounds", () => {
   const today = new Date("2026-09-21T00:00:00.000Z");
@@ -44,5 +44,16 @@ describe("simulated punch location", () => {
     expect(officeFrom({ companyLatitude: Number.NaN, companyLongitude: 106.1 })).toEqual(
       FALLBACK
     );
+  });
+});
+
+describe("internal projects", () => {
+  it("names one project per department and year", () => {
+    expect(internalProjectCode("IT", 2026)).toBe("IT-OPS-2026");
+  });
+
+  it("tells an internal project from a product one", () => {
+    expect(isInternalProjectCode("IT-OPS-2026")).toBe(true);
+    expect(isInternalProjectCode("IT-2608-046")).toBe(false);
   });
 });

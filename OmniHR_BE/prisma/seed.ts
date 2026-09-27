@@ -1141,7 +1141,7 @@ function workdaysBetween(start: Date, end: Date) {
 
 function isWorkday(date: Date) {
   const day = date.getUTCDay();
-  return day >= 1 && day <= 5;
+  return day >= 1 && day <= 5 && !holidays.has(date.getTime());
 }
 
 /** Workday `offset` days from today: 0 is today (or the next workday), -1 the previous workday. */
@@ -1274,7 +1274,16 @@ type SeededEmployee = {
   terminatedOn: Date | null;
 };
 
+/**
+ * Public holidays from the holidays table (seeded by its migration), loaded
+ * once in main(): nobody works, files leave or is absent on them.
+ */
+let holidays: ReadonlySet<number> = new Set();
+
 async function main() {
+  holidays = new Set(
+    (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
+  );
   const existingUsers = await prisma.user.count();
   if (existingUsers > 0) {
     throw new Error(

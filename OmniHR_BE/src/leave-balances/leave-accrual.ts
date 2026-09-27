@@ -1,4 +1,4 @@
-import { calculateLeaveDays } from "../common/utils";
+import { calculateLeaveDays, NO_HOLIDAYS } from "../common/utils";
 
 export const ANNUAL_LEAVE_CODE = "ANNUAL_LEAVE";
 export const DEFAULT_ANNUAL_ALLOWANCE = 12;
@@ -98,19 +98,40 @@ export function seniorityDays(
 }
 
 /** Working days of a leave request inside `year`; a request spanning New Year is split. */
-export function leaveDaysInYear(leave: LeaveSpan, year: number, workWeek: string[]) {
-  const yearStart = new Date(Date.UTC(year, 0, 1));
-  const yearEnd = new Date(Date.UTC(year, 11, 31));
-  if (leave.endDate < yearStart || leave.startDate > yearEnd) {
+export function leaveDaysInYear(
+  leave: LeaveSpan,
+  year: number,
+  workWeek: string[],
+  holidays: ReadonlySet<number> = NO_HOLIDAYS
+) {
+  return leaveDaysBetween(
+    leave,
+    new Date(Date.UTC(year, 0, 1)),
+    new Date(Date.UTC(year, 11, 31)),
+    workWeek,
+    holidays
+  );
+}
+
+/** Working days of a leave request between two dates, both inclusive. */
+export function leaveDaysBetween(
+  leave: LeaveSpan,
+  from: Date,
+  to: Date,
+  workWeek: string[],
+  holidays: ReadonlySet<number> = NO_HOLIDAYS
+) {
+  if (leave.endDate < from || leave.startDate > to) {
     return 0;
   }
-  if (leave.startDate >= yearStart && leave.endDate <= yearEnd) {
+  if (leave.startDate >= from && leave.endDate <= to) {
     return leave.totalDays;
   }
   return calculateLeaveDays(
-    leave.startDate > yearStart ? leave.startDate : yearStart,
-    leave.endDate < yearEnd ? leave.endDate : yearEnd,
-    workWeek
+    leave.startDate > from ? leave.startDate : from,
+    leave.endDate < to ? leave.endDate : to,
+    workWeek,
+    holidays
   );
 }
 

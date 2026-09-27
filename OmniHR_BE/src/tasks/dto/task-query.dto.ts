@@ -3,11 +3,15 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional
 } from "class-validator";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
+
+export const TASK_QUICK_FILTERS = ["overdue", "dueSoon", "review", "unassigned"] as const;
+export type TaskQuickFilter = (typeof TASK_QUICK_FILTERS)[number];
 
 function toOptionalBoolean(value: unknown) {
   if (value === "true" || value === true) {
@@ -82,4 +86,19 @@ export class TaskQueryDto extends PaginationQueryDto {
   @Transform(({ value }) => toOptionalBoolean(value))
   @IsBoolean()
   includeOpen?: boolean;
+
+  /**
+   * Page by team task instead of by row: each item is a team task with its
+   * subtasks, and a team task comes in when it or any of its subtasks match
+   * the filters. A team task is never split across two pages this way.
+   */
+  @IsOptional()
+  @Transform(({ value }) => toOptionalBoolean(value))
+  @IsBoolean()
+  groupByRoot?: boolean;
+
+  /** One-tap filters over subtasks; see `quickTaskWhere`. */
+  @IsOptional()
+  @IsIn(TASK_QUICK_FILTERS)
+  quick?: TaskQuickFilter;
 }

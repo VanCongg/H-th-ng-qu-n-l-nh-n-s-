@@ -5,14 +5,15 @@ type EmployeeAvatarProps = {
     avatarUrl?: string | null;
   } | null;
   size?: number | string;
+  radius?: string;
 };
 
-export function EmployeeAvatar({ employee, size = 36 }: EmployeeAvatarProps) {
+export function EmployeeAvatar({ employee, size = 36, radius = "md" }: EmployeeAvatarProps) {
   return (
     <Avatar
       src={employee?.avatarUrl || undefined}
       alt={employee?.fullName || "Employee"}
-      radius="md"
+      radius={radius}
       size={size}
       color="blue"
     >
