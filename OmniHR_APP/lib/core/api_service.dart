@@ -27,6 +27,26 @@ class ApiException implements Exception {
 const _messagesByCode = {
   'INVALID_CREDENTIALS': 'Tên đăng nhập hoặc mật khẩu không đúng.',
   'USER_INACTIVE': 'Tài khoản đã bị khóa hoặc không còn hoạt động.',
+  'CURRENT_PASSWORD_INVALID': 'Mật khẩu hiện tại không đúng.',
+  'PASSWORD_REUSED': 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+  'PASSWORD_CONTAINS_IDENTITY':
+      'Mật khẩu không được chứa tên đăng nhập hoặc email.',
+  'VERIFICATION_CODE_REQUIRED': 'Vui lòng nhập mã xác thực đã gửi qua email.',
+  'VERIFICATION_CODE_INVALID': 'Mã xác thực không đúng.',
+  'VERIFICATION_CODE_EXPIRED': 'Mã xác thực đã hết hạn. Hãy gửi lại mã mới.',
+  'VERIFICATION_CODE_LOCKED':
+      'Bạn đã nhập sai mã quá nhiều lần. Hãy gửi lại mã mới.',
+  'VERIFICATION_TARGET_MISMATCH':
+      'Mã này được gửi cho giá trị khác. Hãy gửi lại mã mới.',
+  'VERIFICATION_RESEND_TOO_SOON': 'Vui lòng chờ một chút rồi gửi lại mã.',
+  'VERIFICATION_NOTHING_TO_CHANGE': 'Giá trị mới giống giá trị hiện tại.',
+  'EMAIL_ALREADY_IN_USE': 'Email này đã được tài khoản khác sử dụng.',
+  'ONE_CHANGE_AT_A_TIME': 'Hãy đổi email và số điện thoại lần lượt từng mục.',
+  'MAIL_NOT_CONFIGURED':
+      'Máy chủ chưa cấu hình gửi email. Hãy liên hệ quản trị viên.',
+  'MAIL_SEND_FAILED': 'Chưa gửi được email. Vui lòng thử lại sau ít phút.',
+  'PASSWORD_CHANGE_LOCKED':
+      'Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần. Hãy thử lại sau 15 phút.',
   'LEAVE_HALF_DAY_RANGE': 'Nghỉ nửa ngày chỉ áp dụng cho đơn một ngày.',
   'LEAVE_CANCEL_ALREADY_REQUESTED':
       'Yêu cầu hủy đơn này đang chờ quản lý quyết định.',

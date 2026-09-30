@@ -18,11 +18,18 @@ class PendingActionCard extends StatelessWidget {
   final VoidCallback onConfirm;
   final VoidCallback onCancel;
 
+  List<Widget> _taskRows() => _taskRowsOf(action.summary);
+
+  List<Widget> _leaveRows({required bool cancel}) =>
+      _leaveRowsOf(action.summary, cancel: cancel);
+
   @override
   Widget build(BuildContext context) {
-    final summary = action.summary;
     final isCancelLeave = action.type == 'CANCEL_LEAVE_REQUEST';
-    final title = isCancelLeave
+    final isTaskStatus = action.type == 'UPDATE_TASK_STATUS';
+    final title = isTaskStatus
+        ? tx('Xác nhận cập nhật công việc')
+        : isCancelLeave
         ? tx('Xác nhận hủy đơn nghỉ phép')
         : tx('Nháp đơn nghỉ phép');
     return Align(
@@ -49,7 +56,12 @@ class PendingActionCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.fact_check_rounded, color: accentColor),
+                    Icon(
+                      isTaskStatus
+                          ? Icons.task_alt_rounded
+                          : Icons.fact_check_rounded,
+                      color: accentColor,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -62,33 +74,9 @@ class PendingActionCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _SummaryRow(
-                  label: isCancelLeave ? tx('Đơn hủy') : tx('Loại nghỉ'),
-                  value: textOf(
-                    summary['leaveType'],
-                    textOf(summary['leaveTypeCode'], '-'),
-                  ),
-                ),
-                _SummaryRow(
-                  label: tx('Từ ngày'),
-                  value: formatDate(summary['startDate']),
-                ),
-                _SummaryRow(
-                  label: tx('Đến ngày'),
-                  value: formatDate(summary['endDate']),
-                ),
-                _SummaryRow(
-                  label: tx('Số ngày'),
-                  value: textOf(summary['totalDays'], '-'),
-                ),
-                _SummaryRow(
-                  label: tx('Lý do'),
-                  value: textOf(summary['reason'], '-'),
-                ),
-                _SummaryRow(
-                  label: tx('Trạng thái'),
-                  value: textOf(summary['currentStatus'], tx('Chờ xác nhận')),
-                ),
+                ...(isTaskStatus
+                    ? _taskRows()
+                    : _leaveRows(cancel: isCancelLeave)),
                 if (action.expiresAt != null)
                   _SummaryRow(
                     label: tx('Hết hạn'),
@@ -132,6 +120,52 @@ class PendingActionCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What changes on the task: the current status, and the one it moves to.
+List<Widget> _taskRowsOf(Map<String, dynamic> summary) {
+  final note = textOf(summary['note']);
+  return [
+    _SummaryRow(
+      label: tx('Công việc'),
+      value: textOf(summary['taskTitle'], '-'),
+    ),
+    _SummaryRow(label: tx('Dự án'), value: textOf(summary['projectName'], '-')),
+    _SummaryRow(
+      label: tx('Hiện tại'),
+      value: friendlyStatus(textOf(summary['currentStatus'], '-')),
+    ),
+    _SummaryRow(
+      label: tx('Chuyển sang'),
+      value: friendlyStatus(textOf(summary['status'], '-')),
+    ),
+    if (note.isNotEmpty) _SummaryRow(label: tx('Ghi chú'), value: note),
+  ];
+}
+
+List<Widget> _leaveRowsOf(
+  Map<String, dynamic> summary, {
+  required bool cancel,
+}) {
+  return [
+    _SummaryRow(
+      label: cancel ? tx('Đơn hủy') : tx('Loại nghỉ'),
+      value: textOf(
+        summary['leaveType'],
+        textOf(summary['leaveTypeCode'], '-'),
+      ),
+    ),
+    _SummaryRow(label: tx('Từ ngày'), value: formatDate(summary['startDate'])),
+    _SummaryRow(label: tx('Đến ngày'), value: formatDate(summary['endDate'])),
+    _SummaryRow(label: tx('Số ngày'), value: textOf(summary['totalDays'], '-')),
+    _SummaryRow(label: tx('Lý do'), value: textOf(summary['reason'], '-')),
+    _SummaryRow(
+      label: tx('Trạng thái'),
+      value: summary['currentStatus'] == null
+          ? tx('Chờ xác nhận')
+          : friendlyStatus(textOf(summary['currentStatus'])),
+    ),
+  ];
 }
 
 class _SummaryRow extends StatelessWidget {

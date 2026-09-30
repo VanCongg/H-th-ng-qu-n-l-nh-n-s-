@@ -4,6 +4,7 @@ import '../../core/i18n.dart';
 import '../../core/session.dart';
 import '../../core/utils.dart';
 import '../../shared/widgets/widgets.dart';
+import 'forgot_password_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.session});
@@ -43,6 +44,21 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final identifier = await showForgotPasswordDialog(
+      context,
+      session: widget.session,
+      initialIdentifier: _accountController.text.trim(),
+    );
+    if (identifier == null || !mounted) return;
+    _accountController.text = identifier;
+    _passwordController.clear();
+    showAppSnack(
+      context,
+      tx('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,6 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       onTogglePassword: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                       onSubmit: _submit,
+                      onForgotPassword: _forgotPassword,
                     ),
                   ),
                 ),
@@ -183,6 +200,7 @@ class _LoginForm extends StatelessWidget {
     required this.submitting,
     required this.onTogglePassword,
     required this.onSubmit,
+    required this.onForgotPassword,
   });
 
   final GlobalKey<FormState> formKey;
@@ -192,6 +210,7 @@ class _LoginForm extends StatelessWidget {
   final bool submitting;
   final VoidCallback onTogglePassword;
   final Future<void> Function() onSubmit;
+  final VoidCallback onForgotPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +237,8 @@ class _LoginForm extends StatelessWidget {
                         AutofillHints.email,
                       ],
                       decoration: InputDecoration(
-                        labelText: tx('Tên đăng nhập, email hoặc mã nhân viên'),
+                        labelText: tx('Tài khoản'),
+                        hintText: tx('Tên đăng nhập, email hoặc mã NV'),
                         prefixIcon: const Icon(Icons.person_outline_rounded),
                       ),
                       keyboardType: TextInputType.emailAddress,
@@ -259,7 +279,14 @@ class _LoginForm extends StatelessWidget {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 22),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: submitting ? null : onForgotPassword,
+                        child: Text(tx('Quên mật khẩu?')),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     FilledButton.icon(
                       onPressed: submitting ? null : onSubmit,
                       icon: submitting

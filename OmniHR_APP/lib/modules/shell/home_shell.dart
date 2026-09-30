@@ -198,7 +198,6 @@ class _ProfileAvatarButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final name =
         session.employee?.fullName ?? session.user?.username ?? tx('Nhân viên');
-    final initial = name.trim().isEmpty ? 'O' : name.trim()[0].toUpperCase();
 
     return Semantics(
       label: tx('Cá nhân'),
@@ -211,32 +210,10 @@ class _ProfileAvatarButton extends StatelessWidget {
           onTap: onTap,
           child: Hero(
             tag: 'profile-avatar',
-            child: Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                // Same avatar gradient as the web header.
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1971C2),
-                    Color(0xFF0CA678),
-                    Color(0xFFF59F00),
-                  ],
-                  stops: [0, 0.65, 1],
-                ),
-              ),
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+            child: UserAvatar(
+              name: name,
+              avatarUrl: session.employee?.avatarUrl,
+              size: 38,
             ),
           ),
         ),

@@ -153,6 +153,90 @@ const Map<String, String> _enDictionary = {
   'Gửi yêu cầu hủy': 'Send request',
   'Đã gửi yêu cầu hủy, chờ quản lý duyệt.':
       'Cancellation requested; waiting for your manager.',
+  'Có đơn nghỉ phép mới cần duyệt': 'New leave request to review',
+  'Nhập mã xác thực': 'Enter the verification code',
+  'Đang gửi mã tới email của bạn...': 'Sending a code to your email...',
+  'Mã gồm 6 chữ số đã được gửi tới {email}. Mã có hiệu lực trong 10 phút.':
+      'A 6-digit code was sent to {email}. It is valid for 10 minutes.',
+  'Gửi lại mã ({seconds}s)': 'Resend code ({seconds}s)',
+  'Gửi lại mã': 'Resend code',
+  'Tên đăng nhập, email hoặc mã NV': 'Username, email or employee code',
+  'Xác nhận cập nhật công việc': 'Confirm task update',
+  'Hiện tại': 'Current',
+  'Chuyển sang': 'Move to',
+  'Ghi chú': 'Note',
+  'Ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt':
+      'At least 8 characters with uppercase, lowercase, a number and a symbol',
+  'Quên mật khẩu?': 'Forgot password?',
+  'Quên mật khẩu': 'Forgot password',
+  'Nhập tên đăng nhập, email hoặc mã nhân viên. Mã xác thực sẽ được gửi tới email của tài khoản.':
+      'Enter your username, email or employee code. A code will be sent to the email of the account.',
+  'Gửi mã': 'Send code',
+  'Nếu tài khoản tồn tại, mã 6 chữ số đã được gửi tới email của tài khoản. Mã có hiệu lực trong 10 phút.':
+      'If the account exists, a 6-digit code was sent to its email. It is valid for 10 minutes.',
+  'Mã xác thực': 'Verification code',
+  'Đặt lại mật khẩu': 'Reset password',
+  'Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.':
+      'Password reset. Sign in with the new password.',
+  'Vui lòng nhập mã gồm 6 chữ số': 'Enter the 6-digit code',
+  'Hãy đổi email và số điện thoại lần lượt từng mục.':
+      'Change the email and the phone one at a time.',
+  'Cũng là email đăng nhập. Mã xác thực sẽ gửi tới email mới.':
+      'Also your login email. The code is sent to the new address.',
+  'Vui lòng nhập email': 'Please enter an email',
+  'Đổi email hoặc số điện thoại cần mã xác thực gửi qua email. Họ tên, phòng ban và chức vụ do phòng nhân sự cập nhật.':
+      'Changing the email or phone needs a code sent by email. Name, department and position are kept by HR.',
+  'Vui lòng nhập mã xác thực đã gửi qua email.':
+      'Enter the code sent to your email.',
+  'Mã xác thực không đúng.': 'The verification code is wrong.',
+  'Mã xác thực đã hết hạn. Hãy gửi lại mã mới.':
+      'The code has expired. Ask for a new one.',
+  'Bạn đã nhập sai mã quá nhiều lần. Hãy gửi lại mã mới.':
+      'Too many wrong codes. Ask for a new one.',
+  'Mã này được gửi cho giá trị khác. Hãy gửi lại mã mới.':
+      'This code was sent for a different value. Ask for a new one.',
+  'Vui lòng chờ một chút rồi gửi lại mã.':
+      'Wait a moment before asking for another code.',
+  'Giá trị mới giống giá trị hiện tại.':
+      'The new value is the same as the current one.',
+  'Email này đã được tài khoản khác sử dụng.':
+      'This email is already used by another account.',
+  'Hãy đổi email và số điện thoại lần lượt từng mục':
+      'Change the email and the phone one at a time',
+  'Máy chủ chưa cấu hình gửi email. Hãy liên hệ quản trị viên.':
+      'The server cannot send email yet. Contact an administrator.',
+  'Chưa gửi được email. Vui lòng thử lại sau ít phút.':
+      'The email could not be sent. Try again in a few minutes.',
+  'Đã cập nhật thông tin cá nhân.': 'Personal details updated.',
+  'Email cá nhân': 'Personal email',
+  'Sửa thông tin cá nhân': 'Edit personal details',
+  'Số điện thoại không hợp lệ': 'Invalid phone number',
+  'Email không hợp lệ': 'Invalid email address',
+  'Họ tên, phòng ban và chức vụ do phòng nhân sự cập nhật.':
+      'Name, department and position are kept by HR.',
+  'Chụp ảnh': 'Take a photo',
+  'Chọn từ thư viện': 'Choose from library',
+  'Xóa ảnh đại diện': 'Remove photo',
+  'Đổi ảnh đại diện': 'Change profile photo',
+  'Ảnh quá lớn, hãy chọn ảnh khác.':
+      'The picture is too large; choose another one.',
+  'Đã xóa ảnh đại diện.': 'Profile photo removed.',
+  'Đã cập nhật ảnh đại diện.': 'Profile photo updated.',
+  'Mật khẩu mới phải khác mật khẩu hiện tại':
+      'The new password must differ from the current one',
+  'Mật khẩu không được chứa tên đăng nhập hoặc email':
+      'The password must not contain your username or email',
+  'Mật khẩu mới phải khác mật khẩu hiện tại.':
+      'The new password must differ from the current one.',
+  'Mật khẩu không được chứa tên đăng nhập hoặc email.':
+      'The password must not contain your username or email.',
+  'Bạn đã nhập sai mật khẩu hiện tại quá nhiều lần. Hãy thử lại sau 15 phút.':
+      'Too many wrong current passwords. Try again in 15 minutes.',
+  'Mật khẩu đã được thay đổi': 'Password changed',
+  'Mật khẩu tài khoản của bạn vừa được thay đổi. Nếu không phải bạn, hãy báo ngay cho quản trị viên.':
+      'Your password was just changed. If this was not you, tell an administrator right away.',
+  '{name} xin nghỉ từ {start} đến {end}.':
+      '{name} requested leave from {start} to {end}.',
   'Có yêu cầu hủy đơn nghỉ đã duyệt': 'Leave cancellation requested',
   'Đơn nghỉ đã được hủy': 'Leave cancelled',
   'Yêu cầu hủy đơn nghỉ bị từ chối': 'Leave cancellation declined',

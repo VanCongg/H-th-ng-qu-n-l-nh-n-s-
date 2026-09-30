@@ -134,27 +134,31 @@ class Employee {
     required this.id,
     required this.employeeCode,
     required this.fullName,
-    required this.companyEmail,
+    required this.personalEmail,
     required this.status,
-    this.personalEmail,
     this.phone,
     this.birthDate,
     this.hireDate,
     this.department,
     this.position,
+    this.avatarUrl,
   });
 
   final int id;
   final String employeeCode;
   final String fullName;
-  final String companyEmail;
+
+  /// The one email of the person, also the login email of their account.
+  final String personalEmail;
   final String status;
-  final String? personalEmail;
   final String? phone;
   final String? birthDate;
   final String? hireDate;
   final Department? department;
   final Position? position;
+
+  /// A `data:image/...` URL or an http(s) link; null shows the initial.
+  final String? avatarUrl;
 
   factory Employee.fromJson(Map<String, dynamic> json) {
     final departmentMap = mapOf(json['department']);
@@ -163,8 +167,7 @@ class Employee {
       id: intOf(json['id']),
       employeeCode: textOf(json['employeeCode']),
       fullName: textOf(json['fullName'], tx('Nhân viên')),
-      companyEmail: textOf(json['companyEmail']),
-      personalEmail: json['personalEmail']?.toString(),
+      personalEmail: textOf(json['personalEmail']),
       phone: json['phone']?.toString(),
       birthDate: json['birthDate']?.toString(),
       hireDate: json['hireDate']?.toString(),
@@ -173,6 +176,7 @@ class Employee {
           ? null
           : Department.fromJson(departmentMap),
       position: positionMap.isEmpty ? null : Position.fromJson(positionMap),
+      avatarUrl: json['avatarUrl']?.toString(),
     );
   }
 }

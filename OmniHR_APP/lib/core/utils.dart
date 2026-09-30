@@ -248,6 +248,7 @@ Color notificationColor(String type) {
     case 'LEAVE_REJECTED':
     case 'LEAVE_CANCEL_REJECTED':
       return dangerColor;
+    case 'LEAVE_REQUESTED':
     case 'LEAVE_CANCEL_REQUESTED':
     case 'LEAVE_CANCEL_APPROVED':
       return const Color(0xFFF59F00);
@@ -256,6 +257,8 @@ Color notificationColor(String type) {
       return brandColor;
     case 'ATTENDANCE_ADJUSTED':
       return accentColor;
+    case 'PASSWORD_CHANGED':
+      return dangerColor;
     default:
       return const Color(0xFF64748B);
   }
@@ -273,6 +276,8 @@ Color notificationColor(String type) {
 /// "Task returned for rework" (the default here) and "Task status updated".
 String notificationTitle(String type, String fallback) {
   switch (type.toUpperCase()) {
+    case 'LEAVE_REQUESTED':
+      return tx('Có đơn nghỉ phép mới cần duyệt');
     case 'LEAVE_APPROVED':
       return tx('Đơn nghỉ phép đã được duyệt');
     case 'LEAVE_REJECTED':
@@ -291,6 +296,8 @@ String notificationTitle(String type, String fallback) {
           : tx('Công việc bị trả về để sửa');
     case 'ATTENDANCE_ADJUSTED':
       return tx('Bản ghi chấm công được điều chỉnh');
+    case 'PASSWORD_CHANGED':
+      return tx('Mật khẩu đã được thay đổi');
     default:
       return fallback;
   }
@@ -300,6 +307,7 @@ String notificationTitle(String type, String fallback) {
 // is written in several places, and all of them must keep these exact shapes:
 //   TASK_ASSIGNED        tasks.service.ts, seed.ts, simulate-day.ts
 //   TASK_STATUS_CHANGED  tasks.service.ts, simulate-day.ts
+//   LEAVE_REQUESTED      leave-requests.service.ts
 //   LEAVE_APPROVED       leave-requests.service.ts, seed.ts, simulate-day.ts
 //   LEAVE_CANCEL_*       leave-requests.service.ts
 //   ATTENDANCE_ADJUSTED  attendance.service.ts
@@ -319,6 +327,12 @@ final _statusMovedMessage = RegExp(
 );
 final _leaveApprovedMessage = RegExp(
   r'^Your leave request from (.+) to (.+) was approved\.$',
+);
+const _passwordChangedMessage =
+    'Your password was changed. If this was not you, contact an administrator right away.';
+final _leaveRequestedMessage = RegExp(
+  r'^(.+) requested leave from (.+) to (.+)\.$',
+  dotAll: true,
 );
 final _cancelRequestedMessage = RegExp(
   r'^(.+) asked to cancel their leave from (.+) to (.+)\.$',
@@ -398,6 +412,21 @@ String notificationMessage(String type, String message) {
         return tx('Đơn nghỉ phép từ {start} đến {end} của bạn đã được duyệt.', {
           'start': _messageDate(match.group(1)!),
           'end': _messageDate(match.group(2)!),
+        });
+      }
+    case 'PASSWORD_CHANGED':
+      if (message == _passwordChangedMessage) {
+        return tx(
+          'Mật khẩu tài khoản của bạn vừa được thay đổi. Nếu không phải bạn, hãy báo ngay cho quản trị viên.',
+        );
+      }
+    case 'LEAVE_REQUESTED':
+      final match = _leaveRequestedMessage.firstMatch(message);
+      if (match != null) {
+        return tx('{name} xin nghỉ từ {start} đến {end}.', {
+          'name': match.group(1)!,
+          'start': _messageDate(match.group(2)!),
+          'end': _messageDate(match.group(3)!),
         });
       }
     case 'LEAVE_CANCEL_REQUESTED':

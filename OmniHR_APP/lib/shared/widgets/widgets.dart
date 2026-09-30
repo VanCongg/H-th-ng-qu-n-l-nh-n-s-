@@ -15,3 +15,4 @@ export 'pressable_scale.dart';
 export 'controller_scope.dart';
 export 'month_switcher.dart';
 export 'app_dialogs.dart';
+export 'user_avatar.dart';

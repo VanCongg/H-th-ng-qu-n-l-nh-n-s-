@@ -156,23 +156,18 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     if (isLoggedIn) unawaited(PushNotifications.instance.register(this));
   }
 
-  Future<void> login({
-    required String usernameOrEmail,
-    required String password,
-  }) async {
+  /// A call made before anyone is signed in: no token, no refresh on 401.
+  Future<dynamic> _postPublic(String path, Map<String, dynamic> body) async {
     late final http.Response response;
     try {
       response = await http
           .post(
-            Uri.parse('$_baseUrl/auth/login'),
+            Uri.parse('$_baseUrl$path'),
             headers: const {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
             },
-            body: jsonEncode({
-              'usernameOrEmail': usernameOrEmail,
-              'password': password,
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 20));
     } on FormatException {
@@ -187,8 +182,18 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
         errorCode: error.toString(),
       );
     }
+    return unwrapResponse(response);
+  }
 
-    final login = LoginResponse.fromJson(mapOf(unwrapResponse(response)));
+  Future<void> login({
+    required String usernameOrEmail,
+    required String password,
+  }) async {
+    final data = await _postPublic('/auth/login', {
+      'usernameOrEmail': usernameOrEmail,
+      'password': password,
+    });
+    final login = LoginResponse.fromJson(mapOf(data));
     _accessToken = login.accessToken;
     refreshToken = login.refreshToken;
     user = login.user;
@@ -201,6 +206,25 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     }
 
     notifyListeners();
+  }
+
+  /// Emails a reset code to the account behind [identifier]. The server
+  /// answers the same whether or not the account exists.
+  Future<void> forgotPassword(String identifier) async {
+    await _postPublic('/auth/forgot-password', {'identifier': identifier});
+  }
+
+  /// Sets a new password with the emailed code; the person then signs in.
+  Future<void> resetPassword({
+    required String identifier,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    await _postPublic('/auth/reset-password', {
+      'identifier': identifier,
+      'otpCode': otpCode,
+      'newPassword': newPassword,
+    });
   }
 
   Future<void> loadCurrentUser() async {
@@ -290,15 +314,72 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     await logoutLocal();
   }
 
+  /// Changes the password. The server signs every other device out and
+  /// hands this one a fresh pair of tokens; keeping them is what keeps this
+  /// phone signed in - the old refresh token no longer works.
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+    required String otpCode,
   }) async {
-    await api.post(
+    final data = await api.post(
       '/auth/change-password',
-      body: {'currentPassword': currentPassword, 'newPassword': newPassword},
+      body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'otpCode': otpCode,
+      },
     );
-    await loadCurrentUser();
+    final login = LoginResponse.fromJson(mapOf(data));
+    if (login.accessToken.isNotEmpty && login.refreshToken.isNotEmpty) {
+      _accessToken = login.accessToken;
+      refreshToken = login.refreshToken;
+      user = login.user;
+      await _saveSession();
+      notifyListeners();
+    } else {
+      await loadCurrentUser();
+    }
+  }
+
+  /// Emails a one-time code for [purpose] (PASSWORD_CHANGE, PHONE_CHANGE,
+  /// EMAIL_CHANGE); [target] is the new phone or email. Returns where it went
+  /// (masked) and how long to wait before asking again.
+  Future<Map<String, dynamic>> requestVerificationCode({
+    required String purpose,
+    String? target,
+  }) async {
+    final data = await api.post(
+      '/auth/verification-codes',
+      body: {'purpose': purpose, 'target': target},
+    );
+    return mapOf(data);
+  }
+
+  /// Changes the email or the phone - one at a time - with the code emailed
+  /// for that change. A new email is also the new login email.
+  Future<void> updateContact({
+    String? email,
+    String? phone,
+    required String otpCode,
+  }) async {
+    final data = await api.patch(
+      '/employees/me',
+      body: {'personalEmail': ?email, 'phone': ?phone, 'otpCode': otpCode},
+    );
+    employee = Employee.fromJson(mapOf(data));
+    if (email != null) await loadCurrentUser();
+    notifyListeners();
+  }
+
+  /// Sets or clears (null) the signed-in employee's picture.
+  Future<void> updateAvatar(String? avatarUrl) async {
+    final data = await api.patch(
+      '/employees/me',
+      body: {'avatarUrl': avatarUrl},
+    );
+    employee = Employee.fromJson(mapOf(data));
+    notifyListeners();
   }
 
   Future<void> logoutLocal({bool notify = true}) async {
