@@ -62,19 +62,28 @@ Mọi ngày tháng tính tương đối theo ngày chạy seed. Tất cả tài 
 
 ### Mô phỏng hoạt động hằng ngày
 
-Sau khi seed, `prisma/simulate-day.ts` cho công ty "sống tiếp" để tích lũy dữ liệu cho AI. Mỗi lần chạy sẽ diễn lại mọi ngày làm việc kể từ lần chạy trước, tính đến hết hôm qua:
+`prisma/simulate-day.ts` cho công ty "sống tiếp" để tích lũy dữ liệu. Mỗi lần chạy sẽ diễn lại mọi ngày làm việc kể từ lần chạy trước, tính đến hết hôm qua.
+
+**Mọi thao tác đều đi qua chính các service của API**, dưới tài khoản của đúng người làm việc đó: nhân viên chấm công từ app (có GPS, kiểm tra bán kính), xin nghỉ trong app hoặc nhờ HRGenie, trưởng phòng mở dự án và task nhóm, trưởng nhóm chia task con và giao việc (thường bấm "Gợi ý AI" trước), nhân viên bắt đầu làm và gửi duyệt, trưởng nhóm duyệt hoặc trả về. Vì vậy dữ liệu sinh ra giống hệt dữ liệu thao tác tay: cùng kiểm tra quyền, cùng luật nghiệp vụ, có audit log, thông báo, lịch sử gợi ý AI, hội thoại HRGenie, và cache Redis được làm mới đúng cách. Thao tác nào API từ chối thì người ảo cũng bị từ chối; cuối mỗi lần chạy có thống kê số lần bị từ chối theo mã lỗi.
+
+Bộ mô phỏng chỉ giữ phần *quyết định của con người*: ai ốm, ai đi muộn, trưởng nhóm chọn ai, ai làm nhanh hay chậm. Phần này dựa trên "năng lực ẩn" cố định của từng nhân viên (`simulation-persona.ts`). Để các service "tưởng" đang ở ngày quá khứ, đồng hồ được dời tới từng thời điểm mô phỏng (`prisma/simulation/clock.ts`), và `createdAt`/`updatedAt` cũng lấy theo đồng hồ đó (`prisma/simulation/timestamps.ts`).
 
 ```bash
-npm run prisma:simulate                          # chạy bù tới hôm qua
-npm run prisma:simulate -- --until 2026-10-02    # hoặc tới một ngày cụ thể
+# Tạo DB mới chỉ có bộ khung công ty (phòng ban, nhân viên, tài khoản, kỹ năng)
+npx prisma migrate reset --force --skip-seed
+SEED_ORG_ONLY=true SEED_AS_OF=2026-01-31 npm run prisma:seed
+
+npm run prisma:simulate -- --from 2026-02-02 --max-days 400   # lần đầu: chọn ngày bắt đầu lịch sử
+npm run prisma:simulate                                       # các lần sau: chạy bù tới hôm qua
+npm run prisma:simulate -- --until 2026-10-02                 # hoặc tới một ngày cụ thể (không vượt quá hôm nay)
 ```
 
-- Mỗi ngày có một dự án mới hoặc một task nhóm lớn, thêm task cho các nhóm sắp hết việc và vài việc phát sinh nhỏ. Task mới chỉ gắn vào dự án mà nhóm đó đang tham gia. Trưởng nhóm giao task con, nhân viên log giờ, gửi duyệt, bị trả về sửa, xong đúng hạn hoặc trễ hạn; task quá hạn lâu của người yếu có thể bị chuyển giao.
-- Mỗi nhân viên có "năng lực ẩn" cố định, nên người giỏi luôn làm nhanh và ít phải sửa, người yếu hay trễ hạn và đi muộn.
-- Chấm công ra vào hằng ngày; có người nghỉ ốm, xin nghỉ phép rồi được duyệt, bị từ chối hoặc tự hủy.
-- Kỳ đánh giá theo quý tự mở và tự chốt, điểm tính từ dữ liệu task và chấm công thật trong quý. Đây chính là tín hiệu hiệu suất mà gợi ý người nhận task bằng AI sử dụng.
+- Lệnh `prisma:simulate` biên dịch bằng `tsc` (`tsconfig.simulate.json`, ra `dist-simulate/`) rồi chạy bằng `node`, vì dependency injection của NestJS cần metadata decorator mà `tsx` không sinh ra.
+- Tin nhắn HRGenie gửi tới `AI_SERVICE_URL`. Đặt `SIMULATION_AI_SERVICE_URL` để trỏ sang một bản AI service rule-based riêng, tránh tốn quota LLM cho vài nghìn câu hỏi mô phỏng.
+- Bộ mô phỏng dùng Redis ở `REDIS_HOST` (mặc định `localhost`, chính là Redis của docker compose), nên cache của API đang chạy luôn khớp dữ liệu mới.
+- Số giờ thực tế của task do trưởng nhóm ghi khi duyệt xong, vì trên API chỉ trưởng nhóm/trưởng phòng được sửa trường này. Trước lúc đó, số giờ đã làm được bộ mô phỏng giữ riêng.
 
-Tiến độ mô phỏng lưu ở `system_settings` (key `simulation`), nên chạy lại không tạo trùng ngày. `prisma migrate reset` sẽ xóa luôn tiến độ này.
+Tiến độ mô phỏng lưu ở `system_settings` (key `simulation`), nên chạy lại không tạo trùng ngày. `prisma migrate reset` sẽ xóa luôn tiến độ này. Mỗi ngày không nằm trong một transaction chung (mỗi request API tự commit như thật); nếu một lần chạy bị ngắt giữa ngày, hãy khôi phục DB hoặc chạy lại từ đầu.
 
 ### Đánh giá gợi ý người nhận task
 
@@ -90,6 +99,7 @@ Báo cáo ghi ra `eval_results/suggestions-eval.md`.
 
 - **Độ "quen tay"** giữa từng trưởng nhóm và từng thành viên (±0,15 điểm, cố định theo cặp, `leadAffinity`);
 - **Giao việc để kèm người mới**: 10% số lần trưởng nhóm cố ý giao cho intern/fresher/junior đang ít việc nhất, bất kể kỹ năng;
+- **Trưởng nhóm không bao giờ "nghe theo" AI**: họ xin gợi ý, nhưng chỉ chọn trong danh sách khi người họ đã định sẵn có mặt ở đó. Nhờ vậy việc đánh giá so ranking với quyết định của con người, không phải với chính nó;
 - 20% số lần chọn ngẫu nhiên, và **năng lực ẩn** (`simulation-persona.ts`) quyết định kết quả task nhưng không bao giờ được trưởng nhóm hay API đọc.
 
 Vì vậy thước đo chính là **năng lực ẩn** và **kết quả thực tế** (đúng hạn, số lần bị trả về) — không phải "trùng với người trưởng nhóm đã chọn". Dù vậy đây vẫn là dữ liệu giả lập: số liệu chứng minh thuật toán bắt được tín hiệu trong kịch bản này, không thay cho đánh giá trên dữ liệu công ty thật. Các yếu tố ẩn chỉ có hiệu lực với những ngày được mô phỏng sau khi thêm vào; muốn cả lịch sử phản ánh chúng, seed lại một DB đánh giá riêng rồi mô phỏng từ đầu.

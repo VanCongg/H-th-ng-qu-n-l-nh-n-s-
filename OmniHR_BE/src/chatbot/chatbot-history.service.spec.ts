@@ -35,4 +35,19 @@ describe("ChatbotHistoryService", () => {
     ]);
     expect(JSON.stringify(history)).not.toContain("12 ngày");
   });
+
+  it("never sends raw tool results to the planner", async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const service = new ChatbotHistoryService({
+      chatbotMessage: { findMany },
+    } as unknown as PrismaService);
+
+    await service.recentHistory(7, 12);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { conversationId: 7, role: { not: ChatbotMessageRole.TOOL } },
+      }),
+    );
+  });
 });

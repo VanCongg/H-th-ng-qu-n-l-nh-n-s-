@@ -90,10 +90,15 @@ export class AttendanceService {
     };
   }
 
+  /**
+   * A punch is not written to the audit log: the attendance record already
+   * says who, when, where and from which device, so a copy there only doubled
+   * the log. What is audited is an admin creating or correcting a record.
+   */
   async checkIn(
     user: AuthUser,
     dto: AttendanceActionDto,
-    context?: RequestContext
+    _context?: RequestContext
   ) {
     const employeeId = this.requireEmployee(user);
     const settings = await this.systemSettings.getSettings();
@@ -130,14 +135,6 @@ export class AttendanceService {
       });
     });
 
-    await this.audit.log({
-      userId: user.id,
-      action: "CHECK_IN",
-      entityType: "AttendanceRecord",
-      entityId: record.id,
-      newValue: record,
-      context
-    });
 
     return record;
   }
@@ -145,7 +142,7 @@ export class AttendanceService {
   async checkOut(
     user: AuthUser,
     dto: AttendanceActionDto,
-    context?: RequestContext
+    _context?: RequestContext
   ) {
     const employeeId = this.requireEmployee(user);
     const settings = await this.systemSettings.getSettings();
@@ -185,14 +182,6 @@ export class AttendanceService {
       });
     });
 
-    await this.audit.log({
-      userId: user.id,
-      action: "CHECK_OUT",
-      entityType: "AttendanceRecord",
-      entityId: record.id,
-      newValue: record,
-      context
-    });
 
     return record;
   }

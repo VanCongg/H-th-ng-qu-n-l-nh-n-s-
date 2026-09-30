@@ -332,7 +332,9 @@ function buildReport(input: {
       "không nên chọn nó: nó mở lại đúng đường rò rỉ giữa nhãn kết quả và tín hiệu lịch sử " +
       "mà `prisma/diagnostics.ts` đo được. Giá trị đang dùng là một lựa chọn có chủ ý, " +
       "không phải điểm tối ưu của hàm mục tiêu.",
-    "- Sức chứa tuần chỉ đổi thang của điểm tải việc, nên ảnh hưởng của nó nhỏ theo thiết kế.",
+    "- Sức chứa tuần đổi thang của điểm tải việc. Bảng trên cho biết giá trị nào khớp dữ liệu " +
+      "mô phỏng tốt hơn, nhưng đây là thông số chính sách (giờ làm chuẩn mỗi tuần của công ty), " +
+      "nên được đặt theo hợp đồng lao động chứ không chọn theo điểm.",
     ""
   );
 

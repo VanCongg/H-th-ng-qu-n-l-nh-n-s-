@@ -572,30 +572,9 @@ export class ChatbotToolsService {
 
   private async getMyManager(user: AuthUser) {
     const employeeId = this.requireEmployee(user);
-    const today = toDateOnly(new Date());
     const employee = await this.prisma.employee.findFirst({
       where: currentEmployeeWhere({ id: employeeId, status: EmployeeStatus.ACTIVE }),
-      include: {
-        department: {
-          include: {
-            manager: {
-              include: { department: true, position: true },
-            },
-          },
-        },
-        position: true,
-        subordinateRelations: {
-          where: {
-            isActive: true,
-            OR: [{ endDate: null }, { endDate: { gte: today } }],
-          },
-          include: {
-            manager: { include: { department: true, position: true } },
-          },
-          orderBy: { startDate: "desc" },
-          take: 1,
-        },
-      },
+      select: { id: true, fullName: true, department: { select: { name: true } }, position: { select: { name: true } } },
     });
     if (!employee) {
       throw new ApiError(
@@ -604,28 +583,26 @@ export class ChatbotToolsService {
         "EMPLOYEE_NOT_FOUND",
       );
     }
-
-    const departmentManager =
-      employee.department?.manager &&
-      employee.department.manager.id !== employee.id
-        ? employee.department.manager
+    const { direct, departmentHead, teamName } = await this.accessControl.managersOf(employeeId);
+    const person = (manager: typeof direct) =>
+      manager
+        ? {
+            employeeId: String(manager.id),
+            fullName: manager.fullName,
+            positionName: manager.position?.name ?? null,
+          }
         : null;
-    const directManager = employee.subordinateRelations[0]?.manager ?? null;
-    const manager = departmentManager ?? directManager;
 
     return {
       employeeId: String(employee.id),
       fullName: employee.fullName,
       departmentName: employee.department?.name ?? null,
       positionName: employee.position?.name ?? null,
-      manager: manager
-        ? {
-            employeeId: String(manager.id),
-            fullName: manager.fullName,
-            positionName: manager.position?.name ?? null,
-            departmentName: manager.department?.name ?? null,
-          }
-        : null,
+      teamName,
+      directManager: person(direct),
+      departmentHead: person(departmentHead),
+      // Kept for older clients: whoever decides first on a request.
+      manager: person(direct ?? departmentHead),
     };
   }
 
@@ -1397,7 +1374,24 @@ export class ChatbotToolsService {
       take: limit,
     });
 
+    // Nothing due in the window is not "no work": say what comes next.
+    const next =
+      !tasks.length && mode !== "overdue"
+        ? await this.prisma.task.findFirst({
+            where: {
+              assigneeId: employeeId,
+              deletedAt: null,
+              status: { in: ACTIVE_TASK_STATUSES },
+              dueDate: { gt: mode === "today" ? today : endDate },
+            },
+            orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
+            select: { title: true, dueDate: true },
+          })
+        : null;
+
     return {
+      mode,
+      days,
       items: tasks.map((task) => ({
         taskId: String(task.id),
         title: task.title,
@@ -1407,6 +1401,9 @@ export class ChatbotToolsService {
         projectName: task.project?.name ?? null,
         isOverdue: Boolean(task.dueDate && toDateOnly(task.dueDate) < today),
       })),
+      nextTask: next
+        ? { title: next.title, dueDate: next.dueDate ? this.dateKey(next.dueDate) : null }
+        : null,
     };
   }
 

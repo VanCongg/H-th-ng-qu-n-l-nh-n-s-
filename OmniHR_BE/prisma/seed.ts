@@ -1316,9 +1316,15 @@ async function main() {
   const employees = await seedEmployees(passwordHash, roleIds, admin.id, departmentIds, positionByCode);
   const teamIds = await seedTeamsAndManagers(employees, departmentIds);
   await seedEmployeeSkills(employees, positionByCode, skillIds);
-  const taskCount = await seedProjectsAndTasks(employees, departmentIds, teamIds, skillIds);
-  const approvedLeaveDays = await seedLeaveRequests(employees, leaveTypeByCode, admin.id);
-  const attendanceCount = await seedAttendance(employees, approvedLeaveDays);
+  // SEED_ORG_ONLY=true stops at the company itself - departments, people,
+  // accounts, skills - and leaves every project, task, leave request and
+  // punch to prisma/simulate-day.ts, which makes them through the API.
+  const orgOnly = process.env.SEED_ORG_ONLY === "true";
+  const taskCount = orgOnly ? 0 : await seedProjectsAndTasks(employees, departmentIds, teamIds, skillIds);
+  const approvedLeaveDays = orgOnly
+    ? new Map<number, Set<number>>()
+    : await seedLeaveRequests(employees, leaveTypeByCode, admin.id);
+  const attendanceCount = orgOnly ? 0 : await seedAttendance(employees, approvedLeaveDays);
 
   await prisma.auditLog.create({
     data: {
@@ -1329,9 +1335,9 @@ async function main() {
       newValue: {
         departments: departments.length,
         employees: employees.size,
-        projects: projects.length,
+        projects: orgOnly ? 0 : projects.length,
         tasks: taskCount,
-        leaveRequests: leaveRequests.length,
+        leaveRequests: orgOnly ? 0 : leaveRequests.length,
         attendanceRecords: attendanceCount
       }
     }
@@ -1494,7 +1500,7 @@ async function seedEmployees(
     const user = await prisma.user.create({
       data: {
         username,
-        email: `${username}@omnihr.vn`,
+        email: `${username}@gmail.com`,
         passwordHash,
         isActive: !terminatedOn,
         lastLoginAt: terminatedOn ? at(terminatedOn, hm("17:05")) : at(workday(-1), hm("08:02") + sequence),
@@ -1507,8 +1513,7 @@ async function seedEmployees(
       data: {
         employeeCode: seed.code,
         fullName: seed.fullName,
-        companyEmail: `${username}@omnihr.vn`,
-        personalEmail: `${username}.${seed.birthDate.slice(0, 4)}@gmail.com`,
+        personalEmail: `${username}@gmail.com`,
         phone: `09${String(12_345_678 + sequence * 7_919).slice(-8)}`,
         birthDate: dateOnly(seed.birthDate),
         hireDate: dateOnly(seed.hireDate),

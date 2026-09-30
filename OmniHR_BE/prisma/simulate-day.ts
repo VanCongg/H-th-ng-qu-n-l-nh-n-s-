@@ -3,42 +3,63 @@
  * from. Each run replays every workday since the previous run (up to yesterday,
  * company time) as if the company had lived it:
  *
- * - leave: pending requests are approved, rejected or withdrawn; a few people
- *   call in sick, others file annual leave for the coming weeks;
- * - attendance: everyone not on leave checks in and out, with lateness,
- *   forgotten check-outs and the odd unexplained absence;
- * - work: one new project or large team task per day, extra team tasks for
- *   teams running out of work, and a few quick jobs;
- *   leads assign subtasks, people log hours, submit for review, get sent back
- *   for rework, and finish on time or late;
+ * - leave: people call in sick, file annual leave (in the app or by asking
+ *   HRGenie), managers approve, reject, or accept a request to cancel;
+ * - attendance: everyone not on leave checks in and out from the mobile app,
+ *   with lateness, forgotten check-outs and the odd unexplained absence;
+ * - work: department heads open projects and team tasks, leads split them
+ *   into subtasks and assign them (usually after asking for AI suggestions),
+ *   people start, hand in for review, get sent back for rework, and finish on
+ *   time or late;
+ * - HRGenie: a few people a day ask it about their leave, tasks and policies.
  *
- * Every employee has a stable hidden persona (ability, discipline), so the
- * same people keep doing well or badly. Progress is stored in the `simulation`
- * system setting, so a day is never replayed.
+ * Every one of those actions goes through the API's own services, as the
+ * person doing it: the same permission checks, validation, audit log,
+ * notifications and cache invalidation a click in the web or mobile app gets.
+ * What stays with the simulator is only what a person decides - who is off
+ * sick, who a lead picks, how fast someone works - driven by a stable hidden
+ * persona per employee (ability, discipline), so the same people keep doing
+ * well or badly. The clock the services read is moved to each simulated
+ * moment (see simulation/clock.ts and simulation/timestamps.ts).
  *
+ * The API refuses what it would refuse a real person; those refusals are
+ * counted and printed, not worked around.
+ *
+ *   npm run prisma:simulate -- --from 2026-02-02      # first run: where history starts
  *   npm run prisma:simulate                          # catch up to yesterday
  *   npm run prisma:simulate -- --until 2026-10-02    # or up to a given date
+ *
+ * HRGenie's chats go to AI_SERVICE_URL, or SIMULATION_AI_SERVICE_URL when set
+ * (point it at a rule-based instance to keep an LLM quota out of it).
  */
-import "dotenv/config";
+// First: the environment the API boots with.
+import "./simulation/env";
 import {
-  AttendanceRecordType,
-  AttendanceShift,
   AttendanceStatus,
+  AttendanceRecordType,
   CareerLevel,
   EmployeeStatus,
   LeaveHalf,
   LeaveRequestStatus,
   ManagerType,
-  NotificationType,
   Prisma,
-  PrismaClient,
   ProjectStatus,
   SkillProficiency,
-  TaskAssignmentType,
   TaskPriority,
   TaskSkillImportance,
   TaskStatus
 } from "@prisma/client";
+import { ApiError } from "../src/common/api-error";
+import type { AuthUser } from "../src/common/types";
+import { SimulationApi, startSimulationApi } from "./simulation/api";
+import { installClock, setNow, uninstallClock } from "./simulation/clock";
+import {
+  clampToToday,
+  FALLBACK_OFFICE,
+  internalProjectCode,
+  isInternalProjectCode,
+  officeFrom
+} from "./simulation/rules";
 import {
   Persona,
   buildPersona,
@@ -48,32 +69,19 @@ import {
   hashString
 } from "./simulation-persona";
 
-const prisma = new PrismaClient();
-type Tx = Prisma.TransactionClient;
-
 const TZ_OFFSET_MINUTES = 420;
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 const STATE_KEY = "simulation";
 const MAX_DAYS_PER_RUN = 92;
-/**
- * Where punches are generated when system settings carry no company location.
- * The seed leaves those null on purpose, so the radius is not enforced and
- * this is the only coordinate available.
- */
-const FALLBACK_OFFICE = { latitude: 21.0227, longitude: 105.8466 };
-const SHIFTS = [
-  { shift: AttendanceShift.MORNING, start: 8 * 60, end: 12 * 60 },
-  { shift: AttendanceShift.AFTERNOON, start: 13 * 60, end: 17 * 60 }
-];
-const EARLY_CHECK_IN_MINUTES = 60;
+/** How far a punch strays from the office point, in degrees (~30 m). */
+const PUNCH_SPREAD = 0.0006;
 
 const { TODO, IN_PROGRESS, IN_REVIEW, DONE, CANCELLED } = TaskStatus;
 const OPEN_TASK_STATUSES = [TODO, IN_PROGRESS, IN_REVIEW];
 /** Levels a lead may hand a stretch task to, and how often they do. */
 const JUNIOR_LEVELS = new Set<CareerLevel>([CareerLevel.INTERN, CareerLevel.FRESHER, CareerLevel.JUNIOR]);
 const MENTORING_CHANCE = 0.1;
-const ACTIVE_LEAVE_STATUSES = [LeaveRequestStatus.PENDING, LeaveRequestStatus.APPROVED];
 const PRIORITY_RANK: Record<TaskPriority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 const PROFICIENCY_RANK: Record<SkillProficiency, number> = {
   BEGINNER: 1,
@@ -579,6 +587,45 @@ const ASSIGN_NOTES = [
   "Phân công trong buổi họp nhóm đầu tuần",
   "Nhờ hỗ trợ vì đang ít việc"
 ];
+const APPROVE_NOTES = [
+  "Đạt yêu cầu, cảm ơn em.",
+  "Đã review, ổn.",
+  "OK, merge được rồi.",
+  "Đạt, lưu ý cập nhật tài liệu kèm theo."
+];
+const REWORK_NOTES = [
+  "Còn thiếu một số trường hợp biên, em bổ sung giúp anh/chị.",
+  "Chưa đạt tiêu chí nghiệm thu, xem lại phần xử lý lỗi.",
+  "Cần viết thêm test trước khi duyệt.",
+  "Kết quả chưa khớp yêu cầu, em đối chiếu lại đặc tả nhé."
+];
+const SUBMIT_NOTES = ["Em đã làm xong, nhờ anh/chị review.", "Đã hoàn thành, mời review.", undefined];
+const DROP_NOTES = ["Yêu cầu thay đổi, không cần làm nữa.", "Khách hàng hủy hạng mục này."];
+
+/** What people ask HRGenie about their own day. */
+const EMPLOYEE_QUESTIONS = [
+  "Tôi còn bao nhiêu ngày phép?",
+  "Hôm nay tôi đã chấm công chưa?",
+  "Tuần này tôi có task nào đến hạn không?",
+  "Các task tôi đang làm là gì?",
+  "Đơn nghỉ phép của tôi đã được duyệt chưa?",
+  "Quản lý trực tiếp của tôi là ai?",
+  "Giờ làm việc của công ty thế nào?",
+  "Đi muộn thì bị xử lý thế nào?",
+  "Công ty có những chế độ phúc lợi gì?",
+  "Mã nhân viên của tôi là gì?",
+  "Hôm nay ai nghỉ phép?",
+  "Nghỉ ốm cần giấy tờ gì không?"
+];
+/** What leads and heads ask on top of that. */
+const MANAGER_QUESTIONS = [
+  "Sáng nay team mình ai đi muộn?",
+  "Nhóm tôi còn bao nhiêu việc chưa xong?",
+  "Tuần sau có ai trong team xin nghỉ không?",
+  "Phòng mình hiện có bao nhiêu nhân sự?",
+  "Hôm nay ai vắng mặt?"
+];
+
 // ---------------------------------------------------------------------------
 // Simulation context and state
 // ---------------------------------------------------------------------------
@@ -590,6 +637,7 @@ type SimEmployee = {
   userId: number | null;
   level: CareerLevel;
   hireDate: Date | null;
+  departmentId: number | null;
   isHead: boolean;
   isLead: boolean;
   managerUserId: number | null;
@@ -607,12 +655,7 @@ type Context = {
   skillIds: Map<string, number>;
   leaveTypes: Map<string, { id: number; annualAllowance: number | null }>;
   adminUserId: number;
-  /** Notifications older than this are created as already read. */
-  readBefore: Date;
-  /**
-   * The configured company location, so generated punches land inside the
-   * attendance radius instead of drifting away from it once an admin sets one.
-   */
+  /** The company location punches are taken around. */
   office: { latitude: number; longitude: number };
 };
 
@@ -621,6 +664,36 @@ type SimulationState = {
   sequence: number;
   /** Extra hours a task still needs after failing review, by task id. */
   rework: Record<string, number>;
+  /**
+   * Hours put into each open task so far. Only the lead can write actual
+   * hours in the API, and does so when accepting the work, so until then the
+   * running total lives here, the way it lives in the assignee's head.
+   */
+  logged: Record<string, number>;
+  /** Product projects still taking new work, by project id. */
+  projects: Record<string, ProjectPlan>;
+  /** The day each department last opened a product project, by department id. */
+  lastProjectOn: Record<string, string>;
+};
+
+/**
+ * A product project as its department head planned it: which teams work on
+ * it, and until when it takes new work. Past that date the teams finish what
+ * is open and the project closes - two to three months in all.
+ */
+type ProjectPlan = {
+  code: string;
+  topic: string;
+  departmentId: number;
+  /** The team that asked for it first; the others join as they free up. */
+  teamIds: number[];
+  start: string;
+  /** Last day new work is added. */
+  freeze: string;
+  /** Sprints (rounds, outside IT) planned so far, by team id. */
+  phases: Record<string, number>;
+  /** Each team's name for its part of the project, by team id: "Web: đặt phòng họp". */
+  titles?: Record<string, string>;
 };
 
 type Totals = {
@@ -643,12 +716,27 @@ type Totals = {
   newTasks: number;
   assignments: number;
   reassignments: number;
+  aiSuggestions: number;
+  aiPicked: number;
   started: number;
   submitted: number;
   completed: number;
   completedLate: number;
   reworks: number;
   cancelled: number;
+  chats: number;
+  chatLeaves: number;
+  notificationsRead: number;
+  /** What the API refused, by error code. */
+  refused: Record<string, number>;
+};
+
+/** One person's day at the office, decided in the morning. */
+type Presence = {
+  employee: SimEmployee;
+  checkIn: number;
+  checkOut: number | null;
+  hours: number;
 };
 
 /**
@@ -656,21 +744,36 @@ type Totals = {
  * once in main(): nobody works, files leave or is absent on them.
  */
 let holidays: ReadonlySet<number> = new Set();
+let api: SimulationApi;
+/** The workday being replayed; every request of the day happens on it. */
+let currentDay: Date;
 
 async function main() {
   if (process.env.NODE_ENV === "production") {
     throw new Error("The simulator writes synthetic data and refuses to run with NODE_ENV=production.");
   }
-  holidays = new Set(
-    (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
-  );
-
   const options = parseArgs(process.argv.slice(2));
+  installClock();
+  api = await startSimulationApi();
+  try {
+    await run(options);
+  } finally {
+    setNow(null);
+    await api.close();
+    uninstallClock();
+  }
+}
+
+async function run(options: ReturnType<typeof parseArgs>) {
+  holidays = new Set(
+    (await api.prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
+  );
   const today = companyToday(new Date());
   const until = options.until ?? addDays(today, -1);
-  const state = await loadState();
-  const context = await loadContext(state, addDays(until, -2));
+  const state = await loadState(options.from);
+  const context = await loadContext();
   const totals = createTotals();
+  await ensureCompanyLocation(context, addDays(dateOnly(state.lastDate), 1));
 
   let processed = 0;
   for (let day = addDays(dateOnly(state.lastDate), 1); day <= until; day = addDays(day, 1)) {
@@ -680,46 +783,35 @@ async function main() {
     }
     processed += 1;
 
-    if (!isWorkday(day)) {
-      state.lastDate = iso(day);
-      await saveState(prisma, state);
-      continue;
+    if (isWorkday(day)) {
+      currentDay = day;
+      await simulateDay(context, state, day, totals);
+      totals.days.push(iso(day));
+      console.info(`✓ ${iso(day)}`);
     }
-
-    await prisma.$transaction(
-      async (tx) => {
-        await simulateDay(tx, context, state, day, totals);
-        state.lastDate = iso(day);
-        await saveState(tx, state);
-      },
-      { maxWait: 30_000, timeout: 600_000 }
-    );
-    totals.days.push(iso(day));
-    console.info(`✓ ${iso(day)}`);
+    state.lastDate = iso(day);
+    await saveState(state);
   }
 
+  setNow(null);
   printSummary(totals, state);
   await printPerformers(context, dateOnly(state.lastDate));
 }
 
-/**
- * The simulator fills in history; it must never invent a future. `--until` is
- * therefore clamped to today, so no dataset can end up containing attendance,
- * tasks or leave for a date that has not happened yet.
- */
-export function clampToToday(until: Date, today: Date) {
-  return until > today ? today : until;
-}
-
 function parseArgs(args: string[], today = companyToday(new Date())) {
   let until: Date | null = null;
+  let from: Date | null = null;
   let maxDays = MAX_DAYS_PER_RUN;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (arg === "--until") {
+    if (arg === "--until" || arg === "--from") {
       const requested = dateOnly(args[++index] ?? "");
       if (Number.isNaN(requested.getTime())) {
-        throw new Error("--until expects a date in YYYY-MM-DD format");
+        throw new Error(`${arg} expects a date in YYYY-MM-DD format`);
+      }
+      if (arg === "--from") {
+        from = requested;
+        continue;
       }
       until = clampToToday(requested, today);
       if (until < requested) {
@@ -736,66 +828,78 @@ function parseArgs(args: string[], today = companyToday(new Date())) {
       throw new Error(`Unknown option ${arg}`);
     }
   }
-  return { until, maxDays };
+  return { until, from, maxDays };
 }
 
-async function loadState(): Promise<SimulationState> {
-  const record = await prisma.systemSetting.findUnique({ where: { key: STATE_KEY } });
+async function loadState(from: Date | null): Promise<SimulationState> {
+  const record = await api.prisma.systemSetting.findUnique({ where: { key: STATE_KEY } });
   if (record) {
+    if (from) {
+      throw new Error(`--from chỉ dùng cho lần chạy đầu; dữ liệu đã mô phỏng tới ${(record.value as { lastDate?: string }).lastDate}.`);
+    }
     const value = record.value as Partial<SimulationState>;
     return {
       lastDate: value.lastDate ?? iso(addDays(companyToday(new Date()), -1)),
       sequence: value.sequence ?? 0,
-      rework: value.rework ?? {}
+      rework: value.rework ?? {},
+      logged: value.logged ?? {},
+      projects: value.projects ?? {},
+      lastProjectOn: value.lastProjectOn ?? {}
     };
   }
-
-  // First run: continue right after the seeded attendance history.
-  const latestAttendance = await prisma.attendanceRecord.aggregate({ _max: { workDate: true } });
+  if (from) {
+    return { lastDate: iso(addDays(from, -1)), sequence: 0, rework: {}, logged: {}, projects: {}, lastProjectOn: {} };
+  }
+  // A database seeded with its anchor month: continue right after it.
+  const latestAttendance = await api.prisma.attendanceRecord.aggregate({ _max: { workDate: true } });
+  if (!latestAttendance._max.workDate) {
+    throw new Error("Chưa có lịch sử nào: chạy lần đầu với --from YYYY-MM-DD để chọn ngày bắt đầu.");
+  }
   return {
-    lastDate: iso(latestAttendance._max.workDate ?? addDays(companyToday(new Date()), -2)),
+    lastDate: iso(latestAttendance._max.workDate),
     sequence: 0,
-    rework: {}
+    rework: {},
+    logged: {},
+    projects: {},
+    lastProjectOn: {}
   };
 }
 
-/**
- * The company point an admin configured, or [FALLBACK_OFFICE] when none is set.
- * Punches are scattered within ~30m of it, which keeps a simulated day inside
- * whatever attendance radius the settings ask for.
- */
-export function officeFrom(settingsValue: unknown) {
-  const value = (settingsValue ?? {}) as Record<string, unknown>;
-  const latitude = value.companyLatitude;
-  const longitude = value.companyLongitude;
-  if (
-    typeof latitude === "number" &&
-    Number.isFinite(latitude) &&
-    typeof longitude === "number" &&
-    Number.isFinite(longitude)
-  ) {
-    return { latitude, longitude };
-  }
-  return FALLBACK_OFFICE;
-}
-
-async function loadOffice() {
-  const record = await prisma.systemSetting.findUnique({ where: { key: "default" } });
-  return officeFrom(record?.value);
-}
-
-async function saveState(client: Tx, state: SimulationState) {
+/** Simulator bookkeeping, not company data, so it is written directly. */
+async function saveState(state: SimulationState) {
   const value = state as unknown as Prisma.InputJsonValue;
-  await client.systemSetting.upsert({
+  await api.prisma.systemSetting.upsert({
     where: { key: STATE_KEY },
     create: { key: STATE_KEY, value },
     update: { value }
   });
 }
 
-async function loadContext(state: SimulationState, readBefore: Date): Promise<Context> {
+/**
+ * Attendance needs a company point to check the radius against. An admin
+ * sets it once, from the web settings page, before the first check-in.
+ */
+async function ensureCompanyLocation(ctx: Context, firstDay: Date) {
+  const settings = await api.dashboard.getSettings();
+  if (settings.companyLatitude === null || settings.companyLongitude === null) {
+    setNow(at(firstDay, hm("07:00")));
+    await api.dashboard.updateSettings(
+      {
+        companyLatitude: FALLBACK_OFFICE.latitude,
+        companyLongitude: FALLBACK_OFFICE.longitude,
+        attendanceRadiusMeters: 150,
+        requireAttendanceLocation: true
+      },
+      await api.actor(ctx.adminUserId),
+      api.from("web")
+    );
+  }
+  ctx.office = officeFrom(await api.dashboard.getSettings());
+}
+
+async function loadContext(): Promise<Context> {
   const [employees, teams, departments, skills, leaveTypes, admin, managers] = await Promise.all([
-    prisma.employee.findMany({
+    api.prisma.employee.findMany({
       where: { deletedAt: null, status: EmployeeStatus.ACTIVE },
       select: {
         id: true,
@@ -809,7 +913,7 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
       },
       orderBy: { id: "asc" }
     }),
-    prisma.team.findMany({
+    api.prisma.team.findMany({
       where: { deletedAt: null, isActive: true },
       select: {
         id: true,
@@ -821,15 +925,15 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
       },
       orderBy: { id: "asc" }
     }),
-    prisma.department.findMany({ where: { deletedAt: null }, select: { id: true, code: true, managerId: true } }),
-    prisma.skill.findMany({ select: { id: true, code: true } }),
-    prisma.leaveType.findMany({ where: { isActive: true }, select: { id: true, code: true, annualAllowance: true } }),
-    prisma.user.findFirst({
+    api.prisma.department.findMany({ where: { deletedAt: null }, select: { id: true, code: true, managerId: true } }),
+    api.prisma.skill.findMany({ select: { id: true, code: true } }),
+    api.prisma.leaveType.findMany({ where: { isActive: true }, select: { id: true, code: true, annualAllowance: true } }),
+    api.prisma.user.findFirst({
       where: { deletedAt: null, userRoles: { some: { role: { name: "ADMIN" } } } },
       select: { id: true },
       orderBy: { id: "asc" }
     }),
-    prisma.employeeManager.findMany({
+    api.prisma.employeeManager.findMany({
       where: { isActive: true, managerType: ManagerType.DIRECT },
       select: { employeeId: true, manager: { select: { userId: true, status: true } } }
     })
@@ -855,8 +959,7 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
     skillIds: new Map(skills.map((skill) => [skill.code, skill.id])),
     leaveTypes: new Map(leaveTypes.map((type) => [type.code, { id: type.id, annualAllowance: type.annualAllowance }])),
     adminUserId: admin.id,
-    readBefore,
-    office: await loadOffice()
+    office: FALLBACK_OFFICE
   };
 
   for (const employee of employees) {
@@ -874,6 +977,7 @@ async function loadContext(state: SimulationState, readBefore: Date): Promise<Co
       userId: employee.userId,
       level: employee.careerLevel,
       hireDate: employee.hireDate,
+      departmentId: employee.departmentId,
       isHead: departmentList.some((item) => item.headId === employee.id),
       isLead: teams.some((team) => team.leadId === employee.id),
       managerUserId: directManager?.manager.userId ?? headUserId,
@@ -906,38 +1010,109 @@ function createTotals(): Totals {
     newTasks: 0,
     assignments: 0,
     reassignments: 0,
+    aiSuggestions: 0,
+    aiPicked: 0,
     started: 0,
     submitted: 0,
     completed: 0,
     completedLate: 0,
     reworks: 0,
     cancelled: 0,
+    chats: 0,
+    chatLeaves: 0,
+    notificationsRead: 0,
+    refused: {}
   };
+}
+
+// ---------------------------------------------------------------------------
+// Acting through the API
+// ---------------------------------------------------------------------------
+
+/** The error code of the last request the API refused, for callers that react to it. */
+let lastRefusal: string | null = null;
+
+function refusalOf(error: unknown) {
+  return error instanceof ApiError ? error : null;
+}
+
+/**
+ * One request, made at `minute` (company time) on the day being replayed, as
+ * the first of `userIds` the API lets do it: a lead first, say, then the
+ * department head, then an admin - who a real person would turn to when told
+ * "you cannot do that". Any other refusal is counted and the request dropped.
+ */
+async function act<T>(
+  totals: Totals,
+  minute: number,
+  userIds: Array<number | null | undefined>,
+  request: (actor: AuthUser) => Promise<T>
+): Promise<T | null> {
+  setNow(at(currentDay, minute));
+  lastRefusal = null;
+  const tried = new Set<number>();
+  for (const userId of userIds) {
+    if (!userId || tried.has(userId)) {
+      continue;
+    }
+    tried.add(userId);
+    try {
+      return await request(await api.actor(userId));
+    } catch (error) {
+      const refusal = refusalOf(error);
+      if (!refusal) {
+        throw error;
+      }
+      lastRefusal = refusal.errorCode;
+      if (refusal.getStatus() === 403) {
+        continue;
+      }
+      break;
+    }
+  }
+  if (lastRefusal) {
+    totals.refused[lastRefusal] = (totals.refused[lastRefusal] ?? 0) + 1;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
 // One simulated workday
 // ---------------------------------------------------------------------------
 
-async function simulateDay(tx: Tx, ctx: Context, state: SimulationState, day: Date, totals: Totals) {
+async function simulateDay(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   random = createRandom(hashString(`omnihr-simulation:${iso(day)}`));
 
-  await settleCancellationRequests(tx, ctx, day, totals);
-  const { onLeave, halfOff } = await settleLeaveRequests(tx, ctx, day, totals);
-  await fileLeaveRequests(tx, ctx, day, onLeave, totals);
-  const presence = await recordAttendance(tx, ctx, day, onLeave, totals, halfOff);
-  await createNewWork(tx, ctx, state, day, totals);
-  await assignTasks(tx, ctx, day, onLeave, totals);
-  await progressTasks(tx, ctx, state, day, presence, totals);
-  await syncParentTasks(tx);
-  await syncProjects(tx, day, totals);
+  await settleCancellationRequests(ctx, day, totals);
+  await settleLeaveRequests(ctx, day, totals);
+  await callInSick(ctx, day, totals);
+  const { onLeave, halfOff } = await leaveToday(day);
+  const presence = planPresence(ctx, day, onLeave, halfOff, totals);
+  await checkIn(ctx, presence, totals);
+  await fileLeaveRequests(ctx, day, onLeave, presence, totals);
+  await createNewWork(ctx, state, day, totals);
+  await assignTasks(ctx, state, day, onLeave, totals);
+  await chatWithGenie(presence, totals);
+  await progressTasks(ctx, state, day, presence, totals);
+  // Leads review at the end of the day, today's submissions included.
+  await reviewTasks(ctx, state, day, totals);
+  await syncProjects(ctx, state, day, totals);
+  await readNotifications(presence, totals);
+  await checkOut(ctx, presence, totals);
 }
 
 // --- Leave ------------------------------------------------------------------
 
-/** Decides pending requests and returns who is on approved leave today. */
-async function settleLeaveRequests(tx: Tx, ctx: Context, day: Date, totals: Totals) {
-  const pending = await tx.leaveRequest.findMany({
+/** Who decides on an employee's leave: their manager, else an admin. */
+function leaveDeciders(ctx: Context, employee: SimEmployee | undefined, preferred?: number | null) {
+  return [preferred, employee?.managerUserId, ctx.adminUserId].filter(
+    (userId) => userId && userId !== employee?.userId
+  );
+}
+
+/** Decides pending requests filed before today. */
+async function settleLeaveRequests(ctx: Context, day: Date, totals: Totals) {
+  const pending = await api.prisma.leaveRequest.findMany({
     where: { status: LeaveRequestStatus.PENDING, createdAt: { lt: at(day, 0) } },
     orderBy: { createdAt: "asc" }
   });
@@ -949,49 +1124,146 @@ async function settleLeaveRequests(tx: Tx, ctx: Context, day: Date, totals: Tota
     if (employee && !started && !chance(0.55)) {
       continue;
     }
-    const decidedAt = at(day, randomInt(hm("08:30"), hm("16:30")));
+    const minute = randomInt(hm("08:30"), hm("16:30"));
+    if (!employee) {
+      // Its owner has left: an admin clears it.
+      if (await act(totals, minute, [ctx.adminUserId], (actor) => api.leave.cancel(request.id, actor, api.from("web")))) {
+        totals.leaveCancelled += 1;
+      }
+      continue;
+    }
     const workedDuringLeave =
       started &&
-      (await tx.attendanceRecord.count({
+      (await api.prisma.attendanceRecord.count({
         where: { employeeId: request.employeeId, workDate: { gte: request.startDate, lte: request.endDate, lt: day } }
       })) > 0;
-
-    if (!employee || workedDuringLeave || (!started && chance(0.06))) {
-      await tx.leaveRequest.update({
-        where: { id: request.id },
-        data: { status: LeaveRequestStatus.CANCELLED, canceledAt: decidedAt }
-      });
-      totals.leaveCancelled += 1;
+    if (workedDuringLeave || (!started && chance(0.06))) {
+      // Plans changed: the employee withdraws it before anyone decides.
+      if (await act(totals, minute, [employee.userId], (actor) => api.leave.cancel(request.id, actor, api.from("mobile")))) {
+        totals.leaveCancelled += 1;
+      }
       continue;
     }
 
-    const rejected = chance(0.12);
-    const rejectionReason = rejected ? pick(REJECTION_REASONS) : null;
-    await tx.leaveRequest.update({
-      where: { id: request.id },
-      data: {
-        status: rejected ? LeaveRequestStatus.REJECTED : LeaveRequestStatus.APPROVED,
-        approverUserId: employee.managerUserId ?? ctx.adminUserId,
-        approvedAt: rejected ? null : decidedAt,
-        rejectionReason
+    const deciders = leaveDeciders(ctx, employee);
+    if (chance(0.12)) {
+      const rejected = await act(totals, minute, deciders, (actor) =>
+        api.leave.reject(request.id, { rejectionReason: pick(REJECTION_REASONS) }, actor, api.from("web"))
+      );
+      if (rejected) {
+        totals.leaveRejected += 1;
       }
-    });
-    await notify(tx, ctx, employee.userId, {
-      type: rejected ? NotificationType.LEAVE_REJECTED : NotificationType.LEAVE_APPROVED,
-      title: rejected ? "Leave request rejected" : "Leave request approved",
-      message: rejectionReason ?? `Your leave request from ${iso(request.startDate)} to ${iso(request.endDate)} was approved.`,
-      entityType: "LeaveRequest",
-      entityId: request.id,
-      createdAt: decidedAt
-    });
-    if (rejected) {
-      totals.leaveRejected += 1;
-    } else {
+      continue;
+    }
+    const approved = await act(totals, minute, deciders, (actor) =>
+      api.leave.approve(request.id, actor, api.from("web"))
+    );
+    if (approved) {
       totals.leaveApproved += 1;
+    } else if (lastRefusal === "LEAVE_BALANCE_INSUFFICIENT") {
+      // The approve button said no: the manager turns it down instead.
+      const rejected = await act(totals, minute + 1, deciders, (actor) =>
+        api.leave.reject(
+          request.id,
+          { rejectionReason: "Không đủ số ngày phép còn lại, em cân nhắc chuyển sang nghỉ không lương." },
+          actor,
+          api.from("web")
+        )
+      );
+      if (rejected) {
+        totals.leaveRejected += 1;
+      }
+    }
+  }
+}
+
+/**
+ * Approved leave that is still ahead is sometimes withdrawn: the employee
+ * asks, the manager (whoever approved it) decides within a few days and
+ * always before the leave starts - mostly yes, sometimes "keep it".
+ */
+async function settleCancellationRequests(ctx: Context, day: Date, totals: Totals) {
+  const asked = await api.prisma.leaveRequest.findMany({
+    where: { status: LeaveRequestStatus.APPROVED, cancelRequestedAt: { lt: at(day, 0) } },
+    orderBy: { cancelRequestedAt: "asc" }
+  });
+  for (const request of asked) {
+    const employee = ctx.employees.get(request.employeeId);
+    const due = request.startDate <= addWorkdays(day, 1);
+    if (!due && !chance(0.6)) {
+      continue;
+    }
+    const minute = randomInt(hm("08:30"), hm("16:30"));
+    const deciders = leaveDeciders(ctx, employee, request.approverUserId);
+    if (chance(0.8)) {
+      if (await act(totals, minute, deciders, (actor) => api.leave.approveCancellation(request.id, actor, api.from("web")))) {
+        totals.cancelApproved += 1;
+      }
+    } else if (
+      await act(totals, minute, deciders, (actor) =>
+        api.leave.rejectCancellation(request.id, { rejectionReason: pick(CANCEL_KEEP_REASONS) }, actor, api.from("web"))
+      )
+    ) {
+      totals.cancelRejected += 1;
     }
   }
 
-  const approved = await tx.leaveRequest.findMany({
+  const upcoming = await api.prisma.leaveRequest.findMany({
+    where: {
+      status: LeaveRequestStatus.APPROVED,
+      cancelRequestedAt: null,
+      startDate: { gt: addWorkdays(day, 2) }
+    }
+  });
+  for (const request of upcoming) {
+    const employee = ctx.employees.get(request.employeeId);
+    if (!employee || !chance(0.01)) {
+      continue;
+    }
+    const asked = await act(totals, randomInt(hm("08:30"), hm("17:00")), [employee.userId], (actor) =>
+      api.leave.cancel(request.id, actor, api.from("mobile"), pick(CANCEL_REASONS))
+    );
+    if (asked) {
+      totals.cancelRequested += 1;
+    }
+  }
+}
+
+/** Called in sick this morning, from the app; the manager approves it first thing. */
+async function callInSick(ctx: Context, day: Date, totals: Totals) {
+  const sick = ctx.leaveTypes.get("SICK_LEAVE");
+  if (!sick) {
+    return;
+  }
+  const { onLeave } = await leaveToday(day);
+  for (const employee of ctx.employees.values()) {
+    if (!employee.userId || onLeave.has(employee.id) || !hired(employee, day) || !chance(employee.persona.sickRate)) {
+      continue;
+    }
+    const endDate = chance(0.25) ? addWorkdays(day, 1) : day;
+    const request = await act(totals, randomInt(hm("06:30"), hm("07:50")), [employee.userId], (actor) =>
+      api.leave.create(
+        { leaveTypeId: sick.id, startDate: iso(day), endDate: iso(endDate), reason: pick(SICK_REASONS) },
+        actor,
+        api.from("mobile")
+      )
+    );
+    if (!request) {
+      continue;
+    }
+    totals.sickLeaves += 1;
+    const approved = await act(totals, randomInt(hm("08:10"), hm("10:00")), leaveDeciders(ctx, employee), (actor) =>
+      api.leave.approve(request.id, actor, api.from("web"))
+    );
+    if (approved) {
+      totals.leaveApproved += 1;
+    }
+  }
+}
+
+/** Who is off today on approved leave, all day or for one shift. */
+async function leaveToday(day: Date) {
+  const approved = await api.prisma.leaveRequest.findMany({
     where: { status: LeaveRequestStatus.APPROVED, startDate: { lte: day }, endDate: { gte: day } },
     select: { employeeId: true, halfDay: true }
   });
@@ -1008,249 +1280,120 @@ async function settleLeaveRequests(tx: Tx, ctx: Context, day: Date, totals: Tota
 }
 
 /**
- * Approved leave that is still ahead is sometimes withdrawn: the employee
- * asks, the manager (whoever approved it) decides within a few days and
- * always before the leave starts - mostly yes, sometimes "keep it".
+ * Planned leave, filed a few days to a few weeks ahead - usually in the app,
+ * sometimes by asking HRGenie. When annual leave has run out, some switch to
+ * unpaid leave; the rest give up.
  */
-async function settleCancellationRequests(tx: Tx, ctx: Context, day: Date, totals: Totals) {
-  const asked = await tx.leaveRequest.findMany({
-    where: { status: LeaveRequestStatus.APPROVED, cancelRequestedAt: { lt: at(day, 0) } },
-    orderBy: { cancelRequestedAt: "asc" }
-  });
-  for (const request of asked) {
-    const employee = ctx.employees.get(request.employeeId);
-    const due = request.startDate <= addWorkdays(day, 1);
-    if (!due && !chance(0.6)) {
-      continue;
-    }
-    const decidedAt = at(day, randomInt(hm("08:30"), hm("16:30")));
-    const accepted = chance(0.8);
-    if (accepted) {
-      await tx.leaveRequest.update({
-        where: { id: request.id },
-        data: { status: LeaveRequestStatus.CANCELLED, canceledAt: decidedAt }
-      });
-      totals.cancelApproved += 1;
-    } else {
-      await tx.leaveRequest.update({
-        where: { id: request.id },
-        data: { cancelRequestedAt: null, cancelRequestReason: null }
-      });
-      totals.cancelRejected += 1;
-    }
-    if (employee) {
-      await notify(tx, ctx, employee.userId, {
-        type: accepted ? NotificationType.LEAVE_CANCEL_APPROVED : NotificationType.LEAVE_CANCEL_REJECTED,
-        title: accepted ? "Leave cancellation approved" : "Leave cancellation rejected",
-        message: accepted
-          ? `Your leave from ${iso(request.startDate)} to ${iso(request.endDate)} was cancelled.`
-          : pick(CANCEL_KEEP_REASONS),
-        entityType: "LeaveRequest",
-        entityId: request.id,
-        createdAt: decidedAt
-      });
-    }
-  }
-
-  const upcoming = await tx.leaveRequest.findMany({
-    where: {
-      status: LeaveRequestStatus.APPROVED,
-      cancelRequestedAt: null,
-      startDate: { gt: addWorkdays(day, 2) }
-    }
-  });
-  for (const request of upcoming) {
-    const employee = ctx.employees.get(request.employeeId);
-    if (!employee || !chance(0.01)) {
-      continue;
-    }
-    const askedAt = at(day, randomInt(hm("08:30"), hm("17:00")));
-    await tx.leaveRequest.update({
-      where: { id: request.id },
-      data: { cancelRequestedAt: askedAt, cancelRequestReason: pick(CANCEL_REASONS) }
-    });
-    totals.cancelRequested += 1;
-    await notify(tx, ctx, request.approverUserId ?? employee.managerUserId, {
-      type: NotificationType.LEAVE_CANCEL_REQUESTED,
-      title: "Leave cancellation requested",
-      message: `${employee.fullName} asked to cancel their leave from ${iso(request.startDate)} to ${iso(request.endDate)}.`,
-      entityType: "LeaveRequest",
-      entityId: request.id,
-      createdAt: askedAt
-    });
-  }
-}
-
-async function fileLeaveRequests(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>, totals: Totals) {
+async function fileLeaveRequests(
+  ctx: Context,
+  day: Date,
+  onLeave: Set<number>,
+  presence: Map<number, Presence>,
+  totals: Totals
+) {
   for (const employee of ctx.employees.values()) {
-    if (onLeave.has(employee.id) || (employee.hireDate && employee.hireDate > day)) {
+    if (!employee.userId || onLeave.has(employee.id) || !hired(employee, day) || !chance(0.0065)) {
       continue;
     }
+    const startDate = addWorkdays(day, randomInt(3, 15));
+    const length = weighted<number>([
+      [0.5, 0.15],
+      [1, 0.45],
+      [2, 0.25],
+      [3, 0.15]
+    ]);
+    const halfDay = length === 0.5 ? pick([LeaveHalf.MORNING, LeaveHalf.AFTERNOON]) : null;
+    const endDate = halfDay ? startDate : addWorkdays(startDate, length - 1);
+    const unpaid = chance(0.1);
+    const reason = pick(unpaid ? UNPAID_REASONS : ANNUAL_REASONS);
+    const here = presence.get(employee.id);
+    const minute = here
+      ? randomInt(here.checkIn + 10, Math.max(here.checkIn + 11, (here.checkOut ?? hm("17:00")) - 10))
+      : randomInt(hm("19:00"), hm("22:00"));
 
-    if (chance(employee.persona.sickRate)) {
-      // Called in sick this morning; the manager approves it right away.
-      for (const endDate of chance(0.25) ? [addWorkdays(day, 1), day] : [day]) {
-        const created = await createLeave(tx, ctx, employee, {
-          typeCode: "SICK_LEAVE",
-          startDate: day,
-          endDate,
-          reason: pick(SICK_REASONS),
-          createdAt: at(day, randomInt(hm("06:30"), hm("07:50"))),
-          approvedAt: at(day, randomInt(hm("08:10"), hm("10:00")))
-        });
-        if (created) {
-          onLeave.add(employee.id);
-          totals.sickLeaves += 1;
-          break;
-        }
-      }
-      continue;
-    }
-
-    if (chance(0.0065)) {
-      const startDate = addWorkdays(day, randomInt(3, 15));
-      const length = weighted<number>([
-        [0.5, 0.15],
-        [1, 0.45],
-        [2, 0.25],
-        [3, 0.15]
-      ]);
-      const halfDay = length === 0.5 ? pick([LeaveHalf.MORNING, LeaveHalf.AFTERNOON]) : null;
-      const unpaid = chance(0.1);
-      if (!unpaid && (await annualLeaveUsed(tx, ctx, employee.id, startDate)) + length > annualAllowance(ctx)) {
+    if (!unpaid && chance(0.3)) {
+      const filed = await askGenieForLeave(employee, startDate, endDate, halfDay, reason, minute, totals);
+      if (filed) {
+        totals.leaveFiled += 1;
+        totals.halfDayLeaves += halfDay ? 1 : 0;
         continue;
       }
-      const created = await createLeave(tx, ctx, employee, {
-        typeCode: unpaid ? "UNPAID_LEAVE" : "ANNUAL_LEAVE",
-        startDate,
-        endDate: halfDay ? startDate : addWorkdays(startDate, length - 1),
-        halfDay,
-        reason: pick(unpaid ? UNPAID_REASONS : ANNUAL_REASONS),
-        createdAt: at(day, randomInt(hm("08:30"), hm("17:00")))
-      });
-      if (created) {
-        totals.leaveFiled += 1;
-        if (halfDay) {
-          totals.halfDayLeaves += 1;
-        }
-      }
+    }
+
+    const create = (code: string) =>
+      act(totals, minute, [employee.userId], (actor) =>
+        api.leave.create(
+          {
+            leaveTypeId: ctx.leaveTypes.get(code)!.id,
+            startDate: iso(startDate),
+            endDate: iso(endDate),
+            reason,
+            ...(halfDay ? { halfDay } : {})
+          },
+          actor,
+          api.from("mobile")
+        )
+      );
+    let request = await create(unpaid ? "UNPAID_LEAVE" : "ANNUAL_LEAVE");
+    if (!request && lastRefusal === "LEAVE_BALANCE_INSUFFICIENT" && chance(0.5)) {
+      request = await create("UNPAID_LEAVE");
+    }
+    if (request) {
+      totals.leaveFiled += 1;
+      totals.halfDayLeaves += halfDay ? 1 : 0;
     }
   }
 }
 
-async function createLeave(
-  tx: Tx,
-  ctx: Context,
+/** "Cho tôi xin nghỉ phép ..." in the chat, then the confirm button on the draft. */
+async function askGenieForLeave(
   employee: SimEmployee,
-  input: {
-    typeCode: string;
-    startDate: Date;
-    endDate: Date;
-    halfDay?: LeaveHalf | null;
-    reason: string;
-    createdAt: Date;
-    approvedAt?: Date;
-  }
+  startDate: Date,
+  endDate: Date,
+  halfDay: LeaveHalf | null,
+  reason: string,
+  minute: number,
+  totals: Totals
 ) {
-  const leaveType = ctx.leaveTypes.get(input.typeCode);
-  if (!leaveType) {
+  const when = halfDay
+    ? `buổi ${halfDay === LeaveHalf.MORNING ? "sáng" : "chiều"} ngày ${dmy(startDate)}`
+    : startDate.getTime() === endDate.getTime()
+      ? `ngày ${dmy(startDate)}`
+      : `từ ngày ${dmy(startDate)} đến ngày ${dmy(endDate)}`;
+  const message = `Cho tôi xin nghỉ phép ${when}, lý do: ${reason.replace(/\.$/, "").toLowerCase()}`;
+  const reply = await act(totals, minute, [employee.userId], (actor) =>
+    api.chatbot.sendMessage({ message }, actor, api.from("mobile"))
+  );
+  totals.chats += reply ? 1 : 0;
+  const actionId = reply?.pendingAction?.actionId;
+  if (!actionId) {
     return false;
   }
-  const overlapping = await tx.leaveRequest.count({
-    where: {
-      employeeId: employee.id,
-      status: { in: ACTIVE_LEAVE_STATUSES },
-      startDate: { lte: input.endDate },
-      endDate: { gte: input.startDate }
-    }
-  });
-  if (overlapping) {
-    return false;
+  const confirmed = await act(totals, minute + 1, [employee.userId], (actor) =>
+    api.chatbot.confirmAction(actionId, actor, api.from("mobile"))
+  );
+  if (confirmed) {
+    totals.chatLeaves += 1;
   }
-
-  const request = await tx.leaveRequest.create({
-    data: {
-      employeeId: employee.id,
-      leaveTypeId: leaveType.id,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      totalDays: input.halfDay ? 0.5 : workdaysBetween(addDays(input.startDate, -1), input.endDate),
-      halfDay: input.halfDay ?? null,
-      reason: input.reason,
-      status: input.approvedAt ? LeaveRequestStatus.APPROVED : LeaveRequestStatus.PENDING,
-      approverUserId: input.approvedAt ? employee.managerUserId ?? ctx.adminUserId : null,
-      approvedAt: input.approvedAt ?? null,
-      createdAt: input.createdAt
-    }
-  });
-  if (input.approvedAt) {
-    await notify(tx, ctx, employee.userId, {
-      type: NotificationType.LEAVE_APPROVED,
-      title: "Leave request approved",
-      message: `Your leave request from ${iso(input.startDate)} to ${iso(input.endDate)} was approved.`,
-      entityType: "LeaveRequest",
-      entityId: request.id,
-      createdAt: input.approvedAt
-    });
-  }
-  return true;
-}
-
-function annualAllowance(ctx: Context) {
-  return ctx.leaveTypes.get("ANNUAL_LEAVE")?.annualAllowance ?? 12;
-}
-
-async function annualLeaveUsed(tx: Tx, ctx: Context, employeeId: number, date: Date) {
-  const leaveType = ctx.leaveTypes.get("ANNUAL_LEAVE");
-  if (!leaveType) {
-    return Number.POSITIVE_INFINITY;
-  }
-  const year = date.getUTCFullYear();
-  const used = await tx.leaveRequest.aggregate({
-    where: {
-      employeeId,
-      leaveTypeId: leaveType.id,
-      status: { in: ACTIVE_LEAVE_STATUSES },
-      startDate: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) }
-    },
-    _sum: { totalDays: true }
-  });
-  return used._sum.totalDays ?? 0;
+  return Boolean(confirmed);
 }
 
 // --- Attendance ---------------------------------------------------------------
 
 /**
- * Check-in/out like the mobile app records them (see AttendanceService): the
- * shift comes from the check-in time, LATE after the shift start, EARLY_OUT
- * when checking out before that shift ends. Returns hours at work per person.
+ * Who comes in today and when they arrive and leave, decided up front so the
+ * day's work knows how long each person is around. Nothing is recorded yet.
  */
-async function recordAttendance(
-  tx: Tx,
+function planPresence(
   ctx: Context,
   day: Date,
   onLeave: Set<number>,
-  totals: Totals,
-  halfOff: Map<number, LeaveHalf> = new Map()
+  halfOff: Map<number, LeaveHalf>,
+  totals: Totals
 ) {
-  const presence = new Map<number, number>();
-  const alreadyRecorded = new Set(
-    (
-      await tx.attendanceRecord.findMany({
-        where: { workDate: day },
-        select: { employeeId: true },
-        distinct: ["employeeId"]
-      })
-    ).map((record) => record.employeeId)
-  );
-  const rows: Prisma.AttendanceRecordCreateManyInput[] = [];
-
+  const presence = new Map<number, Presence>();
   for (const employee of ctx.employees.values()) {
-    if (onLeave.has(employee.id) || (employee.hireDate && employee.hireDate > day)) {
-      continue;
-    }
-    if (alreadyRecorded.has(employee.id)) {
-      presence.set(employee.id, 7);
+    if (!employee.userId || onLeave.has(employee.id) || !hired(employee, day)) {
       continue;
     }
     const { persona } = employee;
@@ -1290,46 +1433,99 @@ async function recordAttendance(
       checkOut = null; // forgot to check out
     }
 
-    const shift = SHIFTS.find((item) => checkIn >= item.start - EARLY_CHECK_IN_MINUTES && checkIn <= item.end)!;
-    const location = {
-      latitude: Number((ctx.office.latitude + (random() - 0.5) * 0.0006).toFixed(6)),
-      longitude: Number((ctx.office.longitude + (random() - 0.5) * 0.0006).toFixed(6)),
-      source: "MOBILE",
-      createdByUserId: employee.userId
-    };
-    const late = checkIn > shift.start;
-    rows.push({
-      employeeId: employee.id,
-      workDate: day,
-      recordType: AttendanceRecordType.CHECK_IN,
-      recordedAt: at(day, checkIn),
-      shift: shift.shift,
-      attendanceStatus: late ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME,
-      ...location
-    });
-    if (late) {
-      totals.lateCheckIns += 1;
-    }
-    if (checkOut !== null) {
-      rows.push({
-        employeeId: employee.id,
-        workDate: day,
-        recordType: AttendanceRecordType.CHECK_OUT,
-        recordedAt: at(day, checkOut),
-        shift: shift.shift,
-        attendanceStatus: checkOut < shift.end ? AttendanceStatus.EARLY_OUT : AttendanceStatus.ON_TIME,
-        ...location
-      });
-    }
-
     const leftAt = checkOut ?? hm("17:00");
     const lunch = checkIn < hm("12:00") && leftAt > hm("13:00") ? 60 : 0;
-    presence.set(employee.id, Math.max(0, (leftAt - checkIn - lunch) / 60));
+    presence.set(employee.id, {
+      employee,
+      checkIn,
+      checkOut,
+      hours: Math.max(0, (leftAt - checkIn - lunch) / 60)
+    });
   }
-
-  await tx.attendanceRecord.createMany({ data: rows });
-  totals.attendanceRecords += rows.length;
   return presence;
+}
+
+/** A GPS fix as the app sends it: near the office, a few metres off, fresh. */
+function fix(ctx: Context) {
+  return {
+    latitude: Number((ctx.office.latitude + (random() - 0.5) * PUNCH_SPREAD).toFixed(6)),
+    longitude: Number((ctx.office.longitude + (random() - 0.5) * PUNCH_SPREAD).toFixed(6)),
+    accuracyMeters: randomInt(4, 35),
+    isMocked: false,
+    positionAgeSeconds: randomInt(0, 15)
+  };
+}
+
+async function checkIn(ctx: Context, presence: Map<number, Presence>, totals: Totals) {
+  const arrivals = [...presence.values()].sort((a, b) => a.checkIn - b.checkIn);
+  for (const person of arrivals) {
+    const record = await act(totals, person.checkIn, [person.employee.userId], (actor) =>
+      api.attendance.checkIn(actor, fix(ctx), api.from("mobile"))
+    );
+    if (!record) {
+      // Refused (already in, say): no check-out to match either.
+      person.checkOut = null;
+      continue;
+    }
+    totals.attendanceRecords += 1;
+    if (record.attendanceStatus === AttendanceStatus.LATE) {
+      totals.lateCheckIns += 1;
+    }
+  }
+}
+
+async function checkOut(ctx: Context, presence: Map<number, Presence>, totals: Totals) {
+  const leaving = [...presence.values()]
+    .filter((person) => person.checkOut !== null)
+    .sort((a, b) => a.checkOut! - b.checkOut!);
+  for (const person of leaving) {
+    const record = await act(totals, person.checkOut!, [person.employee.userId], (actor) =>
+      api.attendance.checkOut(actor, fix(ctx), api.from("mobile"))
+    );
+    if (record) {
+      totals.attendanceRecords += 1;
+    }
+  }
+}
+
+/** Most people clear their notifications before leaving; some never bother. */
+async function readNotifications(presence: Map<number, Presence>, totals: Totals) {
+  for (const person of presence.values()) {
+    if (!chance(0.35 + person.employee.persona.ability * 0.4)) {
+      continue;
+    }
+    const minute = (person.checkOut ?? hm("17:00")) - randomInt(2, 20);
+    if (await act(totals, minute, [person.employee.userId], (actor) => api.notifications.markAllRead(actor))) {
+      totals.notificationsRead += 1;
+    }
+  }
+}
+
+// --- HRGenie ------------------------------------------------------------------
+
+/** A handful of people a day ask HRGenie something, sometimes a follow-up too. */
+async function chatWithGenie(presence: Map<number, Presence>, totals: Totals) {
+  const people = [...presence.values()];
+  const count = Math.min(people.length, randomInt(2, 6));
+  for (let index = 0; index < count; index += 1) {
+    const person = people.splice(Math.floor(random() * people.length), 1)[0];
+    const manager = person.employee.isHead || person.employee.isLead;
+    const leftAt = person.checkOut ?? hm("17:00");
+    let minute = randomInt(person.checkIn + 5, Math.max(person.checkIn + 6, leftAt - 15));
+    let conversationId: number | undefined;
+    for (let turn = 0; turn < (chance(0.3) ? 2 : 1); turn += 1) {
+      const message = pick(manager && chance(0.45) ? MANAGER_QUESTIONS : EMPLOYEE_QUESTIONS);
+      const reply = await act(totals, minute, [person.employee.userId], (actor) =>
+        api.chatbot.sendMessage({ message, conversationId }, actor, api.from("mobile"))
+      );
+      if (!reply) {
+        break;
+      }
+      totals.chats += 1;
+      conversationId = reply.conversationId;
+      minute += randomInt(1, 4);
+    }
+  }
 }
 
 // --- New work -----------------------------------------------------------------
@@ -1343,7 +1539,34 @@ type JobPlan = {
   skills: readonly SkillRequirement[];
   /** Kept for new people: always marked Intern-Junior. */
   starter?: boolean;
+  /** The level range the lead writes on it; see levelRangeFor. */
+  levels: [CareerLevel, CareerLevel] | null;
+  hard: boolean;
 };
+
+/**
+ * When a team's open work falls below this many hours per person, the next
+ * sprint is planned; until then nothing new comes in, so work arrives at the
+ * pace the team gets through it, not on a fixed clock.
+ */
+const BACKLOG_HOURS_PER_PERSON = 10;
+/**
+ * A sprint (a round, outside IT) gives each member about this many subtasks:
+ * two weeks of work at one subtask every three days or so.
+ */
+const SPRINT_SUBTASKS_PER_PERSON = 3;
+/** A product project takes new work for this many workdays, then wraps up. */
+const PROJECT_BUILD_DAYS: readonly [number, number] = [35, 50];
+/** A department opens at most one product project in this many workdays. */
+const PROJECT_COOLDOWN_DAYS = 8;
+/** A supporting team works on at most this many product projects at once. */
+const MAX_PROJECTS_PER_TEAM = 2;
+/**
+ * The catalogue's hours are for one focused sitting; a subtask as planned in
+ * practice - with its reviews, questions and setup - takes a little more, so a
+ * person finishes roughly one every three days.
+ */
+const HOURS_SCALE = 1.35;
 
 const NORMAL_PRIORITIES: ReadonlyArray<readonly [TaskPriority, number]> = [
   [TaskPriority.LOW, 0.15],
@@ -1357,68 +1580,66 @@ const QUICK_PRIORITIES: ReadonlyArray<readonly [TaskPriority, number]> = [
   [TaskPriority.URGENT, 0.2]
 ];
 
-/** One project or large team task a day, plus a few unplanned quick jobs. */
-async function createNewWork(tx: Tx, ctx: Context, state: SimulationState, day: Date, totals: Totals) {
-  const loads = await openHoursByEmployee(tx);
-  const teams = ctx.teams.filter((team) => CATALOGS[team.code] && activeMembers(ctx, team).length);
-  if (!teams.length) {
-    return;
-  }
-  // Teams with spare capacity are more likely to get new work.
-  const teamWeights = teams.map((team) => {
-    const members = activeMembers(ctx, team);
-    const load = members.reduce((sum, member) => sum + (loads.get(member.id) ?? 0), 0) / members.length;
-    return [team, members.length / (1 + load / 25)] as const;
-  });
+/**
+ * New work arrives when a team runs low, not on a timetable: the lead asks for
+ * the next package of the team's current project, the department head opens a
+ * new project when the team has none, and teams with no project work on the
+ * department's internal one. On top of that, a few unplanned quick jobs.
+ */
+async function createNewWork(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
+  const backlog = await openHoursByTeam(state);
+  const teams = ctx.teams
+    .filter((team) => CATALOGS[team.code] && activeMembers(ctx, team).length)
+    .sort(() => random() - 0.5);
 
-  const mainTeam = weighted(teamWeights);
-  const department = ctx.departments.get(mainTeam.departmentId);
-  const departmentTemplates = department ? PROJECT_TEMPLATES[department.code] ?? [] : [];
-  // A project is led by the team whose turn it is (the first workstream).
-  const ledByTeam = departmentTemplates.filter((template) => template.workstreams[0].team === mainTeam.code);
-  const templates = ledByTeam.length ? ledByTeam : departmentTemplates;
-  const projectCreated =
-    department && templates.length && chance(0.3)
-      ? await createProject(tx, ctx, state, day, department, pick(templates), totals)
-      : false;
-  if (!projectCreated) {
-    await createTeamTask(tx, ctx, day, mainTeam, {}, totals);
-  }
-
-  // Teams about to run out of work get a new team task so nobody idles for long.
-  const backlog = await openHoursByTeam(tx);
-  const starving = teams.filter((team) => {
+  for (const team of teams) {
     const members = activeMembers(ctx, team).length;
-    return team !== mainTeam && (backlog.get(team.id) ?? 0) / members < 14;
-  });
-  for (const team of starving.sort(() => random() - 0.5).slice(0, 4)) {
-    await createTeamTask(tx, ctx, day, team, {}, totals);
+    if ((backlog.get(team.id) ?? 0) / members >= BACKLOG_HOURS_PER_PERSON) {
+      continue;
+    }
+    const project = currentProject(state, team, day) ?? (await openProject(ctx, state, day, team, totals));
+    const added = project
+      ? await addProjectPackage(ctx, state, day, team, project, totals)
+      : await addInternalPackage(ctx, day, team, totals);
+    backlog.set(team.id, (backlog.get(team.id) ?? 0) + added);
   }
 
-  const quickJobs = randomInt(1, 2) + Math.floor(ctx.employees.size / 40);
-  for (let index = 0; index < quickJobs; index += 1) {
-    await createQuickTask(tx, ctx, day, weighted(teamWeights), totals);
+  const quickJobs = randomInt(0, 2) + Math.floor(ctx.employees.size / 60);
+  const weights = teams.map((team) => [team, activeMembers(ctx, team).length] as const);
+  for (let index = 0; index < quickJobs && weights.length; index += 1) {
+    await createQuickTask(ctx, day, weighted(weights), totals);
   }
 }
 
-async function createProject(
-  tx: Tx,
-  ctx: Context,
-  state: SimulationState,
-  day: Date,
-  department: SimDepartment,
-  template: ProjectTemplate,
-  totals: Totals
-) {
-  const head = department.headId ? ctx.employees.get(department.headId) : undefined;
-  if (!head) {
-    return false;
+/** The team's product project still taking work, the one closing soonest first. */
+function currentProject(state: SimulationState, team: SimTeam, day: Date) {
+  return Object.entries(state.projects)
+    .filter(([, plan]) => plan.teamIds.includes(team.id) && iso(day) <= plan.freeze)
+    .sort((a, b) => a[1].freeze.localeCompare(b[1].freeze))
+    .map(([id, plan]) => ({ id: Number(id), plan }))[0];
+}
+
+/**
+ * The department head opens a project for a team that has run out of one -
+ * only for the team that leads that kind of project, and not more often than
+ * once every few weeks per department. Supporting teams (QA, backend...) join
+ * when they have room.
+ */
+async function openProject(ctx: Context, state: SimulationState, day: Date, team: SimTeam, totals: Totals) {
+  const department = ctx.departments.get(team.departmentId);
+  const templates = department
+    ? (PROJECT_TEMPLATES[department.code] ?? []).filter((template) => template.workstreams[0].team === team.code)
+    : [];
+  const last = state.lastProjectOn[team.departmentId];
+  if (!department || !templates.length || (last && workdaysBetween(dateOnly(last), day) < PROJECT_COOLDOWN_DAYS)) {
+    return null;
   }
+  const template = pick(templates);
 
   const topics = template.topics.map((item) => fill(item, day));
   const existing = new Set(
     (
-      await tx.project.findMany({
+      await api.prisma.project.findMany({
         where: { name: { in: topics.map((item) => fill(template.name, day, item)) } },
         select: { name: true }
       })
@@ -1427,265 +1648,408 @@ async function createProject(
   const fresh = topics.filter((item) => !existing.has(fill(template.name, day, item)));
   const topic = pick(fresh.length ? fresh : topics);
   const baseName = fill(template.name, day, topic);
-  const sameName = await tx.project.count({ where: { name: { startsWith: baseName } } });
+  const sameName = await api.prisma.project.count({ where: { name: { startsWith: baseName } } });
   const name = sameName ? `${baseName} (giai đoạn ${sameName + 1})` : baseName;
   let code: string;
   do {
     state.sequence += 1;
     code = `${department.code}-${iso(day).slice(2, 4)}${iso(day).slice(5, 7)}-${String(state.sequence).padStart(3, "0")}`;
-  } while (await tx.project.findFirst({ where: { code }, select: { id: true } }));
+  } while (await api.prisma.project.findFirst({ where: { code }, select: { id: true } }));
 
-  // Only a department head creates a project, and they manage it.
-  const startDate = addWorkdays(day, randomInt(1, 7));
-  const project = await tx.project.create({
-    data: {
-      code,
-      name,
-      description: fill(template.description, day, topic),
-      status: ProjectStatus.PLANNING,
-      departmentId: department.id,
-      managerId: head.id,
-      createdByUserId: head.userId,
-      startDate,
-      endDate: startDate,
-      createdAt: at(day, randomInt(hm("09:00"), hm("11:30")))
-    }
-  });
-
-  let lastDue = startDate;
-  for (const workstream of template.workstreams) {
-    const team = ctx.teams.find((item) => item.code === workstream.team);
-    if (!team || !activeMembers(ctx, team).length) {
-      continue;
-    }
-    const dueDate = await createTeamTask(
-      tx,
-      ctx,
-      day,
-      team,
-      {
-        projectId: project.id,
-        topic,
-        startDate: addWorkdays(startDate, randomInt(workstream.offset[0], workstream.offset[1])),
-        pick: workstream.pick,
-        creatorUserId: head.userId
-      },
-      totals
+  const partners = template.workstreams
+    .slice(1)
+    .map((workstream) => ctx.teams.find((item) => item.code === workstream.team))
+    .filter(
+      (partner): partner is SimTeam =>
+        Boolean(partner) &&
+        activeMembers(ctx, partner!).length > 0 &&
+        Object.values(state.projects).filter(
+          (plan) => plan.teamIds.includes(partner!.id) && iso(day) <= plan.freeze
+        ).length < MAX_PROJECTS_PER_TEAM
     );
-    if (dueDate && dueDate > lastDue) {
-      lastDue = dueDate;
-    }
+  const start = addWorkdays(day, randomInt(1, 3));
+  const freeze = addWorkdays(start, randomInt(PROJECT_BUILD_DAYS[0], PROJECT_BUILD_DAYS[1]));
+  const project = await act(totals, randomInt(hm("09:00"), hm("10:30")), headUsers(ctx, department.id), (actor) =>
+    api.projects.create(
+      {
+        code,
+        name,
+        description: fill(template.description, day, topic),
+        status: ProjectStatus.PLANNING,
+        startDate: iso(start),
+        endDate: iso(addWorkdays(freeze, randomInt(8, 12)))
+      },
+      actor,
+      api.from("web")
+    )
+  );
+  if (!project) {
+    return null;
   }
-
-  await tx.project.update({ where: { id: project.id }, data: { endDate: addWorkdays(lastDue, randomInt(2, 6)) } });
+  const plan: ProjectPlan = {
+    code,
+    topic,
+    departmentId: department.id,
+    teamIds: [team.id, ...partners.map((partner) => partner.id)],
+    start: iso(start),
+    freeze: iso(freeze),
+    phases: {}
+  };
+  state.projects[project.id] = plan;
+  state.lastProjectOn[department.id] = iso(day);
   totals.projects.push(`${code} — ${name}`);
-  return true;
+  return { id: project.id, plan };
 }
 
-/** Creates a team-level task with its subtasks; returns the team task's due date. */
-async function createTeamTask(
-  tx: Tx,
+/**
+ * The team's next sprint on a project (a round, outside IT): about two weeks
+ * of work for everyone in it, under one team task - "Web: đặt phòng họp -
+ * Sprint 3". A three-month project so comes to half a dozen sprints per team.
+ */
+async function addProjectPackage(
   ctx: Context,
+  state: SimulationState,
   day: Date,
   team: SimTeam,
-  options: {
-    projectId?: number | null;
-    topic?: string;
-    startDate?: Date;
-    pick?: readonly number[];
-    creatorUserId?: number | null;
-  },
+  project: { id: number; plan: ProjectPlan },
   totals: Totals
 ) {
   const catalog = CATALOGS[team.code];
-  if (!catalog) {
-    return null;
-  }
-
-  const topic = options.topic ?? fill(pick(catalog.topics), day);
-  let jobs: JobTemplate[];
-  if (options.pick) {
-    jobs = options.pick.map((index) => catalog.pipeline[index]).filter(Boolean);
-  } else {
-    const size = randomInt(3, Math.min(5, catalog.pipeline.length));
-    const from = randomInt(0, catalog.pipeline.length - size);
-    jobs = catalog.pipeline.slice(from, from + size);
-  }
-
-  let projectId = options.projectId;
-  if (projectId === undefined) {
-    // Extra scope only goes to open projects this team already works on.
-    const projects = await tx.project.findMany({
-      where: {
-        deletedAt: null,
-        departmentId: team.departmentId,
-        status: { in: [ProjectStatus.ACTIVE, ProjectStatus.PLANNING] },
-        tasks: { some: { teamId: team.id, deletedAt: null } }
-      },
-      select: { id: true }
-    });
-    projectId =
-      projects.length && chance(0.75)
-        ? pick(projects).id
-        : await internalProjectId(tx, ctx, team.departmentId, day);
-  }
-
-  const leadUserId = leadUserOf(ctx, team);
-  const creatorUserId = options.creatorUserId ?? leadUserId;
-  const createdAt = at(day, randomInt(hm("08:45"), hm("11:30")));
-  const plans = planJobs(jobs, options.startDate ?? addWorkdays(day, randomInt(0, 3)), day, topic, false);
-
-  const parent = await tx.task.create({
-    data: {
-      title: fill(pick(catalog.workstreams), day, topic),
-      description: `${team.name} phụ trách, gồm: ${plans.map((plan) => plan.title).join("; ")}.`,
-      technologies: [...catalog.technologies],
-      projectId,
-      departmentId: team.departmentId,
-      teamId: team.id,
-      priority: highestPriority(plans.map((plan) => plan.priority)),
-      status: TODO,
-      createdByUserId: creatorUserId,
-      assignedByUserId: creatorUserId,
-      startDate: plans[0].startDate,
-      dueDate: latest(plans.map((plan) => plan.dueDate)),
-      estimatedHours: plans.reduce((sum, plan) => sum + plan.hours, 0),
-      actualHours: 0,
-      createdAt
-    }
-  });
-  for (const plan of plans) {
-    await createSubtask(tx, ctx, team, parent.id, projectId, plan, leadUserId, createdAt);
-  }
-
-  totals.newTasks += 1 + plans.length;
-  return parent.dueDate;
-}
-
-/** Unplanned jobs go under the team's "support" task for the month. */
-async function createQuickTask(tx: Tx, ctx: Context, day: Date, team: SimTeam, totals: Totals) {
-  const catalog = CATALOGS[team.code];
-  if (!catalog) {
-    return;
-  }
-
-  const leadUserId = leadUserOf(ctx, team);
-  const title = `${catalog.supportTitle} ${monthLabel(day)}`;
-  const starter = Boolean(catalog.starter?.length) && chance(0.35);
-  const [plan] = planJobs(
-    [pick(starter ? catalog.starter! : catalog.quick)],
-    addWorkdays(day, randomInt(0, 1)),
-    day,
-    fill(pick(catalog.topics), day),
-    true
+  const phase = (project.plan.phases[team.id] ?? 0) + 1;
+  const start = laterOf(addWorkdays(day, randomInt(0, 2)), dateOnly(project.plan.start));
+  const size = Math.max(3, Math.min(16, Math.round(activeMembers(ctx, team).length * SPRINT_SUBTASKS_PER_PERSON)));
+  const plans = numberRepeats(planJobs(sprintJobs(catalog, size), start, day, project.plan.topic, false));
+  project.plan.titles ??= {};
+  const base = (project.plan.titles[team.id] ??= fill(pick(catalog.workstreams), day, project.plan.topic));
+  const round = ctx.departments.get(team.departmentId)?.code === "IT" ? "Sprint" : "Đợt";
+  const parent = await addTeamTask(
+    ctx,
+    team,
+    project.id,
+    `${base} - ${round} ${phase}`,
+    plans,
+    randomInt(hm("08:45"), hm("11:30")),
+    totals
   );
-  plan.starter = starter;
-  const createdAt = at(day, randomInt(hm("08:30"), hm("16:00")));
-
-  let bucket = await tx.task.findFirst({
-    where: { deletedAt: null, parentTaskId: null, teamId: team.id, title }
-  });
-  if (!bucket) {
-    bucket = await tx.task.create({
-      data: {
-        title,
-        description: "Các yêu cầu hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch trong tháng.",
-        technologies: [...catalog.technologies],
-        projectId: await internalProjectId(tx, ctx, team.departmentId, day),
-        departmentId: team.departmentId,
-        teamId: team.id,
-        priority: TaskPriority.MEDIUM,
-        status: TODO,
-        createdByUserId: leadUserId,
-        assignedByUserId: leadUserId,
-        startDate: day,
-        dueDate: lastWorkdayOfMonth(day),
-        estimatedHours: 0,
-        actualHours: 0,
-        createdAt: at(day, hm("08:30"))
-      }
-    });
-    totals.newTasks += 1;
+  if (!parent) {
+    return 0;
   }
-
-  await createSubtask(tx, ctx, team, bucket.id, bucket.projectId, plan, leadUserId, createdAt);
-  await tx.task.update({
-    where: { id: bucket.id },
-    data: {
-      estimatedHours: { increment: plan.hours },
-      priority: highestPriority([bucket.priority, plan.priority]),
-      dueDate: bucket.dueDate && bucket.dueDate >= plan.dueDate ? undefined : plan.dueDate
-    }
-  });
-  totals.newTasks += 1;
+  project.plan.phases[team.id] = phase;
+  return plans.reduce((sum, plan) => sum + plan.hours, 0);
 }
 
-function planJobs(jobs: readonly JobTemplate[], startDate: Date, day: Date, topic: string, quick: boolean): JobPlan[] {
-  let cursor = addWorkdays(startDate, 0);
-  return jobs.map((template) => {
-    const hours = randomInt(template.hours[0], template.hours[1]);
-    // Planned at roughly 5 focused hours a day, plus slack and a day for review.
-    const duration = quick ? Math.ceil(hours / 6) + randomInt(1, 2) : Math.ceil(hours / 5) + randomInt(2, 3);
-    const plan: JobPlan = {
-      title: fill(template.title, day, topic),
-      hours,
-      startDate: cursor,
-      dueDate: addWorkdays(cursor, duration - 1),
-      priority: weighted(quick ? QUICK_PRIORITIES : NORMAL_PRIORITIES),
-      skills: template.skills
-    };
-    cursor = addWorkdays(cursor, Math.max(1, Math.ceil(duration * 0.6)));
-    return plan;
+/** `size` steps of the team's pipeline, going round it from a random point. */
+function sprintJobs(catalog: TeamCatalog, size: number) {
+  const from = randomInt(0, catalog.pipeline.length - 1);
+  return Array.from({ length: size }, (_, index) => catalog.pipeline[(from + index) % catalog.pipeline.length]);
+}
+
+/** The same step twice in one sprint is two parts of it: "(phần 2)". */
+function numberRepeats(plans: JobPlan[]) {
+  const seen = new Map<string, number>();
+  return plans.map((plan) => {
+    const count = (seen.get(plan.title) ?? 0) + 1;
+    seen.set(plan.title, count);
+    return count > 1 ? { ...plan, title: `${plan.title} (phần ${count})` } : plan;
   });
 }
 
-async function createSubtask(
-  tx: Tx,
+/** Work for a team with no product project: the department's internal one. */
+async function addInternalPackage(ctx: Context, day: Date, team: SimTeam, totals: Totals) {
+  const catalog = CATALOGS[team.code];
+  const minute = randomInt(hm("08:45"), hm("11:30"));
+  const project = await internalProject(ctx, team.departmentId, day, minute - 5, totals);
+  if (!project) {
+    return 0;
+  }
+  const topic = fill(pick(catalog.topics), day);
+  const plans = planJobs(pipelineSlice(catalog), addWorkdays(day, randomInt(0, 2)), day, topic, false);
+  const parent = await addTeamTask(ctx, team, project.id, fill(pick(catalog.workstreams), day, topic), plans, minute, totals);
+  return parent ? plans.reduce((sum, plan) => sum + plan.hours, 0) : 0;
+}
+
+/** Heads first, then an admin: who may open projects and team tasks. */
+function headUsers(ctx: Context, departmentId: number) {
+  const department = ctx.departments.get(departmentId);
+  const head = department?.headId ? ctx.employees.get(department.headId) : undefined;
+  return [head?.userId, ctx.adminUserId];
+}
+
+/** Whoever splits a team task and hands out its subtasks: the lead, else the head. */
+function leadUsers(ctx: Context, team: SimTeam) {
+  const lead = team.leadId ? ctx.employees.get(team.leadId) : undefined;
+  return [lead?.userId, ...headUsers(ctx, team.departmentId)];
+}
+
+/**
+ * The head adds a team task to a project - stretching the project first when
+ * the new work runs past its end, as the API would otherwise refuse - and the
+ * team lead splits it into subtasks.
+ */
+async function addTeamTask(
   ctx: Context,
   team: SimTeam,
-  parentTaskId: number,
-  projectId: number | null,
-  plan: JobPlan,
-  createdByUserId: number,
-  createdAt: Date
+  projectId: number,
+  title: string,
+  plans: JobPlan[],
+  minute: number,
+  totals: Totals
 ) {
-  const levels = levelRangeFor(plan);
-  await tx.task.create({
-    data: {
-      parentTaskId,
-      title: plan.title,
-      projectId,
-      departmentId: team.departmentId,
-      teamId: team.id,
-      priority: plan.priority,
-      minLevel: levels?.[0] ?? null,
-      maxLevel: levels?.[1] ?? null,
-      status: TODO,
-      createdByUserId,
-      startDate: plan.startDate,
-      dueDate: plan.dueDate,
-      estimatedHours: plan.hours,
-      actualHours: 0,
-      createdAt,
-      requiredSkills: {
-        create: plan.skills
+  const catalog = CATALOGS[team.code];
+  const dueDate = latest(plans.map((plan) => plan.dueDate))!;
+  await coverInProject(ctx, projectId, team.departmentId, dueDate, minute - 1, totals);
+  const parent = await act(totals, minute, headUsers(ctx, team.departmentId), (actor) =>
+    api.tasks.create(
+      {
+        projectId,
+        teamId: team.id,
+        title,
+        description: `${team.name} phụ trách, gồm: ${plans.map((plan) => plan.title).join("; ")}.`,
+        technologies: [...catalog.technologies],
+        priority: highestPriority(plans.map((plan) => plan.priority)),
+        startDate: iso(plans[0].startDate),
+        dueDate: iso(dueDate),
+        estimatedHours: plans.reduce((sum, plan) => sum + plan.hours, 0)
+      },
+      actor,
+      api.from("web")
+    )
+  );
+  if (!parent) {
+    return null;
+  }
+  totals.newTasks += 1;
+  let when = minute + randomInt(20, 90);
+  for (const plan of plans) {
+    await addSubtask(ctx, team, parent.id, plan, when, totals);
+    when += randomInt(2, 6);
+  }
+  return parent;
+}
+
+async function addSubtask(ctx: Context, team: SimTeam, parentTaskId: number, plan: JobPlan, minute: number, totals: Totals) {
+  const levels = plan.levels;
+  const created = await act(totals, minute, leadUsers(ctx, team), (actor) =>
+    api.tasks.create(
+      {
+        parentTaskId,
+        title: plan.title,
+        priority: plan.priority,
+        minLevel: levels?.[0] ?? null,
+        maxLevel: levels?.[1] ?? null,
+        startDate: iso(plan.startDate),
+        dueDate: iso(plan.dueDate),
+        estimatedHours: plan.hours,
+        requiredSkills: plan.skills
           .filter(([code]) => ctx.skillIds.has(code))
           .map(([code, requiredProficiency, importance]) => ({
             skillId: ctx.skillIds.get(code)!,
             requiredProficiency,
             importance
           }))
-      }
+      },
+      actor,
+      api.from("web")
+    )
+  );
+  if (created) {
+    totals.newTasks += 1;
+  }
+  return created;
+}
+
+/** Stretches a project's end date to `dueDate` when new work would run past it. */
+async function coverInProject(
+  ctx: Context,
+  projectId: number,
+  departmentId: number,
+  dueDate: Date,
+  minute: number,
+  totals: Totals
+) {
+  const project = await api.prisma.project.findUnique({ where: { id: projectId }, select: { endDate: true } });
+  if (project?.endDate && project.endDate < dueDate) {
+    await act(totals, minute, headUsers(ctx, departmentId), (actor) =>
+      api.projects.update(projectId, { endDate: iso(addWorkdays(dueDate, randomInt(2, 5))) }, actor, api.from("web"))
+    );
+  }
+}
+
+/** The department's internal project for the year, opened by the head the first time it is needed. */
+async function internalProject(ctx: Context, departmentId: number, day: Date, minute: number, totals: Totals) {
+  const department = ctx.departments.get(departmentId);
+  const year = day.getUTCFullYear();
+  const code = internalProjectCode(department?.code ?? `D${departmentId}`, year);
+  const select = { id: true, code: true, startDate: true, endDate: true } as const;
+  const existing = await api.prisma.project.findFirst({ where: { code, deletedAt: null }, select });
+  if (existing) {
+    return existing;
+  }
+  const created = await act(totals, minute, headUsers(ctx, departmentId), (actor) =>
+    api.projects.create(
+      {
+        code,
+        name: `Vận hành & hỗ trợ nội bộ ${year}`,
+        description:
+          "Dự án nội bộ theo năm: vận hành, hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch của phòng ban.",
+        status: ProjectStatus.ACTIVE,
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`
+      },
+      actor,
+      api.from("web")
+    )
+  );
+  return created ? { id: created.id, code: created.code, startDate: created.startDate, endDate: created.endDate } : null;
+}
+
+/**
+ * Unplanned jobs go under the team's "support" task for the month, in the
+ * internal project. Once that task is finished, the head opens another round.
+ */
+async function createQuickTask(ctx: Context, day: Date, team: SimTeam, totals: Totals) {
+  const catalog = CATALOGS[team.code];
+  if (!catalog) {
+    return;
+  }
+  const starter = Boolean(catalog.starter?.length) && chance(0.35);
+  const [plan] = planJobs(
+    [pick(starter ? catalog.starter! : catalog.quick)],
+    addWorkdays(day, randomInt(0, 1)),
+    day,
+    fill(pick(catalog.topics), day),
+    true,
+    starter
+  );
+  const minute = randomInt(hm("08:30"), hm("16:00"));
+
+  const baseTitle = `${catalog.supportTitle} ${monthLabel(day)}`;
+  const buckets = await api.prisma.task.findMany({
+    where: { deletedAt: null, parentTaskId: null, teamId: team.id, title: { startsWith: baseTitle } },
+    select: { id: true, status: true, dueDate: true, projectId: true },
+    orderBy: { id: "asc" }
+  });
+  let bucket = buckets.find((item) => item.status !== TaskStatus.DONE && item.status !== TaskStatus.CANCELLED);
+  if (!bucket) {
+    const project = await internalProject(ctx, team.departmentId, day, minute - 3, totals);
+    if (!project) {
+      return;
     }
+    const dueDate = laterOf(lastWorkdayOfMonth(day), plan.dueDate);
+    await coverInProject(ctx, project.id, team.departmentId, dueDate, minute - 2, totals);
+    const created = await act(totals, minute - 1, headUsers(ctx, team.departmentId), (actor) =>
+      api.tasks.create(
+        {
+          projectId: project.id,
+          teamId: team.id,
+          title: buckets.length ? `${baseTitle} (đợt ${buckets.length + 1})` : baseTitle,
+          description: "Các yêu cầu hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch trong tháng.",
+          technologies: [...catalog.technologies],
+          priority: TaskPriority.MEDIUM,
+          startDate: iso(day),
+          dueDate: iso(dueDate)
+        },
+        actor,
+        api.from("web")
+      )
+    );
+    if (!created) {
+      return;
+    }
+    totals.newTasks += 1;
+    bucket = { id: created.id, status: created.status, dueDate: created.dueDate, projectId: created.projectId };
+  } else if (bucket.dueDate && bucket.dueDate < plan.dueDate) {
+    // The job runs past the support task: the head moves its due date.
+    await coverInProject(ctx, bucket.projectId!, team.departmentId, plan.dueDate, minute - 2, totals);
+    await act(totals, minute - 1, headUsers(ctx, team.departmentId), (actor) =>
+      api.tasks.update(bucket!.id, { dueDate: iso(plan.dueDate) }, actor, api.from("web"))
+    );
+  }
+
+  await addSubtask(ctx, team, bucket.id, plan, minute, totals);
+}
+
+/** Three to five consecutive steps of a team's usual pipeline. */
+function pipelineSlice(catalog: TeamCatalog) {
+  const size = randomInt(3, Math.min(5, catalog.pipeline.length));
+  const from = randomInt(0, catalog.pipeline.length - size);
+  return catalog.pipeline.slice(from, from + size);
+}
+
+function planJobs(
+  jobs: readonly JobTemplate[],
+  startDate: Date,
+  day: Date,
+  topic: string,
+  quick: boolean,
+  starter = false
+): JobPlan[] {
+  let cursor = addWorkdays(startDate, 0);
+  return jobs.map((template) => {
+    const raw = randomInt(template.hours[0], template.hours[1]);
+    const hours = quick ? raw : Math.max(1, Math.round(raw * HOURS_SCALE));
+    const draft = { hours, skills: template.skills, starter };
+    const levels = levelRangeFor(draft);
+    const hard = isHard(hours, template.skills, levels?.[0] ?? null);
+    // A lead plans two to three focused hours a day on one task - people have
+    // several going - plus slack for review. Hard work gets a tighter plan:
+    // that is where deadlines slip, and it should be the only place they do.
+    const duration = hard
+      ? Math.ceil(hours / 3) + randomInt(1, 2)
+      : Math.ceil(hours / 2) + randomInt(3, 4);
+    const plan: JobPlan = {
+      title: fill(template.title, day, topic),
+      hours,
+      startDate: cursor,
+      dueDate: addWorkdays(cursor, duration - 1),
+      priority: weighted(quick ? QUICK_PRIORITIES : NORMAL_PRIORITIES),
+      skills: template.skills,
+      starter,
+      levels,
+      hard
+    };
+    // The subtasks of a package are split so several people work on them at
+    // once: each starts within a day or so of the one before, not after it.
+    cursor = addWorkdays(cursor, randomInt(0, 1));
+    return plan;
   });
 }
+
+/**
+ * Hard work: deep skills (Advanced or Expert), a Middle-and-up level range, or
+ * a long job. The same reading the AI ranking makes of a task, near enough.
+ */
+function isHard(
+  hours: number,
+  skills: ReadonlyArray<readonly [string, SkillProficiency, TaskSkillImportance]> | Array<{ requiredProficiency: SkillProficiency }>,
+  minLevel: CareerLevel | null
+) {
+  const proficiencies = (skills as ReadonlyArray<unknown>).map((skill) =>
+    Array.isArray(skill) ? (skill[1] as SkillProficiency) : (skill as { requiredProficiency: SkillProficiency }).requiredProficiency
+  );
+  return (
+    hours >= 16 ||
+    proficiencies.includes(SkillProficiency.ADVANCED) ||
+    proficiencies.includes(SkillProficiency.EXPERT) ||
+    (minLevel !== null && CAREER_LEVEL_ORDER.indexOf(minLevel) >= CAREER_LEVEL_ORDER.indexOf(CareerLevel.MIDDLE))
+  );
+}
+
+const CAREER_LEVEL_ORDER: CareerLevel[] = [
+  CareerLevel.INTERN,
+  CareerLevel.FRESHER,
+  CareerLevel.JUNIOR,
+  CareerLevel.MIDDLE,
+  CareerLevel.SENIOR,
+  CareerLevel.LEAD
+];
 
 /**
  * The level range a lead writes on a subtask, judged from how big it is and
  * how deep the skills go. Three in ten are left empty - leads do not always
  * fill it in, and the ranking must cope with that.
  */
-function levelRangeFor(plan: JobPlan): [CareerLevel, CareerLevel] | null {
+function levelRangeFor(plan: Pick<JobPlan, "hours" | "skills" | "starter">): [CareerLevel, CareerLevel] | null {
   // Work kept for new people is always marked as such.
   if (plan.starter) {
     return [CareerLevel.INTERN, CareerLevel.JUNIOR];
@@ -1705,12 +2069,18 @@ function levelRangeFor(plan: JobPlan): [CareerLevel, CareerLevel] | null {
 
 // --- Assignment ---------------------------------------------------------------
 
-async function assignTasks(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>, totals: Totals) {
-  const loads = await openHoursByEmployee(tx);
+/** Open hours past which a lead looks for someone else first (about two days). */
+const FULL_LOAD_HOURS = 16;
+
+/** How often a lead asks for AI suggestions before assigning. */
+const AI_SUGGESTION_RATE = 0.8;
+
+async function assignTasks(ctx: Context, state: SimulationState, day: Date, onLeave: Set<number>, totals: Totals) {
+  const loads = await openHoursByEmployee(state);
   const skillsSelect = { select: { skillId: true, requiredProficiency: true } } as const;
 
   // Leads hand out subtasks that start within the next few workdays.
-  const unassigned = await tx.task.findMany({
+  const unassigned = await api.prisma.task.findMany({
     where: {
       deletedAt: null,
       parentTaskId: { not: null },
@@ -1728,13 +2098,15 @@ async function assignTasks(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>
     if (!team || !assignee) {
       continue;
     }
-    await assign(tx, ctx, team, task, assignee, TaskAssignmentType.MANUAL, pick(ASSIGN_NOTES), day);
-    loads.set(assignee.id, (loads.get(assignee.id) ?? 0) + Number(task.estimatedHours ?? 4));
-    totals.assignments += 1;
+    const minute = randomInt(hm("09:00"), hm("16:00"));
+    if (await assign(ctx, team, task.id, assignee, pick(ASSIGN_NOTES), minute, chance(AI_SUGGESTION_RATE), totals)) {
+      loads.set(assignee.id, (loads.get(assignee.id) ?? 0) + Number(task.estimatedHours ?? 4));
+      totals.assignments += 1;
+    }
   }
 
   // Work held by someone who left, or badly overdue with a weak performer, moves on.
-  const stuck = await tx.task.findMany({
+  const stuck = await api.prisma.task.findMany({
     where: {
       deletedAt: null,
       parentTaskId: { not: null },
@@ -1770,10 +2142,62 @@ async function assignTasks(tx: Tx, ctx: Context, day: Date, onLeave: Set<number>
     if (!team || !assignee) {
       continue;
     }
-    await assign(tx, ctx, team, task, assignee, TaskAssignmentType.REASSIGNED, note, day);
-    loads.set(assignee.id, (loads.get(assignee.id) ?? 0) + Number(task.estimatedHours ?? 4));
-    totals.reassignments += 1;
+    if (await assign(ctx, team, task.id, assignee, note, randomInt(hm("09:00"), hm("16:00")), chance(0.5), totals)) {
+      loads.set(assignee.id, (loads.get(assignee.id) ?? 0) + Number(task.estimatedHours ?? 4));
+      totals.reassignments += 1;
+    }
   }
+}
+
+/**
+ * The lead assigns from the web. Usually they ask for AI suggestions first
+ * and, when the person they had in mind is on the list, pick them there -
+ * which records the pick against the suggestion. Otherwise they assign by
+ * hand. Either way the choice is the lead's own (see chooseAssignee): the
+ * simulated lead never simply takes the top suggestion, so an evaluation on
+ * this history measures the ranking against people's decisions, not itself.
+ */
+async function assign(
+  ctx: Context,
+  team: SimTeam,
+  taskId: number,
+  assignee: SimEmployee,
+  note: string,
+  minute: number,
+  withSuggestions: boolean,
+  totals: Totals
+) {
+  const assigned = await act(totals, minute, leadUsers(ctx, team), async (actor) => {
+    if (withSuggestions) {
+      try {
+        const suggestion = await api.suggestions.generate(
+          taskId,
+          { limit: 5, includeAvailability: true, includePendingLeave: true, includeSelf: false },
+          actor,
+          api.from("web")
+        );
+        totals.aiSuggestions += 1;
+        const item = suggestion.items.find((candidate) => candidate.employeeId === assignee.id);
+        if (item) {
+          setNow(at(currentDay, minute + 1));
+          await api.suggestions.select(suggestion.id, { suggestionItemId: item.suggestionItemId, note }, actor, api.from("web"));
+          totals.aiPicked += 1;
+          return true;
+        }
+      } catch (error) {
+        const refusal = refusalOf(error);
+        // No candidates, say: the lead just assigns by hand. Not allowed at
+        // all is for act() to handle, by asking someone else.
+        if (!refusal || refusal.getStatus() === 403) {
+          throw error;
+        }
+      }
+      setNow(at(currentDay, minute + 2));
+    }
+    await api.tasks.assign(taskId, { assigneeId: assignee.id, note }, actor, api.from("web"));
+    return true;
+  });
+  return Boolean(assigned);
 }
 
 function chooseAssignee(
@@ -1785,10 +2209,13 @@ function chooseAssignee(
   day: Date,
   excludeId?: number
 ) {
-  const candidates = activeMembers(ctx, team).filter(
-    (employee) =>
-      employee.id !== excludeId && !onLeave.has(employee.id) && !(employee.hireDate && employee.hireDate > day)
+  const present = activeMembers(ctx, team).filter(
+    (employee) => employee.id !== excludeId && !onLeave.has(employee.id) && hired(employee, day)
   );
+  // Nobody piles more on someone already holding days of work while a
+  // teammate has room; only when everyone is full does it go to the least full.
+  const withRoom = present.filter((employee) => (loads.get(employee.id) ?? 0) < FULL_LOAD_HOURS);
+  const candidates = withRoom.length ? withRoom : present;
   if (!candidates.length) {
     return null;
   }
@@ -1843,160 +2270,176 @@ function leadAffinity(leadId: number | null, employeeId: number) {
   return (hash01(`affinity:${leadId}:${employeeId}`) - 0.5) * 0.3;
 }
 
-async function assign(
-  tx: Tx,
-  ctx: Context,
-  team: SimTeam,
-  task: { id: number; title: string },
-  assignee: SimEmployee,
-  assignmentType: TaskAssignmentType,
-  note: string,
-  day: Date
-) {
-  const assignedByUserId = leadUserOf(ctx, team);
-  const assignedAt = at(day, randomInt(hm("09:00"), hm("16:00")));
-  await tx.task.update({ where: { id: task.id }, data: { assigneeId: assignee.id, assignedByUserId } });
-  await tx.taskAssignment.create({
-    data: { taskId: task.id, assigneeId: assignee.id, assignedByUserId, assignmentType, note, assignedAt }
-  });
-  await notify(tx, ctx, assignee.userId, {
-    type: NotificationType.TASK_ASSIGNED,
-    title: "New task assigned",
-    message: `You were assigned to "${task.title}".`,
-    entityType: "Task",
-    entityId: task.id,
-    createdAt: assignedAt
-  });
+// --- Review and progress --------------------------------------------------------
+
+/** Who reviews a subtask: its team lead, the head when the lead did the work, else an admin. */
+function reviewers(ctx: Context, teamId: number | null, departmentId: number | null, assigneeId: number | null) {
+  const team = ctx.teams.find((item) => item.id === teamId);
+  const department = departmentId ? ctx.departments.get(departmentId) : undefined;
+  const lead = team?.leadId && team.leadId !== assigneeId ? ctx.employees.get(team.leadId) : undefined;
+  const head = department?.headId && department.headId !== assigneeId ? ctx.employees.get(department.headId) : undefined;
+  return [lead?.userId, head?.userId, ctx.adminUserId];
 }
 
-// --- Progress -----------------------------------------------------------------
-
-async function progressTasks(
-  tx: Tx,
-  ctx: Context,
-  state: SimulationState,
-  day: Date,
-  presence: Map<number, number>,
-  totals: Totals
-) {
-  const tasks = await tx.task.findMany({
+/**
+ * Submissions get reviewed at the end of the day: accepted - the lead then writes down
+ * the hours it took - or sent back for rework. Now and then a task nobody has
+ * started is dropped after the requirements change.
+ */
+async function reviewTasks(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
+  const open = await api.prisma.task.findMany({
     where: {
       deletedAt: null,
       parentTaskId: { not: null },
       assigneeId: { not: null },
-      status: { in: OPEN_TASK_STATUSES }
+      status: { in: [TODO, IN_REVIEW] }
     },
     select: {
       id: true,
-      title: true,
       status: true,
       assigneeId: true,
-      priority: true,
-      startDate: true,
+      teamId: true,
+      departmentId: true,
       dueDate: true,
-      estimatedHours: true,
-      actualHours: true
+      ...HARDNESS_SELECT
     }
   });
 
-  // Yesterday's submissions get reviewed: accepted, or sent back for rework.
-  for (const task of tasks) {
+  for (const task of open) {
     const employee = ctx.employees.get(task.assigneeId!);
-    if (task.status !== IN_REVIEW || !employee || !chance(0.75)) {
+    const reviewedBy = reviewers(ctx, task.teamId, task.departmentId, task.assigneeId);
+    const minute = randomInt(hm("16:30"), hm("17:45"));
+
+    if (task.status === TODO) {
+      if (!state.logged[task.id] && chance(0.002)) {
+        const dropped = await act(totals, minute, reviewedBy, (actor) =>
+          api.tasks.updateStatus(task.id, { status: CANCELLED, note: pick(DROP_NOTES) }, actor, api.from("web"))
+        );
+        if (dropped) {
+          forget(state, task.id);
+          totals.cancelled += 1;
+        }
+      }
       continue;
     }
-    const reviewedAt = at(day, randomInt(hm("10:00"), hm("17:15")));
-    if (
-      chance(
-        clamp(
-          employee.persona.passRate * (2 - taskDifficulty(task.id)) * dayShock(day),
-          0.15,
-          0.97
-        )
-      )
-    ) {
-      await tx.task.update({ where: { id: task.id }, data: { status: DONE, completedAt: reviewedAt } });
-      delete state.rework[task.id];
-      task.status = DONE;
+    if (!employee || !chance(0.9)) {
+      continue;
+    }
+    const passes = chance(
+      clamp(employee.persona.passRate * (2 - taskDifficulty(task.id, hardTask(task))) * dayShock(day), 0.15, 0.97)
+    );
+    if (passes) {
+      const accepted = await act(totals, minute, reviewedBy, (actor) =>
+        api.tasks.updateStatus(task.id, { status: DONE, note: pick(APPROVE_NOTES) }, actor, api.from("web"))
+      );
+      if (!accepted) {
+        continue;
+      }
+      const hours = roundHalf(state.logged[task.id] ?? Number(task.estimatedHours ?? 0));
+      await act(totals, minute + 1, reviewedBy, (actor) =>
+        api.tasks.update(task.id, { actualHours: hours }, actor, api.from("web"))
+      );
+      forget(state, task.id);
       totals.completed += 1;
       if (task.dueDate && task.dueDate < day) {
         totals.completedLate += 1;
       }
     } else {
-      const extra = Math.max(0.5, roundHalf(Number(task.estimatedHours ?? 4) * randomBetween(0.1, 0.35)));
-      state.rework[task.id] = (state.rework[task.id] ?? 0) + extra;
-      await tx.task.update({ where: { id: task.id }, data: { status: IN_PROGRESS } });
-      task.status = IN_PROGRESS;
-      totals.reworks += 1;
-      await notify(tx, ctx, employee.userId, {
-        type: NotificationType.TASK_STATUS_CHANGED,
-        title: "Task returned for rework",
-        message: `"${task.title}" needs changes before it can be accepted.`,
-        entityType: "Task",
-        entityId: task.id,
-        createdAt: reviewedAt
-      });
+      const sentBack = await act(totals, minute, reviewedBy, (actor) =>
+        api.tasks.updateStatus(task.id, { status: IN_PROGRESS, note: pick(REWORK_NOTES) }, actor, api.from("web"))
+      );
+      if (sentBack) {
+        const extra = Math.max(0.5, roundHalf(Number(task.estimatedHours ?? 4) * randomBetween(0.1, 0.35)));
+        state.rework[task.id] = (state.rework[task.id] ?? 0) + extra;
+        totals.reworks += 1;
+      }
     }
   }
+}
 
-  // Occasionally a task that never started is dropped after requirements change.
-  for (const task of tasks) {
-    if (task.status === TODO && Number(task.actualHours ?? 0) === 0 && chance(0.002)) {
-      await tx.task.update({ where: { id: task.id }, data: { status: CANCELLED } });
-      delete state.rework[task.id];
-      task.status = CANCELLED;
-      totals.cancelled += 1;
-    }
-  }
+function forget(state: SimulationState, taskId: number) {
+  delete state.rework[taskId];
+  delete state.logged[taskId];
+}
+
+/**
+ * A day of work for everyone at the office: they pick up to three of their
+ * tasks, start the ones still waiting and hand in what they finish - through
+ * the app, where the assignee can only start work and submit it for review.
+ */
+async function progressTasks(
+  ctx: Context,
+  state: SimulationState,
+  day: Date,
+  presence: Map<number, Presence>,
+  totals: Totals
+) {
+  const tasks = await api.prisma.task.findMany({
+    where: {
+      deletedAt: null,
+      parentTaskId: { not: null },
+      assigneeId: { not: null },
+      status: { in: [TODO, IN_PROGRESS] },
+      OR: [{ startDate: null }, { startDate: { lte: day } }]
+    },
+    select: { id: true, status: true, assigneeId: true, priority: true, dueDate: true, ...HARDNESS_SELECT }
+  });
 
   const workable = new Map<number, typeof tasks>();
   for (const task of tasks) {
-    if ((task.status === TODO || task.status === IN_PROGRESS) && (!task.startDate || task.startDate <= day)) {
-      workable.set(task.assigneeId!, [...(workable.get(task.assigneeId!) ?? []), task]);
-    }
+    workable.set(task.assigneeId!, [...(workable.get(task.assigneeId!) ?? []), task]);
   }
 
   for (const [employeeId, list] of workable) {
-    const employee = ctx.employees.get(employeeId);
-    const hoursAtWork = presence.get(employeeId) ?? 0;
-    if (!employee || hoursAtWork <= 0) {
+    const person = presence.get(employeeId);
+    if (!person || person.hours <= 0) {
       continue;
     }
-    const { persona } = employee;
-    let focus = Math.min(
-      hoursAtWork,
-      (2.5 + persona.ability * 3.5) * randomBetween(0.7, 1.3) * dayShock(day)
-    );
+    const { persona } = person.employee;
+    // Everyone puts in a working day; the weaker get less done in it.
+    let focus = Math.min(person.hours, (3.2 + persona.ability * 2.8) * randomBetween(0.8, 1.2) * dayShock(day));
     // Everyone loses a day sometimes, not only the weaker half.
-    if (chance(0.08 + (1 - persona.ability) * 0.18)) {
+    if (chance(0.05 + (1 - persona.ability) * 0.12)) {
       focus *= 0.3; // distracted, stuck, or pulled into meetings all day
     }
     focus = roundHalf(focus);
 
+    // What is due first, then what is already under way, then priority.
     list.sort(
       (a, b) =>
+        (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) ||
         Number(b.status === IN_PROGRESS) - Number(a.status === IN_PROGRESS) ||
-        PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] ||
-        (a.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.dueDate?.getTime() ?? Number.MAX_SAFE_INTEGER)
+        PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]
     );
+    const leftAt = person.checkOut ?? hm("17:00");
+    let minute = person.checkIn + randomInt(10, 60);
     for (const task of list.slice(0, 3)) {
       if (focus < 0.5) {
         break;
       }
-      const needed = hoursNeeded(task.id, Number(task.estimatedHours ?? 4), persona, state);
-      const actual = Number(task.actualHours ?? 0);
-      const spent = Math.max(0.5, roundHalf(Math.min(focus, needed - actual)));
-      const finished = actual + spent >= needed;
+      const needed = hoursNeeded(task.id, Number(task.estimatedHours ?? 4), hardTask(task), persona, state);
+      const logged = state.logged[task.id] ?? 0;
+      const spent = Math.max(0.5, roundHalf(Math.min(focus, needed - logged)));
       focus -= spent;
-      await tx.task.update({
-        where: { id: task.id },
-        data: { actualHours: actual + spent, status: finished ? IN_REVIEW : IN_PROGRESS }
-      });
+
       if (task.status === TODO) {
+        const started = await act(totals, minute, [person.employee.userId], (actor) =>
+          api.tasks.updateStatus(task.id, { status: IN_PROGRESS }, actor, api.from("mobile"))
+        );
+        if (!started) {
+          continue;
+        }
         totals.started += 1;
       }
-      if (finished) {
-        totals.submitted += 1;
+      state.logged[task.id] = logged + spent;
+      minute = Math.min(leftAt - 5, minute + Math.round(spent * 60));
+      if (logged + spent >= needed) {
+        const submitted = await act(totals, minute, [person.employee.userId], (actor) =>
+          api.tasks.updateStatus(task.id, { status: IN_REVIEW, note: pick(SUBMIT_NOTES) }, actor, api.from("mobile"))
+        );
+        if (submitted) {
+          totals.submitted += 1;
+        }
       }
     }
   }
@@ -2006,16 +2449,16 @@ async function progressTasks(
  * How hard a task turns out to be, independent of who takes it: requirements
  * churn, a dependency that is not ready, an estimate that was optimistic.
  *
- * The spread is deliberately wide. With a narrow one, how a task ends is
- * almost entirely the assignee's hidden ability, the track-record signal
- * becomes a near-perfect readout of that ability, and every evaluation built
- * on this data measures the simulator talking to itself.
+ * Easy and ordinary work mostly goes to plan; hard work is where estimates
+ * miss, so its spread is wide and runs above 1 - which is what makes the few
+ * overdue tasks the hard ones. The spread is kept wide on purpose: with a
+ * narrow one, how a task ends is almost entirely the assignee's hidden
+ * ability, the track-record signal becomes a near-perfect readout of it, and
+ * every evaluation built on this data measures the simulator talking to itself.
  */
-function taskDifficulty(taskId: number) {
-  // Centred just above 1 so the team still meets most deadlines: a world where
-  // three quarters of tasks run late is as unrealistic as one with no noise,
-  // and it starves the evaluation of on-time examples.
-  return 0.7 + hash01(`difficulty:${taskId}`) * 0.7;
+function taskDifficulty(taskId: number, hard: boolean) {
+  const draw = hash01(`difficulty:${taskId}`);
+  return hard ? 0.8 + draw * 0.55 : 0.6 + draw * 0.5;
 }
 
 /**
@@ -2028,170 +2471,119 @@ function dayShock(day: Date) {
 }
 
 /** Hours this person needs to finish a task: slower people need more, rework adds on. */
-function hoursNeeded(
-  taskId: number,
-  estimatedHours: number,
-  persona: Persona,
-  state: SimulationState
-) {
-  return roundHalf(
-    (estimatedHours / persona.speed) * taskDifficulty(taskId) + (state.rework[taskId] ?? 0)
-  );
+function hoursNeeded(taskId: number, estimatedHours: number, hard: boolean, persona: Persona, state: SimulationState) {
+  return roundHalf((estimatedHours / persona.speed) * taskDifficulty(taskId, hard) + (state.rework[taskId] ?? 0));
 }
 
-/** Mirrors TasksService.syncParentStatus, dating completion from the subtasks. */
-async function syncParentTasks(tx: Tx) {
-  const parents = await tx.task.findMany({
-    where: { deletedAt: null, parentTaskId: null, childTasks: { some: { deletedAt: null } } },
-    select: { id: true, status: true, actualHours: true, completedAt: true }
-  });
-  const children = await tx.task.findMany({
-    where: { deletedAt: null, parentTaskId: { not: null } },
-    select: { parentTaskId: true, status: true, actualHours: true, completedAt: true }
-  });
-  const byParent = new Map<number, typeof children>();
-  for (const child of children) {
-    byParent.set(child.parentTaskId!, [...(byParent.get(child.parentTaskId!) ?? []), child]);
-  }
+const HARDNESS_SELECT = {
+  estimatedHours: true,
+  minLevel: true,
+  parentTask: { select: { minLevel: true } },
+  requiredSkills: { select: { requiredProficiency: true } }
+} as const;
 
-  for (const parent of parents) {
-    const subtasks = byParent.get(parent.id) ?? [];
-    const statuses = subtasks.map((child) => child.status).filter((status) => status !== CANCELLED);
-    let status: TaskStatus = TODO;
-    if (statuses.length && statuses.every((item) => item === DONE)) {
-      status = DONE;
-    } else if (statuses.some((item) => item === IN_PROGRESS || item === IN_REVIEW || item === DONE)) {
-      status = IN_PROGRESS;
-    }
-    const actualHours = subtasks.reduce((sum, child) => sum + Number(child.actualHours ?? 0), 0);
-    const completedAt =
-      status === DONE
-        ? latest(subtasks.map((child) => child.completedAt).filter((value): value is Date => Boolean(value))) ??
-          parent.completedAt
-        : null;
-
-    if (
-      status !== parent.status ||
-      actualHours !== Number(parent.actualHours ?? 0) ||
-      completedAt?.getTime() !== parent.completedAt?.getTime()
-    ) {
-      await tx.task.update({ where: { id: parent.id }, data: { status, actualHours, completedAt } });
-    }
-  }
+function hardTask(task: {
+  estimatedHours: unknown;
+  minLevel: CareerLevel | null;
+  parentTask: { minLevel: CareerLevel | null } | null;
+  requiredSkills: Array<{ requiredProficiency: SkillProficiency }>;
+}) {
+  return isHard(Number(task.estimatedHours ?? 0), task.requiredSkills, task.minLevel ?? task.parentTask?.minLevel ?? null);
 }
 
 /**
- * Every team-level task belongs to a project - the API refuses one without.
- * Operations, support and unplanned work belong to no product, so each
- * department gets one internal project per year to hold them, the way
- * companies book such work in practice.
+ * The department head keeps projects current from the web: a planned
+ * project starts on its start date, and a finished one is closed - after the
+ * head deletes any team task whose every subtask was dropped, since the API
+ * counts that task as still open.
  */
-export function internalProjectCode(departmentCode: string, year: number) {
-  return `${departmentCode}-OPS-${year}`;
-}
-
-export function isInternalProjectCode(code: string) {
-  return /-OPS-\d{4}$/.test(code);
-}
-
-async function internalProjectId(tx: Tx, ctx: Context, departmentId: number, day: Date) {
-  const department = ctx.departments.get(departmentId);
-  const year = day.getUTCFullYear();
-  const code = internalProjectCode(department?.code ?? `D${departmentId}`, year);
-  const existing = await tx.project.findFirst({ where: { code, deletedAt: null }, select: { id: true } });
-  if (existing) {
-    return existing.id;
-  }
-  const head = department?.headId ? ctx.employees.get(department.headId) : undefined;
-  if (!head) {
-    // The head manages the internal project, as any other of the department's.
-    throw new Error(`Department ${code} has no head to manage its internal project.`);
-  }
-  const project = await tx.project.create({
-    data: {
-      code,
-      name: `Vận hành & hỗ trợ nội bộ ${year}`,
-      description:
-        "Dự án nội bộ theo năm: vận hành, hỗ trợ, sửa lỗi và việc phát sinh ngoài kế hoạch của phòng ban.",
-      status: ProjectStatus.ACTIVE,
-      departmentId,
-      managerId: head.id,
-      createdByUserId: head.userId ?? ctx.adminUserId,
-      startDate: new Date(Date.UTC(year, 0, 1)),
-      endDate: new Date(Date.UTC(year, 11, 31)),
-      createdAt: at(day, hm("08:00"))
-    }
-  });
-  return project.id;
-}
-
-async function syncProjects(tx: Tx, day: Date, totals: Totals) {
-  const projects = await tx.project.findMany({
+async function syncProjects(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
+  const projects = await api.prisma.project.findMany({
     where: { deletedAt: null, status: { in: [ProjectStatus.PLANNING, ProjectStatus.ACTIVE] } },
     select: {
       id: true,
       code: true,
       status: true,
       startDate: true,
-      tasks: { where: { deletedAt: null, parentTaskId: { not: null } }, select: { status: true } }
+      departmentId: true,
+      tasks: {
+        where: { deletedAt: null },
+        select: { id: true, parentTaskId: true, status: true }
+      }
     }
   });
   for (const project of projects) {
-    let status = project.status;
-    if (status === ProjectStatus.PLANNING && project.startDate && project.startDate <= day) {
-      status = ProjectStatus.ACTIVE;
-      totals.projectsStarted.push(project.code);
+    const heads = headUsers(ctx, project.departmentId);
+    if (project.status === ProjectStatus.PLANNING && project.startDate && project.startDate <= day) {
+      const started = await act(totals, randomInt(hm("08:00"), hm("09:00")), heads, (actor) =>
+        api.projects.update(project.id, { status: ProjectStatus.ACTIVE }, actor, api.from("web"))
+      );
+      if (started) {
+        totals.projectsStarted.push(project.code);
+      }
+      continue;
     }
+    const subtasks = project.tasks.filter((task) => task.parentTaskId !== null);
+    const plan = state.projects[project.id];
     if (
-      status === ProjectStatus.ACTIVE &&
-      !isInternalProjectCode(project.code) &&
-      project.tasks.some((task) => task.status === DONE) &&
-      project.tasks.every((task) => task.status === DONE || task.status === CANCELLED)
+      project.status !== ProjectStatus.ACTIVE ||
+      // Still taking new work: a quiet week is not the end of the project.
+      (plan && iso(day) <= plan.freeze) ||
+      isInternalProjectCode(project.code) ||
+      !subtasks.some((task) => task.status === DONE) ||
+      !subtasks.every((task) => task.status === DONE || task.status === CANCELLED)
     ) {
-      status = ProjectStatus.COMPLETED;
-      totals.projectsCompleted.push(project.code);
+      continue;
     }
-    if (status !== project.status) {
-      await tx.project.update({ where: { id: project.id }, data: { status } });
+    const minute = randomInt(hm("16:30"), hm("17:30"));
+    for (const parent of project.tasks.filter((task) => task.parentTaskId === null && task.status !== DONE)) {
+      await act(totals, minute - 2, heads, (actor) => api.tasks.softDelete(parent.id, actor, api.from("web")));
+    }
+    const closed = await act(totals, minute, heads, (actor) =>
+      api.projects.update(project.id, { status: ProjectStatus.COMPLETED }, actor, api.from("web"))
+    );
+    if (closed) {
+      totals.projectsCompleted.push(project.code);
+      delete state.projects[project.id];
     }
   }
 }
 
-
 // --- Shared helpers ---------------------------------------------------------------
 
-async function openHoursByEmployee(tx: Tx) {
-  const tasks = await tx.task.findMany({
+/** Hours of open work each person still has, by their own reckoning. */
+async function openHoursByEmployee(state: SimulationState) {
+  const tasks = await api.prisma.task.findMany({
     where: {
       deletedAt: null,
       parentTaskId: { not: null },
       assigneeId: { not: null },
       status: { in: OPEN_TASK_STATUSES }
     },
-    select: { assigneeId: true, estimatedHours: true, actualHours: true }
+    select: { id: true, assigneeId: true, estimatedHours: true }
   });
   const loads = new Map<number, number>();
   for (const task of tasks) {
-    const remaining = Math.max(1, Number(task.estimatedHours ?? 4) - Number(task.actualHours ?? 0));
+    const remaining = Math.max(1, Number(task.estimatedHours ?? 4) - (state.logged[task.id] ?? 0));
     loads.set(task.assigneeId!, (loads.get(task.assigneeId!) ?? 0) + remaining);
   }
   return loads;
 }
 
 /** Remaining hours of open subtasks per team, assigned or not. */
-async function openHoursByTeam(tx: Tx) {
-  const tasks = await tx.task.findMany({
+async function openHoursByTeam(state: SimulationState) {
+  const tasks = await api.prisma.task.findMany({
     where: {
       deletedAt: null,
       parentTaskId: { not: null },
       teamId: { not: null },
       status: { in: OPEN_TASK_STATUSES }
     },
-    select: { teamId: true, estimatedHours: true, actualHours: true }
+    select: { id: true, teamId: true, estimatedHours: true }
   });
   const backlog = new Map<number, number>();
   for (const task of tasks) {
-    const remaining = Math.max(1, Number(task.estimatedHours ?? 4) - Number(task.actualHours ?? 0));
+    const remaining = Math.max(1, Number(task.estimatedHours ?? 4) - (state.logged[task.id] ?? 0));
     backlog.set(task.teamId!, (backlog.get(task.teamId!) ?? 0) + remaining);
   }
   return backlog;
@@ -2203,30 +2595,8 @@ function activeMembers(ctx: Context, team: SimTeam) {
     .filter((employee): employee is SimEmployee => Boolean(employee));
 }
 
-function leadUserOf(ctx: Context, team: SimTeam) {
-  const lead = team.leadId ? ctx.employees.get(team.leadId) : undefined;
-  const department = ctx.departments.get(team.departmentId);
-  const head = department?.headId ? ctx.employees.get(department.headId) : undefined;
-  return lead?.userId ?? head?.userId ?? ctx.adminUserId;
-}
-
-async function notify(
-  tx: Tx,
-  ctx: Context,
-  userId: number | null,
-  data: {
-    type: NotificationType;
-    title: string;
-    message: string;
-    entityType: string;
-    entityId: number;
-    createdAt: Date;
-  }
-) {
-  if (!userId) {
-    return;
-  }
-  await tx.notification.create({ data: { userId, ...data, isRead: data.createdAt < ctx.readBefore } });
+function hired(employee: SimEmployee, day: Date) {
+  return !employee.hireDate || employee.hireDate <= day;
 }
 
 function highestPriority(priorities: TaskPriority[]) {
@@ -2235,6 +2605,10 @@ function highestPriority(priorities: TaskPriority[]) {
 
 function latest(dates: Date[]) {
   return dates.length ? new Date(Math.max(...dates.map((date) => date.getTime()))) : null;
+}
+
+function laterOf(a: Date, b: Date) {
+  return a > b ? a : b;
 }
 
 function fill(template: string, day: Date, topic = "") {
@@ -2294,6 +2668,12 @@ function dateOnly(value: string) {
 
 function iso(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+/** 15/05/2026, the way people write a date in a message. */
+function dmy(date: Date) {
+  const [year, month, day] = iso(date).split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function addDays(date: Date, days: number) {
@@ -2359,40 +2739,47 @@ function printSummary(totals: Totals, state: SimulationState) {
     return;
   }
   const list = (items: string[]) => (items.length ? items.join(", ") : "—");
-  console.info(`\nĐã mô phỏng ${totals.days.length} ngày làm việc: ${totals.days.join(", ")}`);
-  console.info(`- Dự án mới: ${totals.projects.length ? "" : "—"}`);
-  for (const project of totals.projects) {
-    console.info(`    • ${project}`);
-  }
-  console.info(`- Dự án bắt đầu: ${list(totals.projectsStarted)}; hoàn thành: ${list(totals.projectsCompleted)}`);
+  const first = totals.days[0];
+  const last = totals.days[totals.days.length - 1];
+  console.info(`\nĐã mô phỏng ${totals.days.length} ngày làm việc (${first} → ${last}), mọi thao tác qua API.`);
+  console.info(`- Dự án mới: ${totals.projects.length}`);
+  console.info(`- Dự án bắt đầu: ${totals.projectsStarted.length}; hoàn thành: ${list(totals.projectsCompleted)}`);
   console.info(
     `- Task: ${totals.newTasks} task mới, ${totals.assignments} lượt giao, ${totals.reassignments} lượt chuyển giao, ` +
       `${totals.started} bắt đầu làm, ${totals.submitted} gửi duyệt, ${totals.completed} hoàn thành ` +
       `(${totals.completedLate} trễ hạn), ${totals.reworks} bị trả về sửa, ${totals.cancelled} bị hủy`
   );
   console.info(
+    `- Gợi ý AI: ${totals.aiSuggestions} lần trưởng nhóm xin gợi ý, ${totals.aiPicked} lần chọn người từ danh sách gợi ý`
+  );
+  console.info(
     `- Chấm công: ${totals.attendanceRecords} bản ghi, ${totals.lateCheckIns} lượt đi muộn, ` +
       `${totals.absences} lượt vắng không phép`
   );
   console.info(
-    `- Nghỉ phép: ${totals.sickLeaves} nghỉ ốm, ${totals.leaveFiled} đơn mới chờ duyệt, ` +
-      `${totals.leaveApproved} duyệt, ${totals.leaveRejected} từ chối, ${totals.leaveCancelled} hủy, ` +
+    `- Nghỉ phép: ${totals.sickLeaves} nghỉ ốm, ${totals.leaveFiled} đơn mới (${totals.chatLeaves} qua HRGenie), ` +
+      `${totals.leaveApproved} duyệt, ${totals.leaveRejected} từ chối, ${totals.leaveCancelled} rút, ` +
       `${totals.halfDayLeaves} đơn nửa ngày`
   );
   console.info(
     `- Xin hủy đơn đã duyệt: ${totals.cancelRequested} yêu cầu, ${totals.cancelApproved} được hủy, ` +
       `${totals.cancelRejected} giữ nguyên`
   );
+  console.info(`- HRGenie: ${totals.chats} tin nhắn; ${totals.notificationsRead} lượt đọc hết thông báo`);
+  const refused = Object.entries(totals.refused).sort((a, b) => b[1] - a[1]);
+  console.info(
+    `- API từ chối: ${refused.length ? refused.map(([code, count]) => `${code} ×${count}`).join(", ") : "—"}`
+  );
 }
 
 async function printPerformers(ctx: Context, through: Date) {
   const employeeIds = [...ctx.employees.keys()];
   const [done, checkIns] = await Promise.all([
-    prisma.task.findMany({
+    api.prisma.task.findMany({
       where: { deletedAt: null, parentTaskId: { not: null }, status: DONE, assigneeId: { in: employeeIds } },
       select: { assigneeId: true, dueDate: true, completedAt: true, estimatedHours: true, actualHours: true }
     }),
-    prisma.attendanceRecord.groupBy({
+    api.prisma.attendanceRecord.groupBy({
       by: ["employeeId", "attendanceStatus"],
       where: {
         employeeId: { in: employeeIds },
@@ -2430,16 +2817,10 @@ async function printPerformers(ctx: Context, through: Date) {
   console.table([...rows.slice(0, 5), ...rows.slice(-5)]);
 }
 
-// Only simulate when this file is the entry point, so the date guards above
-// can be unit tested without writing a day of history first.
+// Only simulate when this file is the entry point.
 if (require.main === module) {
-  main()
-    .then(async () => {
-      await prisma.$disconnect();
-    })
-    .catch(async (error) => {
-      console.error(error);
-      await prisma.$disconnect();
-      process.exit(1);
-    });
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

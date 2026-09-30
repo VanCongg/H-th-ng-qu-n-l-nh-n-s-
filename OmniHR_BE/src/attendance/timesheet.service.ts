@@ -18,7 +18,7 @@ export const timesheetEmployeeSelect = {
   id: true,
   employeeCode: true,
   fullName: true,
-  companyEmail: true,
+  personalEmail: true,
   department: { select: { id: true, code: true, name: true } },
   position: { select: { id: true, code: true, name: true } }
 } satisfies Prisma.EmployeeSelect;

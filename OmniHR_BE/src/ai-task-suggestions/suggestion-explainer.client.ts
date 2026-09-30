@@ -1,9 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+/**
+ * No name: the reason is shown beside the candidate's name, and a name is the
+ * one thing the external LLM never needs to word a sentence.
+ */
 export type ExplainCandidateInput = {
   employeeId: number;
-  fullName: string;
   score: number;
   skillScore: number;
   workloadScore: number;
@@ -14,6 +17,12 @@ export type ExplainCandidateInput = {
   missingImportantSkills: string[];
   activeTaskCount: number;
   availableHours: number;
+  /** Lagged, shrunk track record; the AI service turns it into words. */
+  historyScore: number | null;
+  historySampleSize: number;
+  /** Recent assignments relative to the team average, and the points it cost. */
+  fairShare: number;
+  fairSharePenalty: number;
   warnings: string[];
 };
 

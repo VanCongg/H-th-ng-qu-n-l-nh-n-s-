@@ -1,3 +1,4 @@
+import { VerificationModule } from "./verification/verification.module";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
@@ -70,6 +71,7 @@ function rejectInsecureProductionConfig(
 
 @Module({
   imports: [
+    VerificationModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
@@ -103,6 +105,15 @@ function rejectInsecureProductionConfig(
           .valid("true", "false")
           .default("true"),
         AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: Joi.number().default(8000),
+        // Outgoing email (verification codes). Unset in development: the code
+        // is written to the log instead; unset in production: requests fail.
+        SMTP_HOST: Joi.string().allow("").default("smtp.gmail.com"),
+        SMTP_PORT: Joi.number().default(465),
+        SMTP_USER: Joi.string().allow("").optional(),
+        SMTP_PASS: Joi.string().allow("").optional(),
+        MAIL_FROM: Joi.string().allow("").optional(),
+        // Daily clean-up of audit rows past their retention (see AuditLogsService).
+        AUDIT_RETENTION_JOB: Joi.string().valid("true", "false").default("true"),
         // Optional: a Firebase service account (JSON or base64 of it). Unset,
         // notifications still reach the app's list but no push is sent.
         FIREBASE_SERVICE_ACCOUNT_JSON: Joi.string().allow("").default(""),

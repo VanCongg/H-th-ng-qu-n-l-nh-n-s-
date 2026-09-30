@@ -3,6 +3,7 @@ import { AccessControlService } from "../common/services/access-control.service"
 import { AuditService } from "../common/services/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { createFakeCache } from "../redis/cache.service.fake";
+import { VerificationService } from "../verification/verification.service";
 import { EmployeesService } from "./employees.service";
 
 describe("EmployeesService", () => {
@@ -10,6 +11,7 @@ describe("EmployeesService", () => {
     const prisma = {
       employee: {
         findFirst: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         findMany: jest.fn(),
         update: jest.fn(),
         count: jest.fn()
@@ -38,6 +40,7 @@ describe("EmployeesService", () => {
     const accessControl = {
       ensureCanReadEmployee: jest.fn()
     };
+    const verification = { consume: jest.fn(), notifyEmailChanged: jest.fn() };
 
     return {
       service: new EmployeesService(
@@ -45,11 +48,13 @@ describe("EmployeesService", () => {
         config as unknown as ConfigService,
         audit as unknown as AuditService,
         accessControl as unknown as AccessControlService,
-        createFakeCache().cache
+        createFakeCache().cache,
+        verification as unknown as VerificationService
       ),
       prisma,
       audit,
-      accessControl
+      accessControl,
+      verification
     };
   }
 
@@ -67,7 +72,7 @@ describe("EmployeesService", () => {
     return {
       employeeCode: "EMP001",
       fullName: "Nguyen Van A",
-      companyEmail: "a@omnihr.dev",
+      personalEmail: "a@omnihr.dev",
       birthDate: "1995-01-01",
       ...overrides
     } as never;
@@ -201,6 +206,78 @@ describe("EmployeesService", () => {
       await expect(
         service.setUserActive(1, false, actor as never)
       ).rejects.toMatchObject({ errorCode: "USER_NOT_FOUND" });
+    });
+  });
+
+  describe("updateSelf", () => {
+    const me = {
+      id: 5,
+      username: "congnv",
+      email: "nvcong1908@gmail.com",
+      roles: ["EMPLOYEE"],
+      permissions: [],
+      employeeId: 81,
+      mustChangePassword: false
+    };
+
+    function withTransaction(created: ReturnType<typeof createService>) {
+      const tx = {
+        user: { update: jest.fn() },
+        employee: { update: jest.fn().mockResolvedValue({ id: 81, personalEmail: "x@gmail.com" }) }
+      };
+      created.prisma.$transaction.mockImplementation(async (callback: (t: typeof tx) => unknown) => callback(tx));
+      created.prisma.employee.findUniqueOrThrow.mockResolvedValue({
+        personalEmail: "nvcong1908@gmail.com",
+        phone: "0901000001",
+        fullName: "Công Nguyễn Văn",
+        userId: 5
+      });
+      created.prisma.employee.findFirst.mockResolvedValue(null);
+      created.prisma.user.findFirst.mockResolvedValue(null);
+      return tx;
+    }
+
+    it("checks the emailed code before changing the phone", async () => {
+      const created = createService();
+      const tx = withTransaction(created);
+
+      await created.service.updateSelf(me, { phone: "0987654321", otpCode: "123456" });
+
+      expect(created.verification.consume).toHaveBeenCalledWith(5, "PHONE_CHANGE", "123456", "0987654321");
+      expect(tx.employee.update.mock.calls[0][0].data.phone).toBe("0987654321");
+    });
+
+    it("moves the login email together with the employee's email", async () => {
+      const created = createService();
+      const tx = withTransaction(created);
+
+      await created.service.updateSelf(me, { personalEmail: "New@Gmail.com", otpCode: "123456" });
+
+      expect(created.verification.consume).toHaveBeenCalledWith(5, "EMAIL_CHANGE", "123456", "new@gmail.com");
+      expect(tx.user.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { email: "new@gmail.com" } });
+      expect(created.verification.notifyEmailChanged).toHaveBeenCalledWith(
+        "nvcong1908@gmail.com",
+        "new@gmail.com",
+        "Công Nguyễn Văn"
+      );
+    });
+
+    it("changes a picture without any code", async () => {
+      const created = createService();
+      withTransaction(created);
+
+      await created.service.updateSelf(me, { avatarUrl: null, phone: "0901000001" });
+
+      expect(created.verification.consume).not.toHaveBeenCalled();
+    });
+
+    it("takes the email and the phone one at a time", async () => {
+      const created = createService();
+      withTransaction(created);
+
+      await expect(
+        created.service.updateSelf(me, { personalEmail: "new@gmail.com", phone: "0987654321", otpCode: "123456" })
+      ).rejects.toMatchObject({ errorCode: "ONE_CHANGE_AT_A_TIME" });
     });
   });
 });

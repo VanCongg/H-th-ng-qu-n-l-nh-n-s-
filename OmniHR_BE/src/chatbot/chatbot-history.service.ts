@@ -5,7 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ChatbotHistoryItem } from "./types/chatbot.types";
 
 const SENSITIVE_PLACEHOLDER =
-  "[Nội dung lương đã được ẩn khỏi ngữ cảnh gửi cho AI]";
+  "[Dữ liệu cá nhân đã được ẩn khỏi ngữ cảnh gửi cho AI]";
 
 @Injectable()
 export class ChatbotHistoryService {
@@ -63,8 +63,10 @@ export class ChatbotHistoryService {
     conversationId: number,
     limit = 12,
   ): Promise<ChatbotHistoryItem[]> {
+    // Raw tool results are records for the app, not context for the planner:
+    // the rendered assistant reply already says what the user was told.
     const messages = await this.prisma.chatbotMessage.findMany({
-      where: { conversationId },
+      where: { conversationId, role: { not: ChatbotMessageRole.TOOL } },
       orderBy: { createdAt: "desc" },
       take: limit,
     });

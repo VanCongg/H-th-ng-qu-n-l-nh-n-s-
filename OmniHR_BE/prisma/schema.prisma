@@ -160,6 +160,7 @@ model User {
   pushDevices              PushDevice[]
 
   @@map("users")
+  verificationCodes VerificationCode[]
 }
 
 model Role {
@@ -272,9 +273,9 @@ model Employee {
   id            Int            @id @default(autoincrement())
   employeeCode  String         @unique @map("employee_code") @db.VarChar(50)
   fullName      String         @map("full_name") @db.VarChar(160)
-  companyEmail  String         @unique @map("company_email") @db.VarChar(160)
+  /// The one email of the person, also the login email of their account.
+  personalEmail String         @unique @map("personal_email") @db.VarChar(160)
   avatarUrl     String?        @map("avatar_url") @db.Text
-  personalEmail String?        @map("personal_email") @db.VarChar(160)
   phone         String?        @db.VarChar(40)
   birthDate     DateTime       @map("birth_date") @db.Date
   hireDate      DateTime?      @map("hire_date") @db.Date
@@ -474,6 +475,8 @@ model AuditLog {
   user User? @relation(fields: [userId], references: [id])
 
   @@index([userId, action, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
 }
 
@@ -482,7 +485,15 @@ enum LeaveHalf {
   AFTERNOON
 }
 
+enum VerificationPurpose {
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  PHONE_CHANGE
+  EMAIL_CHANGE
+}
+
 enum NotificationType {
+  LEAVE_REQUESTED
   LEAVE_APPROVED
   LEAVE_REJECTED
   LEAVE_CANCEL_REQUESTED
@@ -491,6 +502,7 @@ enum NotificationType {
   TASK_ASSIGNED
   TASK_STATUS_CHANGED
   ATTENDANCE_ADJUSTED
+  PASSWORD_CHANGED
 }
 
 model Notification {
@@ -766,4 +778,23 @@ model AiTaskSuggestionItem {
 
   @@unique([suggestionId, employeeId])
   @@map("ai_task_suggestion_items")
+}
+
+/// A one-time code emailed before a password, phone or email change.
+model VerificationCode {
+  id         Int                 @id @default(autoincrement())
+  userId     Int                 @map("user_id")
+  purpose    VerificationPurpose
+  /// The new phone or email the code approves; null for a password change.
+  target     String?             @db.VarChar(160)
+  codeHash   String              @map("code_hash") @db.VarChar(128)
+  attempts   Int                 @default(0)
+  expiresAt  DateTime            @map("expires_at")
+  consumedAt DateTime?           @map("consumed_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@map("verification_codes")
 }

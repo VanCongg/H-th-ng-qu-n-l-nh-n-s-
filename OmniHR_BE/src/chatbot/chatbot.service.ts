@@ -20,7 +20,25 @@ const AI_FALLBACK_REPLY =
   "HRGenie hiện chưa phản hồi được. Bạn vui lòng thử lại sau hoặc thao tác trực tiếp trên app.";
 // Results the user may see but the external LLM must not: they are stored
 // flagged as sensitive and left out of the history sent to the planner.
-const SENSITIVE_TOOLS = new Set<string>();
+// Personal records and anything about other people. Task and project tools
+// stay out on purpose: a follow-up like "task đó xong rồi" is resolved from
+// the task name in the previous reply, and a task title is work data.
+export const SENSITIVE_TOOLS = new Set<string>([
+  "get_my_profile",
+  "get_my_manager",
+  "get_my_skills",
+  "get_my_team_members",
+  "get_my_leave_balance",
+  "get_my_leave_requests",
+  "get_today_attendance",
+  "get_my_attendance_summary",
+  "get_employee_birthdays",
+  "get_who_is_on_leave_today",
+  "get_upcoming_leaves",
+  "get_team_attendance_summary",
+  "get_team_task_summary",
+  "get_department_headcount",
+]);
 // Same sliding window as the in-process fallback below, but shared by every
 // API instance. Trimming, counting and adding have to be one atomic step or
 // two concurrent messages can both slip past a full bucket.
@@ -264,7 +282,7 @@ export class ChatbotService {
       LEAVE_REQUEST_OVERLAP:
         "Khoảng nghỉ này trùng với một đơn đang chờ duyệt hoặc đã được duyệt của bạn. Bạn kiểm tra lại ngày nghỉ giúp mình nhé.",
       LEAVE_BALANCE_INSUFFICIENT:
-        "Số ngày phép năm còn lại của bạn không đủ cho đơn này. Bạn hỏi mình \"tôi còn bao nhiêu ngày phép\" để xem số dư, hoặc chọn nghỉ không lương nhé.",
+        "Số ngày phép năm còn lại của bạn không đủ cho đơn này. Phép năm được cộng dần theo từng tháng làm việc, nên nếu bạn mới vào làm thì có thể chưa có ngày nào. Bạn hỏi mình \"tôi còn bao nhiêu ngày phép\" để xem số dư, hoặc xin nghỉ không lương nhé.",
       LEAVE_REQUEST_INVALID_DAYS:
         "Khoảng nghỉ bạn chọn không có ngày làm việc nào. Bạn chọn lại ngày trong tuần làm việc giúp mình nhé.",
       LEAVE_TYPE_NOT_FOUND:
@@ -328,8 +346,9 @@ export class ChatbotService {
       case "get_attendance_policy":
         return this.attendancePolicyReply(first.data);
       case "get_my_tasks":
-      case "get_my_upcoming_tasks":
         return this.tasksReply(first.data);
+      case "get_my_upcoming_tasks":
+        return this.upcomingTasksReply(first.data);
       case "get_team_task_summary":
         return this.teamTaskSummaryReply(first.data);
       case "get_department_headcount":
@@ -417,15 +436,26 @@ export class ChatbotService {
 
   private myManagerReply(data: unknown) {
     const profile = this.record(data);
-    const manager = this.record(profile.manager);
-    const managerText = manager.fullName
-      ? `${manager.fullName}${manager.positionName ? ` - ${manager.positionName}` : ""}`
-      : "chưa có thông tin quản lý";
-    return [
+    const describe = (value: unknown) => {
+      const person = this.record(value);
+      return person.fullName
+        ? `${person.fullName}${person.positionName ? ` - ${person.positionName}` : ""}`
+        : null;
+    };
+    const direct = describe(profile.directManager);
+    const head = describe(profile.departmentHead);
+    const lines = [
       `Phòng ban của bạn: ${profile.departmentName ?? "-"}.`,
       `Vị trí: ${profile.positionName ?? "-"}.`,
-      `Quản lý/người duyệt chính: ${managerText}.`,
-    ].join("\n");
+    ];
+    if (profile.teamName) {
+      lines.push(`Nhóm: ${String(profile.teamName)}.`);
+    }
+    lines.push(`Quản lý trực tiếp: ${direct ?? "chưa có (bạn chưa thuộc nhóm nào)"}.`);
+    if (head && head !== direct) {
+      lines.push(`Trưởng phòng: ${head}.`);
+    }
+    return lines.join("\n");
   }
 
   private leaveBalanceReply(data: unknown) {
@@ -574,12 +604,42 @@ export class ChatbotService {
     if (!tasks.length) {
       return "Bạn không có task mở nào trong danh sách hiện tại.";
     }
-    const lines = tasks.slice(0, 5).map((task, index) => {
-      const due = task.dueDate ? `, hạn ${this.formatDate(task.dueDate)}` : "";
-      const overdue = task.isOverdue ? " - quá hạn" : "";
-      return `${index + 1}. ${task.title ?? "Task"} (${this.statusLabel(task.status)})${due}${overdue}`;
-    });
-    return `Các task sắp tới của bạn:\n${lines.join("\n")}`;
+    return `Các task đang mở của bạn:\n${this.taskLines(tasks)}`;
+  }
+
+  /**
+   * What is due in the window asked about. An empty window is not "no work":
+   * it says so, and names the next task that is due.
+   */
+  private upcomingTasksReply(data: unknown) {
+    const result = this.record(data);
+    const tasks = this.items(data);
+    const mode = String(result.mode ?? "upcoming");
+    const days = Number(result.days ?? 7);
+    const window =
+      mode === "today" ? "hôm nay" : mode === "overdue" ? "đang quá hạn" : `trong ${days} ngày tới`;
+    if (tasks.length) {
+      const heading =
+        mode === "overdue" ? "Các task đang quá hạn của bạn" : `Các task đến hạn ${window} của bạn`;
+      return `${heading}:\n${this.taskLines(tasks)}`;
+    }
+    const none =
+      mode === "overdue" ? "Bạn không có task nào đang quá hạn." : `Bạn không có task nào đến hạn ${window}.`;
+    const next = this.record(result.nextTask);
+    return next.title
+      ? `${none} Task gần nhất: "${next.title}"${next.dueDate ? `, hạn ${this.formatDate(next.dueDate)}` : ""}.`
+      : none;
+  }
+
+  private taskLines(tasks: Array<Record<string, unknown>>) {
+    return tasks
+      .slice(0, 5)
+      .map((task, index) => {
+        const due = task.dueDate ? `, hạn ${this.formatDate(task.dueDate)}` : "";
+        const overdue = task.isOverdue ? " - quá hạn" : "";
+        return `${index + 1}. ${task.title ?? "Task"} (${this.statusLabel(task.status)})${due}${overdue}`;
+      })
+      .join("\n");
   }
 
   private teamTaskSummaryReply(data: unknown) {

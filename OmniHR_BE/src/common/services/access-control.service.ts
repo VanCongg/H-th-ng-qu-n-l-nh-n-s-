@@ -10,6 +10,56 @@ import { toDateOnly } from "../utils";
 export class AccessControlService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * The people above an employee: the direct manager - a manager set on the
+   * employee, else the lead of a team they belong to - and the head of their
+   * department. Either is null when there is none, or when it is the employee
+   * themself. Used to tell them about a new leave request and to answer "who
+   * is my manager".
+   */
+  async managersOf(employeeId: number) {
+    const today = toDateOnly(new Date());
+    const person = { id: true, fullName: true, userId: true, position: { select: { name: true } } } as const;
+    const employee = await this.prisma.employee.findFirst({
+      where: currentEmployeeWhere({ id: employeeId }),
+      select: {
+        id: true,
+        department: { select: { name: true, manager: { select: person } } },
+        subordinateRelations: {
+          where: {
+            isActive: true,
+            manager: currentEmployeeWhere({ status: EmployeeStatus.ACTIVE }),
+            OR: [{ endDate: null }, { endDate: { gte: today } }]
+          },
+          orderBy: [{ managerType: "asc" }, { startDate: "desc" }],
+          take: 1,
+          select: { manager: { select: person } }
+        },
+        teamMemberships: {
+          where: {
+            isActive: true,
+            team: { deletedAt: null, isActive: true, leadId: { not: employeeId } }
+          },
+          orderBy: { joinedAt: "desc" },
+          take: 1,
+          select: { team: { select: { name: true, lead: { select: person } } } }
+        }
+      }
+    });
+    if (!employee) {
+      return { direct: null, departmentHead: null, teamName: null, departmentName: null };
+    }
+    const own = <T extends { id: number }>(candidate: T | null | undefined) =>
+      candidate && candidate.id !== employeeId ? candidate : null;
+    const team = employee.teamMemberships[0]?.team;
+    return {
+      direct: own(employee.subordinateRelations[0]?.manager) ?? own(team?.lead),
+      departmentHead: own(employee.department?.manager),
+      teamName: team?.name ?? null,
+      departmentName: employee.department?.name ?? null
+    };
+  }
+
   isAdmin(user: AuthUser) {
     return user.roles.includes("ADMIN");
   }

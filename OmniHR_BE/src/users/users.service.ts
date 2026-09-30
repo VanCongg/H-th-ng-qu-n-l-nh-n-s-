@@ -71,7 +71,7 @@ export class UsersService {
                     OR: [
                       { fullName: { contains: query.search, mode: "insensitive" } },
                       { employeeCode: { contains: query.search, mode: "insensitive" } },
-                      { companyEmail: { contains: query.search, mode: "insensitive" } },
+                      { personalEmail: { contains: query.search, mode: "insensitive" } },
                       {
                         department: {
                           is: {
@@ -263,7 +263,7 @@ export class UsersService {
       if (oldValue.employee && email) {
         await tx.employee.update({
           where: { id: oldValue.employee.id },
-          data: { companyEmail: email }
+          data: { personalEmail: email }
         });
       }
 
@@ -478,7 +478,7 @@ export class UsersService {
 
   private async ensureEmployeeProfileForCreate(
     profile: CreateUserEmployeeProfileDto | undefined,
-    companyEmail: string,
+    personalEmail: string,
     roleIds: number[],
     requiresEmployeeProfile: boolean
   ) {
@@ -500,7 +500,7 @@ export class UsersService {
     );
     await this.ensureManagerPositionRole(references.position, roleIds);
     await this.ensureEmployeeCodeAvailable(profile.employeeCode);
-    await this.ensureEmployeeEmailAvailable(companyEmail);
+    await this.ensureEmployeeEmailAvailable(personalEmail);
   }
 
   private async ensureEmployeeProfileForUpdate(
@@ -508,12 +508,12 @@ export class UsersService {
     employee: {
       id: number;
       employeeCode: string;
-      companyEmail: string;
+      personalEmail: string;
       departmentId?: number | null;
       positionId?: number | null;
       position?: PositionRoleShape | null;
     } | null,
-    companyEmail: string | undefined,
+    personalEmail: string | undefined,
     roleIds: number[],
     requiresEmployeeProfile: boolean
   ) {
@@ -522,11 +522,11 @@ export class UsersService {
     }
 
     if (
-      companyEmail &&
+      personalEmail &&
       (employee || profile) &&
-      employee?.companyEmail !== companyEmail
+      employee?.personalEmail !== personalEmail
     ) {
-      await this.ensureEmployeeEmailAvailable(companyEmail, employee?.id);
+      await this.ensureEmployeeEmailAvailable(personalEmail, employee?.id);
     }
 
     let effectivePosition = employee?.position;
@@ -566,7 +566,7 @@ export class UsersService {
 
     const completeProfile = this.requireCompleteEmployeeProfile(profile);
     await this.ensureEmployeeCodeAvailable(completeProfile.employeeCode);
-    await this.ensureEmployeeEmailAvailable(companyEmail ?? "");
+    await this.ensureEmployeeEmailAvailable(personalEmail ?? "");
   }
 
   private requireCompleteEmployeeProfile(
@@ -600,13 +600,13 @@ export class UsersService {
 
   private employeeProfileCreateData(
     profile: CreateUserEmployeeProfileDto,
-    companyEmail: string,
+    personalEmail: string,
     userId: number
   ): Prisma.EmployeeUncheckedCreateInput {
     return {
       employeeCode: profile.employeeCode,
       fullName: profile.fullName,
-      companyEmail,
+      personalEmail,
       avatarUrl: profile.avatarUrl,
       birthDate: toDateOnly(profile.birthDate),
       hireDate: profile.hireDate ? toDateOnly(profile.hireDate) : undefined,
@@ -794,14 +794,14 @@ export class UsersService {
     }
   }
 
-  private async ensureEmployeeEmailAvailable(companyEmail: string, employeeId?: number) {
-    if (!companyEmail) {
+  private async ensureEmployeeEmailAvailable(personalEmail: string, employeeId?: number) {
+    if (!personalEmail) {
       return;
     }
 
     const employee = await this.prisma.employee.findFirst({
       where: {
-        companyEmail,
+        personalEmail,
         id: employeeId ? { not: employeeId } : undefined
       },
       select: { id: true }

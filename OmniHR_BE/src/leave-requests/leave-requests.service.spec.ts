@@ -30,13 +30,23 @@ function createService() {
       findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn(),
-      create: jest.fn().mockResolvedValue({ id: 99 }),
+      create: jest.fn().mockResolvedValue({
+        id: 99,
+        employeeId: 10,
+        startDate: new Date("2026-10-05T00:00:00.000Z"),
+        endDate: new Date("2026-10-09T00:00:00.000Z"),
+        employee: { fullName: "Nguyen Van A" }
+      }),
       update: jest.fn().mockResolvedValue({ id: 99, employee: { userId: null } })
     },
     employeeManager: { findMany: jest.fn().mockResolvedValue([]) }
   };
   const notifications = { create: jest.fn() };
-  const accessControl = { ensureCanManageLeave: jest.fn(), isAdmin: jest.fn().mockReturnValue(false) };
+  const accessControl = {
+    ensureCanManageLeave: jest.fn(),
+    isAdmin: jest.fn().mockReturnValue(false),
+    managersOf: jest.fn().mockResolvedValue({ direct: null, departmentHead: null })
+  };
   const leaveBalances = { annualBalanceOn: jest.fn() };
   const holidays = { dateSet: jest.fn().mockResolvedValue(new Set<number>()) };
   const service = new LeaveRequestsService(
@@ -167,6 +177,41 @@ describe("LeaveRequestsService annual leave balance", () => {
       errorCode: "LEAVE_BALANCE_INSUFFICIENT"
     });
     expect(prisma.leaveRequest.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("LeaveRequestsService telling the approvers", () => {
+  it("tells the direct manager and the department head about a new request", async () => {
+    const { service, prisma, notifications, accessControl } = createService();
+    prisma.leaveType.findFirst.mockResolvedValue(sick);
+    accessControl.managersOf.mockResolvedValue({
+      direct: { id: 40, userId: 41, fullName: "Lead" },
+      departmentHead: { id: 1, userId: 2, fullName: "Head" }
+    });
+
+    await service.create({ ...fiveDays, leaveTypeId: 2 }, employee);
+
+    const recipients = notifications.create.mock.calls.map(([userId, type]) => [userId, type]);
+    expect(recipients).toEqual([
+      [41, "LEAVE_REQUESTED"],
+      [2, "LEAVE_REQUESTED"]
+    ]);
+    expect(notifications.create.mock.calls[0][3]).toBe(
+      "Nguyen Van A requested leave from Mon Oct 05 2026 to Fri Oct 09 2026."
+    );
+  });
+
+  it("does not tell the same person twice, nor the requester", async () => {
+    const { service, prisma, notifications, accessControl } = createService();
+    prisma.leaveType.findFirst.mockResolvedValue(sick);
+    accessControl.managersOf.mockResolvedValue({
+      direct: { id: 1, userId: 2, fullName: "Head" },
+      departmentHead: { id: 1, userId: 2, fullName: "Head" }
+    });
+
+    await service.create({ ...fiveDays, leaveTypeId: 2 }, { ...employee, id: 2 });
+
+    expect(notifications.create).not.toHaveBeenCalled();
   });
 });
 

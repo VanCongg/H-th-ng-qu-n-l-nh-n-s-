@@ -1,4 +1,4 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsEmail, IsOptional, IsString, Length, MaxLength } from "class-validator";
 import {
   IsSafeAvatar,
   MAX_AVATAR_VALUE_LENGTH
@@ -19,5 +19,11 @@ export class UpdateSelfEmployeeDto {
   @IsOptional()
   @IsString()
   @MaxLength(40)
-  phone?: string;
+  phone?: string | null;
+
+  /** The code emailed for the phone or email change being made. */
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  otpCode?: string;
 }

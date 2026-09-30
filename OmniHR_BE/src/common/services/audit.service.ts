@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RequestContext } from "../types";
+import { compactAuditValues } from "./audit-compaction";
 
 type AuditPayload = {
   userId?: number | null;
@@ -17,6 +18,7 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(payload: AuditPayload) {
+    const { oldValue, newValue } = compactAuditValues(payload.oldValue, payload.newValue);
     await this.prisma.auditLog.create({
       data: {
         userId: payload.userId ?? null,
@@ -26,19 +28,11 @@ export class AuditService {
           payload.entityId === undefined || payload.entityId === null
             ? null
             : String(payload.entityId),
-        oldValue: this.toJson(payload.oldValue),
-        newValue: this.toJson(payload.newValue),
+        oldValue: oldValue ?? undefined,
+        newValue: newValue ?? undefined,
         ipAddress: payload.context?.ip,
         userAgent: payload.context?.userAgent
       }
     });
-  }
-
-  private toJson(value: unknown) {
-    if (value === undefined) {
-      return undefined;
-    }
-
-    return JSON.parse(JSON.stringify(value));
   }
 }

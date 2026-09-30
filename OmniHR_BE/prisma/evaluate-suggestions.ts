@@ -1,7 +1,8 @@
 /**
  * Offline evaluation of AI assignee suggestions on simulated history.
  *
- * For every subtask a lead assigned (TaskAssignment MANUAL) the script rebuilds
+ * For every subtask a lead assigned - by hand or by picking from the AI
+ * suggestions, both the lead's own choice - the script rebuilds
  * each team member's situation *at that moment* - open work, known leave,
  * finished tasks - scores them with the same functions the
  * API uses (src/ai-task-suggestions/suggestion-scoring.ts) and compares the
@@ -35,8 +36,6 @@ import {
   compareCandidates,
   historyPrior,
   historySignal,
-  FLAT_SKILL_MULTIPLIERS,
-  ScoreWeights,
   scoreCandidate,
   TaskDifficulty,
   taskDifficulty,
@@ -106,14 +105,6 @@ type Variant = {
 
 const W = DEFAULT_SCORE_WEIGHTS;
 
-/** " ×1/×2/×4 theo độ khó" when the skill weight adapts, "" when it is flat. */
-export function multiplierLabel(weights: ScoreWeights) {
-  const m = weights.skillMultipliers;
-  if (!m || (m.EASY === 1 && m.MEDIUM === 1 && m.HARD === 1)) {
-    return "";
-  }
-  return ` ×${m.EASY}/×${m.MEDIUM}/×${m.HARD} theo độ khó`;
-}
 /**
  * The first entry is exactly what the API ranks with; the other two drop
  * signals from it, so each row shows what a signal adds on top of the last.
@@ -121,18 +112,13 @@ export function multiplierLabel(weights: ScoreWeights) {
 const VARIANTS: Variant[] = [
   {
     key: "deployed",
-    label: `Đang chạy (kỹ năng ${W.skill}${multiplierLabel(W)} / tải việc ${W.workload} / lịch nghỉ ${W.availability} / lịch sử ${W.history})`,
+    label: `Đang chạy (kỹ năng ${W.skill} / tải việc ${W.workload} / lịch nghỉ ${W.availability} / lịch sử ${W.history})`,
     score: (c) => scoreCandidate(W, c)
   },
   {
-    key: "adaptive-124",
-    label: "Trọng số kỹ năng theo độ khó ×1 / ×2 / ×4",
-    score: (c) => scoreCandidate({ ...W, skillMultipliers: { EASY: 1, MEDIUM: 2, HARD: 4 } }, c)
-  },
-  {
-    key: "flat-skill",
-    label: "Như đang chạy nhưng trọng số kỹ năng cố định (không theo độ khó)",
-    score: (c) => scoreCandidate({ ...W, skillMultipliers: FLAT_SKILL_MULTIPLIERS }, c)
+    key: "flat-history",
+    label: "Như đang chạy nhưng lịch sử tính đủ trên mọi task (không giảm cho task dễ)",
+    score: (c) => scoreCandidate(W, { ...c, difficulty: undefined })
   },
   {
     key: "no-level",
@@ -203,14 +189,17 @@ export function buildDecisions(
   const decisions: Decision[] = [];
 
   for (const assignment of data.assignments) {
-    if (assignment.assignmentType !== TaskAssignmentType.MANUAL || assignment.assignedAt < from) {
+    // A first assignment is the lead's decision whichever button made it
+    // (the simulated lead picks from the suggestions only when the person they
+    // had in mind is on the list); a reassignment answers a different question.
+    if (assignment.assignmentType === TaskAssignmentType.REASSIGNED || assignment.assignedAt < from) {
       continue;
     }
     const task = data.tasks.get(assignment.taskId);
     if (!task || task.teamId === null) {
       continue;
     }
-    // One decision per task: the first manual assignment.
+    // One decision per task: the first assignment.
     if (decisions.some((decision) => decision.taskId === task.id)) {
       continue;
     }

@@ -1049,8 +1049,7 @@ async function ensureEmployee(
     create: {
       employeeCode: seed.employeeCode,
       fullName: seed.fullName,
-      companyEmail: email,
-      personalEmail: `${username}@example.com`,
+      personalEmail: email,
       phone: phoneFor(seed.seedIndex),
       birthDate: birthDateFor(seed.seedIndex),
       hireDate: hireDateFor(seed.seedIndex),
@@ -1062,8 +1061,7 @@ async function ensureEmployee(
     },
     update: {
       fullName: seed.fullName,
-      companyEmail: email,
-      personalEmail: `${username}@example.com`,
+      personalEmail: email,
       phone: phoneFor(seed.seedIndex),
       birthDate: birthDateFor(seed.seedIndex),
       hireDate: hireDateFor(seed.seedIndex),

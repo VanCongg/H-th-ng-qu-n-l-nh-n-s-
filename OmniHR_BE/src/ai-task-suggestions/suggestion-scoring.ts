@@ -10,42 +10,41 @@ export type ScoreWeights = {
   skill: number;
   workload: number;
   availability: number;
-  /** Track record on finished tasks; see `historyScoreFor`. */
-  history: number;
   /**
-   * How much the skill weight grows with the task's difficulty; see
-   * `taskDifficulty`. Missing means 1 everywhere: the same skill weight for
-   * every task, as before difficulty was taken into account.
+   * Track record on finished tasks; see `historyScoreFor`. Scaled per task by
+   * `HISTORY_SHARE`, so it weighs fully only on hard work.
    */
-  skillMultipliers?: SkillMultipliers;
+  history: number;
 };
 
 /**
  * How demanding a task is, from the proficiency its required skills ask for
- * and the lowest career level it suits. It decides how much the skill match
- * counts: on easy work a track record and a free week matter more than who
- * knows the most; on hard work, knowing the skill is what matters.
+ * and the lowest career level it suits.
  */
 export type TaskDifficulty = "EASY" | "MEDIUM" | "HARD";
-export type SkillMultipliers = Record<TaskDifficulty, number>;
-
-/** The skill weight is the same on every task. */
-export const FLAT_SKILL_MULTIPLIERS: SkillMultipliers = { EASY: 1, MEDIUM: 1, HARD: 1 };
 
 /**
- * Fitted, not chosen: these are the best vector prisma/tune-weights.ts found
- * on 2.822 replayed assignments, with every signal held at a floor of 0.1 so
- * the ranking still reacts to leave and workload (see
- * eval_results/weights-tuning.md). Settings override them per deployment.
- * `combineScores` renormalises whatever it is given, so they need not sum to 1
- * and dropping a term costs nothing.
+ * How much of the history weight a task of each difficulty uses. A fixed rule,
+ * not a setting: easy work is where a new hire builds a record, so a track
+ * record barely counts there and the skill fit decides - the person whose
+ * level matches the task wins, not the one with the longest record. Hard
+ * work is where a proven record matters, so it counts in full.
+ */
+export const HISTORY_SHARE: Record<TaskDifficulty, number> = { EASY: 0.25, MEDIUM: 0.6, HARD: 1 };
+
+/**
+ * Fitted, not chosen: the best vector prisma/tune-weights.ts found on the
+ * replayed assignments, within the bounds it searches (history at most 0.4,
+ * skill at least 0.2, every signal at least 0.1) so no single signal decides
+ * alone (see eval_results/weights-tuning.md). Settings override them per
+ * deployment. `combineScores` renormalises whatever it is given, so they need
+ * not sum to 1 and dropping a term costs nothing.
  */
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
-  skill: 0.1,
-  workload: 0.15,
+  skill: 0.3,
+  workload: 0.2,
   availability: 0.1,
-  history: 0.65,
-  skillMultipliers: FLAT_SKILL_MULTIPLIERS
+  history: 0.4
 };
 
 const PROFICIENCY_RANK: Record<SkillProficiency, number> = {
@@ -79,10 +78,10 @@ export function taskDifficulty(
   return "EASY";
 }
 
-/** The weights for one task: the skill weight scaled by its difficulty. */
+/** The weights for one task: the history weight scaled by its difficulty. */
 export function weightsForTask(weights: ScoreWeights, difficulty?: TaskDifficulty): ScoreWeights {
-  const multiplier = difficulty ? (weights.skillMultipliers?.[difficulty] ?? 1) : 1;
-  return { ...weights, skill: weights.skill * multiplier };
+  const share = difficulty ? HISTORY_SHARE[difficulty] : 1;
+  return { ...weights, history: weights.history * share };
 }
 
 export type CandidateSignals = {
@@ -537,23 +536,25 @@ export function assessSkills(
   };
 }
 
+/**
+ * How well a person's level in one skill fits the level the task asks for.
+ * An exact fit scores highest. Below it costs a lot - they may not manage the
+ * work; above it costs a little - they can do it, but their time is worth
+ * more on harder work, and a beginner's task is how a beginner grows. So a
+ * task asking for Beginner goes to a beginner before an expert.
+ */
 export function proficiencyScore(actual: SkillProficiency, required: SkillProficiency) {
-  const scoreByLevel: Record<SkillProficiency, number> = {
-    BEGINNER: 40,
-    INTERMEDIATE: 65,
-    ADVANCED: 85,
-    EXPERT: 100
-  };
-  const levels: SkillProficiency[] = [
-    SkillProficiency.BEGINNER,
-    SkillProficiency.INTERMEDIATE,
-    SkillProficiency.ADVANCED,
-    SkillProficiency.EXPERT
-  ];
-  const actualScore = scoreByLevel[actual];
-  const gap = levels.indexOf(required) - levels.indexOf(actual);
-  return gap <= 0 ? actualScore : Math.max(0, actualScore - (gap === 1 ? 15 : 30));
+  const gap = PROFICIENCY_RANK[actual] - PROFICIENCY_RANK[required];
+  if (gap >= 0) {
+    return OVER_PROFICIENCY_SCORES[Math.min(gap, OVER_PROFICIENCY_SCORES.length - 1)];
+  }
+  return UNDER_PROFICIENCY_SCORES[Math.min(-gap, UNDER_PROFICIENCY_SCORES.length - 1)];
 }
+
+/** Score by how many levels above the requirement: exact, +1, +2, +3. */
+const OVER_PROFICIENCY_SCORES = [100, 85, 75, 65];
+/** Score by how many levels below it: -, -1, -2, -3. */
+const UNDER_PROFICIENCY_SCORES = [100, 50, 25, 10];
 
 export function experienceBonus(years: number) {
   if (years >= 4) {

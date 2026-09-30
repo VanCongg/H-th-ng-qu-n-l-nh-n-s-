@@ -9,6 +9,7 @@ import {
 import { AccessControlService } from "../common/services/access-control.service";
 import { AuditService } from "../common/services/audit.service";
 import { HolidaysService } from "../common/services/holidays.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { TaskWorkloadService } from "../task-workload/task-workload.service";
 import { SystemSettingsService } from "../common/services/system-settings.service";
@@ -26,7 +27,8 @@ describe("AiTaskSuggestionsService", () => {
         findMany: jest.fn().mockResolvedValue([])
       },
       employee: {
-        findMany: jest.fn()
+        findMany: jest.fn(),
+        findUnique: jest.fn()
       },
       leaveRequest: {
         findMany: jest.fn()
@@ -52,6 +54,7 @@ describe("AiTaskSuggestionsService", () => {
     const audit = {
       log: jest.fn()
     };
+    const notifications = { create: jest.fn() };
     const accessControl = {
       ensureCanAssignTask: jest.fn(),
       ensureCanGenerateTaskSuggestion: jest.fn(),
@@ -85,11 +88,13 @@ describe("AiTaskSuggestionsService", () => {
         workloadService as unknown as TaskWorkloadService,
         systemSettings as unknown as SystemSettingsService,
         explainer as unknown as SuggestionExplainerClient,
-        { dateSet: jest.fn().mockResolvedValue(new Set()) } as unknown as HolidaysService
+        { dateSet: jest.fn().mockResolvedValue(new Set()) } as unknown as HolidaysService,
+        notifications as unknown as NotificationsService
       ),
       prisma,
       accessControl,
       audit,
+      notifications,
       workloadService,
       systemSettings,
       explainer
@@ -161,9 +166,8 @@ describe("AiTaskSuggestionsService", () => {
       id: 30,
       employeeCode: "E030",
       fullName: "Nguyen Van A",
-      companyEmail: "a@example.com",
+      personalEmail: "a@example.com",
       avatarUrl: null,
-      personalEmail: null,
       phone: null,
       birthDate: date("1995-01-01"),
       hireDate: date("2020-01-01"),
@@ -250,6 +254,32 @@ describe("AiTaskSuggestionsService", () => {
     });
     expect(accessControl.ensureCanAssignTask).toHaveBeenCalledWith(actor, 100, 30);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("tells the person picked from the suggestions, as a manual assignment does", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.aiTaskSuggestion.findUnique.mockResolvedValue({
+      id: 50,
+      taskId: 100,
+      status: AiTaskSuggestionStatus.GENERATED,
+      inputSnapshot: {},
+      task: baseTask({ teamId: 7, title: "Build login" }),
+      items: [{ id: 500, employeeId: 30 }]
+    });
+    prisma.teamMember.findFirst.mockResolvedValue({ id: 1 });
+    prisma.$transaction.mockResolvedValue(suggestionResponse({ status: AiTaskSuggestionStatus.SELECTED }));
+    prisma.employee.findUnique.mockResolvedValue({ userId: 77 });
+
+    await service.select(50, { suggestionItemId: 500 }, actor);
+
+    expect(notifications.create).toHaveBeenCalledWith(
+      77,
+      "TASK_ASSIGNED",
+      "New task assigned",
+      'You were assigned to "Build login".',
+      "Task",
+      100
+    );
   });
 
   it("does not generate suggestions outside the task team", async () => {
@@ -466,10 +496,77 @@ describe("AiTaskSuggestionsService", () => {
       "Khớp cả hai kỹ năng bắt buộc và còn 28h trống trong tuần."
     );
 
+    // No name leaves for the external LLM; the track record does, for it to word.
+    const sent = explainer.explain.mock.calls[0][2][0];
+    expect(sent).not.toHaveProperty("fullName");
+    expect(sent).toEqual(
+      expect.objectContaining({ historySampleSize: 0, fairSharePenalty: 0 })
+    );
+
     // The AI service answering with nothing must leave the ranking untouched.
     explainer.explain.mockResolvedValue(new Map());
     const fallback = await service.generate(100, {}, actor);
     expect(fallback.items[0].reason).toContain("Nguyen Van A");
+    // The heaviest signal is in the sentence, even for someone with no record.
+    expect(fallback.items[0].reason).toContain("lịch sử lấy theo mức đồng nghiệp cùng cấp");
+  });
+
+  it("snapshots the difficulty the ranking used, including a level range taken from the team task", async () => {
+    const { service, prisma, accessControl, workloadService } = createService();
+    prisma.task.findFirst.mockResolvedValue(
+      baseTask({ minLevel: null, maxLevel: null, parentTask: { minLevel: "SENIOR", maxLevel: null } })
+    );
+    accessControl.candidateEmployeeIdsForTask.mockResolvedValue([30]);
+    prisma.employee.findMany.mockResolvedValue([baseEmployee()]);
+    workloadService.summariesForEmployees.mockResolvedValue(new Map());
+    prisma.leaveRequest.findMany.mockResolvedValue([]);
+    prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
+      Promise.resolve(suggestionResponse({ inputSnapshot: data.inputSnapshot, items: [] }))
+    );
+
+    await service.generate(100, {}, actor).catch(() => undefined);
+
+    const snapshot = prisma.aiTaskSuggestion.create.mock.calls[0][0].data.inputSnapshot;
+    expect(snapshot.taskDifficulty).toBe("HARD");
+    expect(snapshot.levelRange).toEqual({ minLevel: "SENIOR", maxLevel: null });
+  });
+
+  it("says in the reason when fair-share rebalancing took points off", async () => {
+    const { service, prisma, accessControl, workloadService } = createService();
+    prisma.task.findFirst.mockResolvedValue(baseTask());
+    accessControl.candidateEmployeeIdsForTask.mockResolvedValue([30, 31]);
+    prisma.employee.findMany.mockResolvedValue([
+      baseEmployee(),
+      baseEmployee({ id: 31, employeeCode: "E031", fullName: "Tran Thi B" })
+    ]);
+    workloadService.summariesForEmployees.mockResolvedValue(new Map());
+    prisma.leaveRequest.findMany.mockResolvedValue([]);
+    // 4 recent assignments against a team average of 2: twice the share.
+    prisma.taskAssignment.groupBy.mockResolvedValue([
+      { assigneeId: 30, _count: { _all: 4 } }
+    ]);
+    prisma.aiTaskSuggestion.create.mockImplementation(({ data }) =>
+      Promise.resolve(
+        suggestionResponse({
+          inputSnapshot: data.inputSnapshot,
+          items: data.items.create.map((item: Record<string, unknown>) => ({
+            id: 500,
+            suggestionId: 50,
+            createdAt: date("2026-06-19"),
+            selected: false,
+            ...item,
+            employee: baseEmployee()
+          }))
+        })
+      )
+    );
+
+    const result = await service.generate(100, {}, actor);
+    const loaded = result.items.find((item) => item.reason?.startsWith("Nguyen Van A"));
+    const other = result.items.find((item) => item.reason?.startsWith("Tran Thi B"));
+
+    expect(loaded?.reason).toMatch(/đã nhận gấp 2 lần mức trung bình nhóm trong 14 ngày qua \(-10 điểm\)\.$/);
+    expect(other?.reason).not.toContain("đã nhận gấp");
   });
 
   it("expires stale suggestions when the task fingerprint changed before selection", async () => {

@@ -9,6 +9,7 @@
 export type PushLanguage = "vi" | "en";
 
 const TITLES_VI: Record<string, string> = {
+  LEAVE_REQUESTED: "Có đơn nghỉ phép mới cần duyệt",
   LEAVE_APPROVED: "Đơn nghỉ phép đã được duyệt",
   LEAVE_REJECTED: "Đơn nghỉ phép bị từ chối",
   LEAVE_CANCEL_REQUESTED: "Có yêu cầu hủy đơn nghỉ đã duyệt",
@@ -16,7 +17,8 @@ const TITLES_VI: Record<string, string> = {
   LEAVE_CANCEL_REJECTED: "Yêu cầu hủy đơn nghỉ bị từ chối",
   TASK_ASSIGNED: "Bạn được giao công việc mới",
   TASK_STATUS_CHANGED: "Công việc bị trả về để sửa",
-  ATTENDANCE_ADJUSTED: "Bản ghi chấm công được điều chỉnh"
+  ATTENDANCE_ADJUSTED: "Bản ghi chấm công được điều chỉnh",
+  PASSWORD_CHANGED: "Mật khẩu đã được thay đổi"
 };
 
 const TASK_STATUS_VI: Record<string, string> = {
@@ -33,6 +35,8 @@ const STATUS_MOVED = /^"(.+)" was moved to ([A-Z_]+) by (.+)\.$/s;
 const LEAVE_APPROVED = /^Your leave request from (.+) to (.+) was approved\.$/;
 const ATTENDANCE = /^An attendance record for (.+) was (created|updated) by an admin\.$/;
 const CANCEL_REQUESTED = /^(.+) asked to cancel their leave from (.+) to (.+)\.$/s;
+const LEAVE_REQUESTED = /^(.+) requested leave from (.+) to (.+)\.$/s;
+const PASSWORD_CHANGED = "Your password was changed. If this was not you, contact an administrator right away.";
 const CANCEL_APPROVED = /^Your leave from (.+) to (.+) was cancelled\.$/;
 
 const MONTHS: Record<string, number> = {
@@ -75,6 +79,10 @@ export function pushText(
     body = `${match[3]} đã chuyển công việc "${match[1]}" sang "${TASK_STATUS_VI[match[2]] ?? match[2]}".`;
   } else if (type === "LEAVE_APPROVED" && (match = LEAVE_APPROVED.exec(message))) {
     body = `Đơn nghỉ phép từ ${messageDate(match[1])} đến ${messageDate(match[2])} của bạn đã được duyệt.`;
+  } else if (type === "PASSWORD_CHANGED" && message === PASSWORD_CHANGED) {
+    body = "Mật khẩu tài khoản của bạn vừa được thay đổi. Nếu không phải bạn, hãy báo ngay cho quản trị viên.";
+  } else if (type === "LEAVE_REQUESTED" && (match = LEAVE_REQUESTED.exec(message))) {
+    body = `${match[1]} xin nghỉ từ ${messageDate(match[2])} đến ${messageDate(match[3])}.`;
   } else if (type === "LEAVE_CANCEL_REQUESTED" && (match = CANCEL_REQUESTED.exec(message))) {
     body = `${match[1]} xin hủy đơn nghỉ từ ${messageDate(match[2])} đến ${messageDate(match[3])}.`;
   } else if (type === "LEAVE_CANCEL_APPROVED" && (match = CANCEL_APPROVED.exec(message))) {

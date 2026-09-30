@@ -1,4 +1,5 @@
 import {
+  proficiencyScore,
   COLD_START_TASKS,
   DEFAULT_HISTORY_TUNING,
   DEFAULT_SCORE_WEIGHTS,
@@ -345,34 +346,59 @@ describe("taskDifficulty", () => {
 });
 
 describe("scoreCandidate", () => {
-  const weights = {
-    skill: 0.1,
-    workload: 0.15,
-    availability: 0.1,
-    history: 0.65,
-    skillMultipliers: { EASY: 1, MEDIUM: 2, HARD: 4 }
-  };
-  // Strong in the skill, weak track record.
-  const specialist = { skillScore: 100, workloadScore: 50, availabilityScore: 100, historyScore: 40 };
+  const weights = { skill: 0.3, workload: 0.2, availability: 0.1, history: 0.4 };
+  // A strong record, but the skill level is off for this task.
+  const veteran = { skillScore: 65, workloadScore: 50, availabilityScore: 100, historyScore: 90 };
+  // A new hire whose level is exactly what the task asks for.
+  const newcomer = { skillScore: 100, workloadScore: 50, availabilityScore: 100, historyScore: 55 };
 
-  it("lets the skill match count more on harder work", () => {
-    const easy = scoreCandidate(weights, { ...specialist, difficulty: "EASY" });
-    const hard = scoreCandidate(weights, { ...specialist, difficulty: "HARD" });
-
-    expect(hard).toBeGreaterThan(easy);
-    // Easy work: 0.1 of 100 + 0.15 of 50 + 0.1 of 100 + 0.65 of 40, over 1.0.
-    expect(easy).toBeCloseTo(53.5, 5);
-    // Hard work: the skill weight is 0.4, the total 1.3.
-    expect(hard).toBeCloseTo((40 + 7.5 + 10 + 26) / 1.3, 5);
+  it("lets the track record count in full only on hard work", () => {
+    const easy = scoreCandidate(weights, { ...veteran, difficulty: "EASY" });
+    // Easy: history weighs 0.4 x 0.25 = 0.1, the total 0.7.
+    expect(easy).toBeCloseTo((19.5 + 10 + 10 + 9) / 0.7, 5);
+    const hard = scoreCandidate(weights, { ...veteran, difficulty: "HARD" });
+    expect(hard).toBeCloseTo((19.5 + 10 + 10 + 36) / 1.0, 5);
   });
 
-  it("scores like the flat weights without a difficulty", () => {
-    expect(scoreCandidate(weights, specialist)).toBeCloseTo(53.5, 5);
+  it("gives an easy task to the new hire who fits it, a hard one to the proven hand", () => {
+    expect(scoreCandidate(weights, { ...newcomer, difficulty: "EASY" })).toBeGreaterThan(
+      scoreCandidate(weights, { ...veteran, difficulty: "EASY" })
+    );
+    expect(scoreCandidate(weights, { ...veteran, difficulty: "HARD" })).toBeGreaterThan(
+      scoreCandidate(weights, { ...newcomer, difficulty: "HARD" })
+    );
+  });
+
+  it("uses the full weights without a difficulty", () => {
+    expect(scoreCandidate(weights, veteran)).toBeCloseTo(75.5, 5);
   });
 
   it("leaves leave out when it is not part of the run", () => {
     expect(
-      scoreCandidate(weights, { ...specialist, availabilityScore: undefined, difficulty: "EASY" })
-    ).toBeCloseTo((10 + 7.5 + 26) / 0.9, 5);
+      scoreCandidate(weights, { ...veteran, availabilityScore: undefined, difficulty: "HARD" })
+    ).toBeCloseTo((19.5 + 10 + 36) / 0.9, 5);
+  });
+});
+
+describe("proficiencyScore", () => {
+  it("scores an exact fit highest", () => {
+    expect(proficiencyScore("BEGINNER", "BEGINNER")).toBe(100);
+    expect(proficiencyScore("EXPERT", "EXPERT")).toBe(100);
+  });
+
+  it("costs a little for each level above what the task asks", () => {
+    expect(proficiencyScore("INTERMEDIATE", "BEGINNER")).toBe(85);
+    expect(proficiencyScore("ADVANCED", "BEGINNER")).toBe(75);
+    expect(proficiencyScore("EXPERT", "BEGINNER")).toBe(65);
+  });
+
+  it("costs more for each level below it", () => {
+    expect(proficiencyScore("ADVANCED", "EXPERT")).toBe(50);
+    expect(proficiencyScore("INTERMEDIATE", "EXPERT")).toBe(25);
+    expect(proficiencyScore("BEGINNER", "EXPERT")).toBe(10);
+  });
+
+  it("never ranks an over-qualified person above an exact fit", () => {
+    expect(proficiencyScore("EXPERT", "BEGINNER")).toBeLessThan(proficiencyScore("BEGINNER", "BEGINNER"));
   });
 });

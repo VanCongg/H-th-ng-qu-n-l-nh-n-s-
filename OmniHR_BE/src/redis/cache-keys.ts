@@ -7,6 +7,8 @@ export const cacheKeys = {
   authUser: (userId: number) => `auth:user:${userId}`,
   /** The single system settings row. */
   systemSettings: () => "system:settings",
+  /** Recent wrong current passwords on the change-password form, as timestamps. */
+  passwordChangeFailures: (userId: number) => `auth:password-failures:${userId}`,
 };
 
 /**

@@ -27,6 +27,12 @@ services:
       AI_SUGGESTION_EXPLANATIONS: ${AI_SUGGESTION_EXPLANATIONS:-true}
       AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: ${AI_SUGGESTION_EXPLAIN_TIMEOUT_MS:-8000}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      AUDIT_RETENTION_JOB: ${AUDIT_RETENTION_JOB:-true}
       CHATBOT_RATE_LIMIT_TTL_SECONDS: ${CHATBOT_RATE_LIMIT_TTL_SECONDS:-60}
       CHATBOT_RATE_LIMIT_MAX: ${CHATBOT_RATE_LIMIT_MAX:-20}
       CHATBOT_RATE_LIMIT_PER_MINUTE: ${CHATBOT_RATE_LIMIT_PER_MINUTE:-20}
@@ -50,8 +56,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    # Loopback only: reachable from this machine (npm run start:dev), not from the network.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -65,8 +72,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: omnihr-redis
+    # Loopback only; Redis runs without a password.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -90,6 +98,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_TOTAL_BUDGET_SECONDS: ${LLM_TOTAL_BUDGET_SECONDS:-20}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0}
       LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-800}
       LLM_FALLBACK_TO_RULE_BASED: ${LLM_FALLBACK_TO_RULE_BASED:-true}
@@ -103,8 +112,9 @@ services:
       RAG_EMBEDDING_WEIGHT: ${RAG_EMBEDDING_WEIGHT:-0.6}
       RAG_MIN_EMBEDDING_SCORE: ${RAG_MIN_EMBEDDING_SCORE:-0.55}
       RAG_MIN_EMBEDDING_GAP: ${RAG_MIN_EMBEDDING_GAP:-0.10}
+    # Loopback only: clients never call the AI service; the api container reaches it as omnihr-ai:8000.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     networks:
       - omnihr-network
 

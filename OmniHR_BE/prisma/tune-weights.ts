@@ -31,7 +31,6 @@ import {
   compareCandidates,
   fairSharePenalty,
   scoreCandidate,
-  SkillMultipliers,
   TaskDifficulty
 } from "../src/ai-task-suggestions/suggestion-scoring";
 import {
@@ -43,8 +42,7 @@ import {
   parseFrom,
   pct,
   prisma,
-  spearman,
-  multiplierLabel
+  spearman
 } from "./evaluate-suggestions";
 
 const SYSTEM_SETTINGS_KEY = "default";
@@ -64,11 +62,20 @@ const MIN_HELD_OUT = 20;
 const MIN_HELD_OUT_GAIN = 0.05;
 
 /**
- * Kept at 0 by default now that leave and load are terms in the objective
- * itself: constraining the search space was a workaround for a metric that
- * could not see them. `--floor` still exists for experiments.
+ * Every signal keeps at least this weight, so the ranking always reacts to
+ * leave and load. `--floor` changes it for experiments.
  */
-const DEFAULT_WEIGHT_FLOOR = 0;
+const DEFAULT_WEIGHT_FLOOR = 0.1;
+
+/**
+ * Product rules, not statistics. Fitted freely on replayed history, the track
+ * record takes most of the weight (it is what best predicts the outcome), and
+ * then every task goes to whoever already has the best record: a new hire
+ * never gets the work that would give them one. So history is capped, and
+ * the skill fit - what the feature is for - keeps a real share.
+ */
+const MAX_HISTORY_WEIGHT = 0.4;
+const MIN_SKILL_WEIGHT = 0.2;
 
 /**
  * Company policy, not statistics: these say how much a leave violation or a
@@ -165,29 +172,12 @@ async function main() {
     left: { metrics: Metrics },
     right: { metrics: Metrics }
   ) => objectiveValue(right.metrics, objective) - objectiveValue(left.metrics, objective);
-  // Three passes rather than one grid over all seven numbers, which would be
-  // tens of thousands of evaluations: the four weights with a flat skill
-  // weight, then the difficulty multipliers for those weights, then the four
-  // weights again with the multipliers found.
-  const flat = weightGrid(step)
-    .map((weights) => ({ weights, metrics: evaluateWeights(weights, fitSet) }))
-    .sort(byObjective);
-  const firstPass = flat.find((entry) => respectsFloor(entry.weights, floor)) ?? flat[0];
-  const multipliers = multiplierGrid()
-    .map((skillMultipliers) => {
-      const weights = { ...firstPass.weights, skillMultipliers };
-      return { weights, metrics: evaluateWeights(weights, fitSet) };
-    })
-    .sort(byObjective)[0].weights.skillMultipliers;
   const scored = weightGrid(step)
-    .map((weights) => {
-      const withMultipliers = { ...weights, skillMultipliers: multipliers };
-      return { weights: withMultipliers, metrics: evaluateWeights(withMultipliers, fitSet) };
-    })
+    .map((weights) => ({ weights, metrics: evaluateWeights(weights, fitSet) }))
     .sort(byObjective);
   const ranked = scored.filter((entry) => respectsFloor(entry.weights, floor));
   if (!ranked.length) {
-    throw new Error(`No weight vector keeps every signal at ${floor}; lower --floor.`);
+    throw new Error(`No weight vector keeps every signal at ${floor} within the product bounds; lower --floor.`);
   }
   const best = ranked[0].weights;
   // What the data would have picked with no product rule applied.
@@ -507,23 +497,6 @@ function weightGrid(step: number) {
   return grid;
 }
 
-/**
- * Skill weight multipliers to try, easy work fixed at 1 as the reference:
- * the other two only say how much more the skill counts on harder work.
- */
-function multiplierGrid(): SkillMultipliers[] {
-  const steps = [1, 1.5, 2, 3, 4, 6];
-  const grid: SkillMultipliers[] = [];
-  for (const medium of steps) {
-    for (const hard of steps) {
-      if (hard >= medium) {
-        grid.push({ EASY: 1, MEDIUM: medium, HARD: hard });
-      }
-    }
-  }
-  return grid;
-}
-
 function parseFloor(args: string[]) {
   const index = args.indexOf("--floor");
   const value = index >= 0 ? Number(args[index + 1]) : NaN;
@@ -533,12 +506,14 @@ function parseFloor(args: string[]) {
   return value;
 }
 
+/** Within the floor and the product bounds (`MAX_HISTORY_WEIGHT`, `MIN_SKILL_WEIGHT`). */
 function respectsFloor(weights: ScoreWeights, floor: number) {
   return (
-    weights.skill >= floor &&
+    weights.skill >= Math.max(floor, MIN_SKILL_WEIGHT) &&
     weights.workload >= floor &&
     weights.availability >= floor &&
-    weights.history >= floor
+    weights.history >= floor &&
+    weights.history <= MAX_HISTORY_WEIGHT
   );
 }
 
@@ -649,12 +624,7 @@ async function currentWeights(): Promise<ScoreWeights> {
     skill: read("aiWeightSkill", DEFAULT_SCORE_WEIGHTS.skill),
     workload: read("aiWeightWorkload", DEFAULT_SCORE_WEIGHTS.workload),
     availability: read("aiWeightAvailability", DEFAULT_SCORE_WEIGHTS.availability),
-    history: read("aiWeightHistory", DEFAULT_SCORE_WEIGHTS.history),
-    skillMultipliers: {
-      EASY: read("aiSkillMultiplierEasy", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.EASY ?? 1),
-      MEDIUM: read("aiSkillMultiplierMedium", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.MEDIUM ?? 1),
-      HARD: read("aiSkillMultiplierHard", DEFAULT_SCORE_WEIGHTS.skillMultipliers?.HARD ?? 1)
-    }
+    history: read("aiWeightHistory", DEFAULT_SCORE_WEIGHTS.history)
   };
 }
 
@@ -671,10 +641,7 @@ async function applyWeights(weights: ScoreWeights) {
     aiWeightSkill: weights.skill,
     aiWeightWorkload: weights.workload,
     aiWeightAvailability: weights.availability,
-    aiWeightHistory: weights.history,
-    aiSkillMultiplierEasy: weights.skillMultipliers?.EASY ?? 1,
-    aiSkillMultiplierMedium: weights.skillMultipliers?.MEDIUM ?? 1,
-    aiSkillMultiplierHard: weights.skillMultipliers?.HARD ?? 1
+    aiWeightHistory: weights.history
   } as unknown as Prisma.InputJsonValue;
 
   await prisma.systemSetting.upsert({
@@ -767,7 +734,7 @@ function buildReport(input: {
 }) {
   const lines: string[] = [];
   const label = (weights: ScoreWeights) =>
-    `${weights.skill}${multiplierLabel(weights)} / ${weights.workload} / ${weights.availability} / ${weights.history}`;
+    `${weights.skill} / ${weights.workload} / ${weights.availability} / ${weights.history}`;
 
   lines.push(
     "# Tối ưu trọng số xếp hạng gợi ý người nhận việc",
@@ -777,9 +744,9 @@ function buildReport(input: {
       `(${input.fitSet.length} để dò trọng số, ${input.heldOutSet.length} giữ lại để kiểm chứng)`,
     `- Không gian tìm kiếm: lưới bước ${input.step} trên đơn hình 4 chiều ` +
       `(${weightGrid(input.step).length} bộ trọng số)` +
-      (input.floor > 0
-        ? `, mỗi tín hiệu giữ sàn tối thiểu ${input.floor}`
-        : ", không áp sàn cho tín hiệu nào"),
+      `, mỗi tín hiệu giữ sàn tối thiểu ${input.floor}; luật sản phẩm: lịch sử tối đa ${MAX_HISTORY_WEIGHT}, ` +
+      `kỹ năng tối thiểu ${MIN_SKILL_WEIGHT}; trên từng task, lịch sử chỉ tính 25% / 60% / 100% ` +
+      "trọng số với task dễ / trung bình / khó",
     `- Hàm mục tiêu dùng để chọn: ${objectiveLabel(input.objective)}`,
     `- Trọng số nghiệp vụ (đặt tay, không tune): phân tách ${BUSINESS_WEIGHTS.separation}` +
       ` · vi phạm nghỉ phép ${BUSINESS_WEIGHTS.leave}` +
@@ -885,8 +852,7 @@ function buildReport(input: {
       skill: 0,
       workload: 0,
       availability: 0,
-      history: 0,
-      skillMultipliers: input.current.skillMultipliers
+      history: 0
     };
     only[key] = 1;
     const metrics = evaluateWeights(only, input.heldOutSet);
@@ -912,10 +878,15 @@ function buildReport(input: {
       "là gợi ý sai trước mặt quản lý.",
     "- **Tải việc** phục vụ mục tiêu dàn đều công việc, vốn không nằm trong hàm mục tiêu này.",
     "",
-    "Trước đây bộ dò phải giữ một sàn tối thiểu cho mỗi tín hiệu để dữ liệu không đưa " +
-      "trọng số lịch nghỉ về 0. Sàn đó đã bỏ: nghỉ phép nay được bảo vệ ở hai chỗ đúng hơn — " +
-      "một số hạng riêng trong hàm mục tiêu (tỉ lệ vi phạm nghỉ phép) và một tầng ràng buộc " +
-      "cứng xếp sau người nghỉ quá nửa kỳ task. Trọng số vì vậy được tự do dò theo dữ liệu."
+    `Nghỉ phép được bảo vệ ở ba chỗ: sàn tối thiểu ${input.floor} cho mỗi tín hiệu khi dò ` +
+      "(đổi bằng --floor), một số hạng riêng trong hàm mục tiêu (tỉ lệ vi phạm nghỉ phép) và " +
+      "một tầng ràng buộc cứng xếp sau người nghỉ quá nửa kỳ task.",
+    "",
+    "Lưu ý khi đọc cột Δ của kỹ năng: trong bộ mô phỏng, thời gian và chất lượng hoàn thành task " +
+      "chỉ phụ thuộc năng lực ẩn và độ khó task, không phụ thuộc độ khớp kỹ năng " +
+      "(`hoursNeeded` trong prisma/simulate-day.ts). Thước đo này vì vậy không thể thấy giá trị " +
+      "của tín hiệu kỹ năng; bỏ kỹ năng mà điểm tăng là giới hạn của dữ liệu, không phải bằng chứng " +
+      "kỹ năng vô ích."
   );
 
   lines.push("", "## 4. Phản hồi từ quản lý", "");
@@ -943,10 +914,10 @@ function buildReport(input: {
   if (!respectsFloor(free.weights, input.floor)) {
     lines.push(
       "",
-      `Không áp sàn thì điểm tối ưu rơi vào **${label(free.weights)}** ` +
-        `(${free.metrics.outcomeSeparation.toFixed(3)} trên tập dò) — bộ này đặt một tín hiệu về 0. ` +
-        "Sàn tối thiểu là cách cũ để chặn việc này; cách đang dùng là đưa vi phạm nghỉ phép " +
-        "thẳng vào hàm mục tiêu và thêm tầng ràng buộc cứng."
+      `Không áp luật sản phẩm thì điểm tối ưu rơi vào **${label(free.weights)}** ` +
+        `(${free.metrics.outcomeSeparation.toFixed(3)} trên tập dò). Luật giới hạn lịch sử và giữ phần ` +
+        "cho kỹ năng được áp có chủ đích: để lịch sử quyết định gần hết thì người có thành tích tốt " +
+        "nhất nhận mọi việc, người mới không bao giờ có cơ hội xây thành tích."
     );
   }
 

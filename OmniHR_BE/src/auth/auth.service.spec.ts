@@ -4,7 +4,9 @@ import * as bcrypt from "bcrypt";
 import { AuditService } from "../common/services/audit.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { createFakeCache } from "../redis/cache.service.fake";
-import { AuthService } from "./auth.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { VerificationService } from "../verification/verification.service";
+import { AuthService, passwordContainsIdentity } from "./auth.service";
 
 describe("AuthService", () => {
   function createService() {
@@ -37,6 +39,8 @@ describe("AuthService", () => {
     };
 
     const { cache, store } = createFakeCache();
+    const notifications = { create: jest.fn() };
+    const verification = { consume: jest.fn(), requestCode: jest.fn() };
 
     return {
       service: new AuthService(
@@ -44,10 +48,15 @@ describe("AuthService", () => {
         jwt as unknown as JwtService,
         config as unknown as ConfigService,
         audit as unknown as AuditService,
-        cache
+        cache,
+        notifications as unknown as NotificationsService,
+        verification as unknown as VerificationService
       ),
       prisma,
       jwt,
+      audit,
+      notifications,
+      verification,
       cacheStore: store
     };
   }
@@ -164,18 +173,20 @@ describe("AuthService", () => {
       expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
     });
 
-    it("drops the cached user when the password changes", async () => {
-      const { service, prisma, cacheStore } = createService();
-      prisma.user.findUnique.mockResolvedValue(dbUser);
+    it("replaces the cached user when the password changes, so the prompt to change it goes away", async () => {
+      const { service, prisma, jwt, cacheStore } = createService();
+      prisma.user.findUnique.mockResolvedValue({ ...dbUser, mustChangePassword: true });
       await service.hydrateAuthUser(1);
-      expect(cacheStore.has("auth:user:1")).toBe(true);
+      expect((cacheStore.get("auth:user:1") as { mustChangePassword: boolean }).mustChangePassword).toBe(true);
 
-      // changePassword re-reads the row to verify the current password.
-      prisma.user.findUnique.mockResolvedValue({
-        ...dbUser,
-        passwordHash: await bcrypt.hash("old-password", 1)
-      });
+      // changePassword re-reads the row to verify the current password, then
+      // reads it again - now changed - to hand this device fresh tokens.
+      prisma.user.findUnique
+        .mockResolvedValueOnce({ ...dbUser, passwordHash: await bcrypt.hash("Old@password1", 1) })
+        .mockResolvedValue({ ...dbUser, mustChangePassword: false });
       prisma.user.update.mockResolvedValue({});
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ refreshTokenVersion: 1 });
+      jwt.signAsync.mockResolvedValue("token");
 
       await service.changePassword(
         {
@@ -187,10 +198,10 @@ describe("AuthService", () => {
           employeeId: 10,
           mustChangePassword: true
         },
-        { currentPassword: "old-password", newPassword: "New@password1" }
+        { currentPassword: "Old@password1", newPassword: "Brand#new2026" }
       );
 
-      expect(cacheStore.has("auth:user:1")).toBe(false);
+      expect((cacheStore.get("auth:user:1") as { mustChangePassword: boolean }).mustChangePassword).toBe(false);
     });
 
     it("treats a terminated employee's account as signed out", async () => {
@@ -201,6 +212,191 @@ describe("AuthService", () => {
       });
 
       await expect(service.hydrateAuthUser(1)).resolves.toBeNull();
+    });
+  });
+
+  describe("changing a password", () => {
+    const actor = {
+      id: 1,
+      username: "manager",
+      email: "manager@example.com",
+      roles: ["MANAGER"],
+      permissions: [],
+      employeeId: 10,
+      mustChangePassword: false
+    };
+
+    async function setUp(current = "Old@password1") {
+      const created = createService();
+      const dbUser = {
+        id: 1,
+        username: "manager",
+        email: "manager@example.com",
+        isActive: true,
+        deletedAt: null,
+        mustChangePassword: false,
+        passwordHash: await bcrypt.hash(current, 1),
+        employee: { id: 10, deletedAt: null, status: "ACTIVE" },
+        userRoles: []
+      };
+      created.prisma.user.findUnique.mockResolvedValue(dbUser);
+      created.prisma.user.update.mockResolvedValue({});
+      created.prisma.user.findUniqueOrThrow.mockResolvedValue({ refreshTokenVersion: 4 });
+      created.jwt.signAsync.mockResolvedValueOnce("new-access").mockResolvedValueOnce("new-refresh");
+      return created;
+    }
+
+    it("keeps this device signed in with fresh tokens, and says so in the audit log and to the owner", async () => {
+      const { service, audit, notifications } = await setUp();
+
+      const result = await service.changePassword(actor, {
+        currentPassword: "Old@password1",
+        newPassword: "Brand#new2026"
+      });
+
+      expect(result).toMatchObject({ accessToken: "new-access", refreshToken: "new-refresh" });
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CHANGE_PASSWORD" }));
+      expect(notifications.create).toHaveBeenCalledWith(
+        1,
+        "PASSWORD_CHANGED",
+        expect.any(String),
+        expect.any(String),
+        "User",
+        1
+      );
+    });
+
+    it("will not change it without the code emailed for it", async () => {
+      const { service, verification, prisma } = await setUp();
+      verification.consume.mockRejectedValue(Object.assign(new Error("code"), { errorCode: "VERIFICATION_CODE_REQUIRED" }));
+
+      await expect(
+        service.changePassword(actor, { currentPassword: "Old@password1", newPassword: "Brand#new2026" })
+      ).rejects.toMatchObject({ errorCode: "VERIFICATION_CODE_REQUIRED" });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("checks the code for a password change, last", async () => {
+      const { service, verification } = await setUp();
+
+      await service.changePassword(actor, {
+        currentPassword: "Old@password1",
+        newPassword: "Brand#new2026",
+        otpCode: "123456"
+      });
+
+      expect(verification.consume).toHaveBeenCalledWith(1, "PASSWORD_CHANGE", "123456");
+    });
+
+    it("refuses the same password again", async () => {
+      const { service } = await setUp();
+
+      await expect(
+        service.changePassword(actor, { currentPassword: "Old@password1", newPassword: "Old@password1" })
+      ).rejects.toMatchObject({ errorCode: "PASSWORD_REUSED" });
+    });
+
+    it("refuses a password built on the username", async () => {
+      const { service } = await setUp();
+
+      await expect(
+        service.changePassword(actor, { currentPassword: "Old@password1", newPassword: "Manager@2026" })
+      ).rejects.toMatchObject({ errorCode: "PASSWORD_CONTAINS_IDENTITY" });
+    });
+
+    it("locks the form after five wrong current passwords", async () => {
+      const { service, prisma } = await setUp();
+      const wrong = { currentPassword: "Guess@0000", newPassword: "Brand#new2026" };
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await expect(service.changePassword(actor, wrong)).rejects.toMatchObject({
+          errorCode: "CURRENT_PASSWORD_INVALID"
+        });
+      }
+      await expect(
+        service.changePassword(actor, { currentPassword: "Old@password1", newPassword: "Brand#new2026" })
+      ).rejects.toMatchObject({ errorCode: "PASSWORD_CHANGE_LOCKED" });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("forgotten password", () => {
+    async function account(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 7,
+        username: "congnv",
+        email: "nvcong1908@gmail.com",
+        isActive: true,
+        deletedAt: null,
+        passwordHash: await bcrypt.hash("Old@password1", 1),
+        employee: { status: "ACTIVE" },
+        ...overrides
+      };
+    }
+
+    it("emails a reset code to the account's own address", async () => {
+      const { service, prisma, verification } = createService();
+      prisma.user.findFirst.mockResolvedValueOnce(await account());
+
+      const result = await service.forgotPassword({ identifier: "congnv" });
+
+      expect(verification.requestCode).toHaveBeenCalledWith({ id: 7 }, "PASSWORD_RESET", null, undefined);
+      expect(result.message).toContain("If the account exists");
+    });
+
+    it("answers the same for a name with no account, sending nothing", async () => {
+      const { service, prisma, verification } = createService();
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      const result = await service.forgotPassword({ identifier: "nobody" });
+
+      expect(verification.requestCode).not.toHaveBeenCalled();
+      expect(result.message).toContain("If the account exists");
+    });
+
+    it("sends nothing for a disabled account", async () => {
+      const { service, prisma, verification } = createService();
+      prisma.user.findFirst.mockResolvedValueOnce(await account({ isActive: false }));
+
+      await service.forgotPassword({ identifier: "congnv" });
+
+      expect(verification.requestCode).not.toHaveBeenCalled();
+    });
+
+    it("sets the new password with the code and signs every session out", async () => {
+      const { service, prisma, verification, audit } = createService();
+      prisma.user.findFirst.mockResolvedValueOnce(await account());
+      prisma.user.update.mockResolvedValue({});
+
+      await service.resetPassword({ identifier: "congnv", otpCode: "123456", newPassword: "Brand#new2026" });
+
+      expect(verification.consume).toHaveBeenCalledWith(7, "PASSWORD_RESET", "123456");
+      expect(prisma.user.update.mock.calls[0][0].data).toMatchObject({
+        refreshTokenHash: null,
+        refreshTokenVersion: { increment: 1 },
+        mustChangePassword: false
+      });
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "RESET_PASSWORD_BY_EMAIL" }));
+    });
+
+    it("gives an unknown name the same answer as a wrong code", async () => {
+      const { service, prisma } = createService();
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({ identifier: "nobody", otpCode: "123456", newPassword: "Brand#new2026" })
+      ).rejects.toMatchObject({ errorCode: "VERIFICATION_CODE_INVALID" });
+    });
+  });
+
+  describe("passwordContainsIdentity", () => {
+    it("spots the username or the email name, ignoring case", () => {
+      expect(passwordContainsIdentity("xXcongnv99!", "congnv", "cong.nv@omnihr.com")).toBe(true);
+      expect(passwordContainsIdentity("Hello#CONG.NV1", "someone", "cong.nv@omnihr.com")).toBe(true);
+    });
+
+    it("ignores names too short to matter", () => {
+      expect(passwordContainsIdentity("Banana#2026", "an", "an@omnihr.com")).toBe(false);
     });
   });
 

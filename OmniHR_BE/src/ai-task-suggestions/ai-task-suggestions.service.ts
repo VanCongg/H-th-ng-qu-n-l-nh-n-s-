@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   AiTaskSuggestionStatus,
+  CareerLevel,
   EmployeeStatus,
   LeaveRequestStatus,
   Prisma,
@@ -21,6 +22,7 @@ import {
   toDateOnly,
   workdayKeysBetween
 } from "../common/utils";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   SystemSettingsService
@@ -37,6 +39,7 @@ import {
   HistorySignal,
   ScoreWeights,
   SkillAssessment,
+  TaskDifficulty,
   assessSkills,
   scoreCandidate,
   taskDifficulty,
@@ -152,7 +155,8 @@ export class AiTaskSuggestionsService {
     private readonly workloadService: TaskWorkloadService,
     private readonly systemSettings: SystemSettingsService,
     private readonly explainer: SuggestionExplainerClient,
-    private readonly holidays: HolidaysService
+    private readonly holidays: HolidaysService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async generate(
@@ -278,7 +282,8 @@ export class AiTaskSuggestionsService {
             workload,
             availability,
             options,
-            level
+            level,
+            history
           ),
           warnings,
           matchedSkills: skill.matchedSkills,
@@ -299,7 +304,7 @@ export class AiTaskSuggestionsService {
       .sort(compareCandidates)
       .slice(0, options.limit)
       .map((item, index) => ({ ...item, rank: index + 1 }));
-    const items = await this.withWrittenReasons(task, ranked, employees);
+    const items = await this.withWrittenReasons(task, ranked);
 
     if (!items.length) {
       throw new ApiError(
@@ -321,7 +326,8 @@ export class AiTaskSuggestionsService {
           candidateIds,
           items,
           generatedAt,
-          weights
+          weights,
+          { difficulty, minLevel, maxLevel }
         ),
         items: {
           create: items.map((item) => ({
@@ -484,6 +490,22 @@ export class AiTaskSuggestionsService {
       },
       context
     });
+    // The same message a manual assignment sends: how the lead picked the
+    // person makes no difference to the person picked.
+    const assignee = await this.prisma.employee.findUnique({
+      where: { id: item.employeeId },
+      select: { userId: true }
+    });
+    if (assignee?.userId) {
+      await this.notifications.create(
+        assignee.userId,
+        "TASK_ASSIGNED",
+        "New task assigned",
+        `You were assigned to "${suggestion.task.title}".`,
+        "Task",
+        suggestion.taskId
+      );
+    }
 
     return this.present(updated);
   }
@@ -888,7 +910,8 @@ export class AiTaskSuggestionsService {
     workload: WorkloadSummary,
     availability: AvailabilityAssessment,
     options: GenerateOptions,
-    level?: LevelFit
+    level?: LevelFit,
+    history?: HistorySignal
   ) {
     const skillText = [this.skillReason(skill), this.levelReason(level)]
       .filter(Boolean)
@@ -897,8 +920,24 @@ export class AiTaskSuggestionsService {
     const availabilityText = options.includeAvailability
       ? this.availabilityReason(availability)
       : "không dùng lịch nghỉ trong lần chấm điểm này";
-    const parts = [skillText, workloadText, availabilityText];
+    const parts = [skillText, workloadText, availabilityText, this.historyReason(history)].filter(
+      Boolean
+    );
     return `${employee.fullName}: ${parts.join("; ")}.`;
+  }
+
+  /**
+   * The heaviest signal, so the sentence has to say it. Only tasks old enough
+   * to count (the lag in DEFAULT_HISTORY_TUNING) are in `sampleSize`.
+   */
+  private historyReason(history?: HistorySignal) {
+    if (!history) {
+      return "";
+    }
+    const score = Math.round(history.score);
+    return history.sampleSize
+      ? `lịch sử ${score}/100 từ ${history.sampleSize} task đã xong`
+      : `chưa có task đã xong đủ lâu, lịch sử lấy theo mức đồng nghiệp cùng cấp (${score}/100)`;
   }
 
   /** Only said when the task has a level range to be measured against. */
@@ -1002,20 +1041,17 @@ export class AiTaskSuggestionsService {
    */
   private async withWrittenReasons<T extends ScoredCandidate & { rank: number }>(
     task: TaskWithRequiredSkills,
-    items: T[],
-    employees: EmployeeWithSkills[]
+    items: T[]
   ): Promise<T[]> {
     if (!this.explainer.enabled || !items.length) {
       return items;
     }
 
-    const byId = new Map(employees.map((employee) => [employee.id, employee]));
     const written = await this.explainer.explain(
       task.title,
       task.requiredSkills.map((required) => required.skill.code),
       items.map((item) => ({
         employeeId: item.employeeId,
-        fullName: byId.get(item.employeeId)?.fullName ?? "",
         score: item.score,
         skillScore: item.skillScore,
         workloadScore: item.workloadScore,
@@ -1032,6 +1068,10 @@ export class AiTaskSuggestionsService {
           .map((skill) => skill.code),
         activeTaskCount: item.workload.activeTaskCount,
         availableHours: item.workload.availableHours,
+        historyScore: item.historyScore,
+        historySampleSize: item.historySampleSize,
+        fairShare: item.fairShare,
+        fairSharePenalty: item.fairSharePenalty,
         warnings: item.warnings
       }))
     );
@@ -1081,11 +1121,15 @@ export class AiTaskSuggestionsService {
       if (!share) {
         return candidate;
       }
+      const penalty = this.round(share.penalty);
       return {
         ...candidate,
         score: this.round(Math.max(0, candidate.score - share.penalty)),
         fairShare: this.round(share.share),
-        fairSharePenalty: this.round(share.penalty)
+        fairSharePenalty: penalty,
+        reason: penalty
+          ? `${candidate.reason.replace(/\.$/, "")}; đã nhận gấp ${this.round(share.share)} lần mức trung bình nhóm trong ${FAIR_SHARE_WINDOW_DAYS} ngày qua (-${penalty} điểm).`
+          : candidate.reason
       };
     });
   }
@@ -1171,12 +1215,7 @@ export class AiTaskSuggestionsService {
       skill: settings.aiWeightSkill,
       workload: settings.aiWeightWorkload,
       availability: settings.aiWeightAvailability,
-      history: settings.aiWeightHistory,
-      skillMultipliers: {
-        EASY: settings.aiSkillMultiplierEasy,
-        MEDIUM: settings.aiSkillMultiplierMedium,
-        HARD: settings.aiSkillMultiplierHard
-      }
+      history: settings.aiWeightHistory
     });
   }
 
@@ -1186,7 +1225,10 @@ export class AiTaskSuggestionsService {
     candidateIds: number[],
     items: Array<ScoredCandidate & { rank: number }>,
     generatedAt: Date,
-    weights: ScoreWeights
+    weights: ScoreWeights,
+    // What the ranking actually used: a subtask without its own level range
+    // takes the team task's, so recomputing from the subtask alone can differ.
+    used: { difficulty: TaskDifficulty; minLevel: CareerLevel | null; maxLevel: CareerLevel | null }
   ) {
     return {
       algorithmVersion: AI_TASK_ALGORITHM_VERSION,
@@ -1200,11 +1242,11 @@ export class AiTaskSuggestionsService {
         : {
             skill: weights.skill,
             workload: weights.workload,
-            history: weights.history,
-            skillMultipliers: weights.skillMultipliers
+            history: weights.history
           },
       // With the multipliers above, what the skill weight was on this task.
-      taskDifficulty: taskDifficulty(task.requiredSkills, task.minLevel ?? null),
+      taskDifficulty: used.difficulty,
+      levelRange: { minLevel: used.minLevel, maxLevel: used.maxLevel },
       candidateIds,
       requiredSkills: this.requiredSkillSnapshot(task),
       items: items.map((item) => ({

@@ -136,6 +136,7 @@ export class LeaveRequestsService {
       newValue: leaveRequest,
       context
     });
+    await this.notifyApprovers(leaveRequest, user);
 
     return leaveRequest;
   }
@@ -460,6 +461,33 @@ export class LeaveRequestsService {
       );
     }
     return updated;
+  }
+
+  /**
+   * A new request goes to whoever decides it: the direct manager and the head
+   * of the department. Without this it only showed up if they happened to
+   * open their team's leave list - from the app, HRGenie, or the web alike.
+   */
+  private async notifyApprovers(
+    leaveRequest: Prisma.LeaveRequestGetPayload<{ include: typeof leaveInclude }>,
+    user: AuthUser
+  ) {
+    const { direct, departmentHead } = await this.accessControl.managersOf(leaveRequest.employeeId);
+    const recipients = new Set(
+      [direct?.userId, departmentHead?.userId].filter(
+        (userId): userId is number => typeof userId === "number" && userId !== user.id
+      )
+    );
+    for (const userId of recipients) {
+      await this.notifications.create(
+        userId,
+        "LEAVE_REQUESTED",
+        "Leave request submitted",
+        `${leaveRequest.employee.fullName} requested leave from ${leaveRequest.startDate.toDateString()} to ${leaveRequest.endDate.toDateString()}.`,
+        "LeaveRequest",
+        leaveRequest.id
+      );
+    }
   }
 
   private async findCancellationForDecision(id: number, user: AuthUser) {

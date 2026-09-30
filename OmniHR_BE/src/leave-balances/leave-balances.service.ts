@@ -23,7 +23,7 @@ const balanceEmployeeSelect = {
   id: true,
   employeeCode: true,
   fullName: true,
-  companyEmail: true,
+  personalEmail: true,
   hireDate: true,
   department: { select: { id: true, code: true, name: true } },
   position: { select: { id: true, code: true, name: true } }

@@ -24,18 +24,13 @@ export class CreateEmployeeDto {
 
   @IsEmail()
   @MaxLength(160)
-  companyEmail: string;
+  personalEmail: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(MAX_AVATAR_VALUE_LENGTH)
   @IsSafeAvatar()
   avatarUrl?: string | null;
-
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(160)
-  personalEmail?: string;
 
   @IsOptional()
   @IsString()

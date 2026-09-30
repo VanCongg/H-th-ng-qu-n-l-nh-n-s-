@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { CareerLevel, EmployeeStatus, Position, Prisma } from "@prisma/client";
+import { CareerLevel, EmployeeStatus, Position, Prisma, VerificationPurpose } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 import { PrismaService } from "../prisma/prisma.service";
 import { ApiError } from "../common/api-error";
@@ -11,6 +11,7 @@ import { currentEmployeeWhere } from "../common/prisma-where";
 import { isManagerPosition } from "../common/position-role";
 import { cacheKeys } from "../redis/cache-keys";
 import { CacheService } from "../redis/cache.service";
+import { normalizePhone, VerificationService } from "../verification/verification.service";
 import {
   formatDateDdMmYyyy,
   omitSensitiveUser,
@@ -43,7 +44,8 @@ export class EmployeesService {
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly accessControl: AccessControlService,
-    private readonly cache: CacheService
+    private readonly cache: CacheService,
+    private readonly verification: VerificationService
   ) {}
 
   async findAll(query: EmployeeQueryDto) {
@@ -128,8 +130,8 @@ export class EmployeesService {
     actor: AuthUser,
     context?: RequestContext
   ) {
-    const companyEmail = dto.companyEmail.toLowerCase();
-    await this.ensureEmailAvailable(companyEmail);
+    const personalEmail = dto.personalEmail.toLowerCase();
+    await this.ensureEmailAvailable(personalEmail);
     const references = await this.ensureDepartmentAndPosition(
       dto.departmentId,
       dto.positionId
@@ -143,8 +145,8 @@ export class EmployeesService {
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          username: companyEmail,
-          email: companyEmail,
+          username: personalEmail,
+          email: personalEmail,
           passwordHash,
           mustChangePassword: true,
           userRoles: {
@@ -160,9 +162,8 @@ export class EmployeesService {
         data: {
           employeeCode: dto.employeeCode,
           fullName: dto.fullName,
-          companyEmail,
+          personalEmail,
           avatarUrl: dto.avatarUrl,
-          personalEmail: dto.personalEmail,
           phone: dto.phone,
           birthDate,
           hireDate: dto.hireDate ? toDateOnly(dto.hireDate) : undefined,
@@ -194,7 +195,7 @@ export class EmployeesService {
       newValue: {
         employeeCode: result.employee.employeeCode,
         fullName: result.employee.fullName,
-        companyEmail: result.employee.companyEmail
+        personalEmail: result.employee.personalEmail
       },
       context
     });
@@ -204,7 +205,7 @@ export class EmployeesService {
       userId: result.user.id,
       employeeCode: result.employee.employeeCode,
       fullName: result.employee.fullName,
-      companyEmail: result.employee.companyEmail,
+      personalEmail: result.employee.personalEmail,
       username: result.user.username,
       defaultPassword,
       mustChangePassword: true,
@@ -238,8 +239,8 @@ export class EmployeesService {
       effectiveDepartmentId,
       effectivePositionId
     );
-    if (dto.companyEmail && dto.companyEmail.toLowerCase() !== oldValue.companyEmail) {
-      await this.ensureEmailAvailable(dto.companyEmail.toLowerCase(), id, oldValue.userId);
+    if (dto.personalEmail && dto.personalEmail.toLowerCase() !== oldValue.personalEmail) {
+      await this.ensureEmailAvailable(dto.personalEmail.toLowerCase(), id, oldValue.userId);
     }
 
     const employee = await this.prisma.$transaction(async (tx) => {
@@ -248,9 +249,8 @@ export class EmployeesService {
         data: {
           employeeCode: dto.employeeCode,
           fullName: dto.fullName,
-          companyEmail: dto.companyEmail?.toLowerCase(),
+          personalEmail: dto.personalEmail?.toLowerCase(),
           avatarUrl: dto.avatarUrl,
-          personalEmail: dto.personalEmail,
           phone: dto.phone,
           birthDate: dto.birthDate ? toDateOnly(dto.birthDate) : undefined,
           hireDate: dto.hireDate ? toDateOnly(dto.hireDate) : undefined,
@@ -277,12 +277,12 @@ export class EmployeesService {
         });
       }
 
-      if (dto.companyEmail && oldValue.userId) {
+      if (dto.personalEmail && oldValue.userId) {
         await tx.user.update({
           where: { id: oldValue.userId },
           data: {
-            username: dto.companyEmail.toLowerCase(),
-            email: dto.companyEmail.toLowerCase()
+            username: dto.personalEmail.toLowerCase(),
+            email: dto.personalEmail.toLowerCase()
           }
         });
       }
@@ -322,6 +322,12 @@ export class EmployeesService {
     return this.safeEmployee(employee);
   }
 
+  /**
+   * What an employee may change about themself: their picture freely, and
+   * their phone or email only with the code emailed for that change (see
+   * VerificationService) - one of the two per request. The email is also the
+   * account's login email, so the two move together.
+   */
   async updateSelf(
     user: AuthUser,
     dto: UpdateSelfEmployeeDto,
@@ -334,23 +340,63 @@ export class EmployeesService {
         "EMPLOYEE_NOT_FOUND"
       );
     }
-
-    const employee = await this.prisma.employee.update({
+    const current = await this.prisma.employee.findUniqueOrThrow({
       where: { id: user.employeeId },
-      data: {
-        avatarUrl: dto.avatarUrl,
-        personalEmail: dto.personalEmail,
-        phone: dto.phone
-      },
-      include: employeeInclude
+      select: { personalEmail: true, phone: true, fullName: true, userId: true }
     });
+    const newEmail = dto.personalEmail?.trim().toLowerCase();
+    const emailChanged = newEmail !== undefined && newEmail !== current.personalEmail.toLowerCase();
+    const newPhone = dto.phone === undefined ? undefined : normalizePhone(dto.phone);
+    const phoneChanged = newPhone !== undefined && newPhone !== normalizePhone(current.phone);
+    if (emailChanged && phoneChanged) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        "Change the email and the phone one at a time",
+        "ONE_CHANGE_AT_A_TIME"
+      );
+    }
+    if (emailChanged) {
+      await this.ensureEmailAvailable(newEmail, user.employeeId, current.userId);
+      await this.verification.consume(user.id, VerificationPurpose.EMAIL_CHANGE, dto.otpCode, newEmail);
+    }
+    if (phoneChanged) {
+      await this.verification.consume(user.id, VerificationPurpose.PHONE_CHANGE, dto.otpCode, newPhone);
+    }
+
+    const employee = await this.prisma.$transaction(async (tx) => {
+      if (emailChanged && current.userId) {
+        await tx.user.update({ where: { id: current.userId }, data: { email: newEmail } });
+      }
+      return tx.employee.update({
+        where: { id: user.employeeId! },
+        data: {
+          avatarUrl: dto.avatarUrl,
+          personalEmail: emailChanged ? newEmail : undefined,
+          phone: phoneChanged ? newPhone || null : undefined
+        },
+        include: employeeInclude
+      });
+    });
+    if (emailChanged) {
+      await this.cache.del(cacheKeys.authUser(user.id));
+      await this.verification.notifyEmailChanged(current.personalEmail, newEmail, current.fullName);
+    }
 
     await this.audit.log({
       userId: user.id,
       action: "UPDATE_EMPLOYEE_SELF",
       entityType: "Employee",
       entityId: employee.id,
-      newValue: { personalEmail: dto.personalEmail, phone: dto.phone },
+      oldValue: {
+        ...(emailChanged ? { personalEmail: current.personalEmail } : {}),
+        ...(phoneChanged ? { phone: current.phone } : {}),
+        ...(dto.avatarUrl !== undefined ? { avatarChanged: true } : {})
+      },
+      newValue: {
+        ...(emailChanged ? { personalEmail: newEmail } : {}),
+        ...(phoneChanged ? { phone: newPhone || null } : {}),
+        ...(dto.avatarUrl !== undefined ? { avatarChanged: true } : {})
+      },
       context
     });
 
@@ -518,7 +564,7 @@ export class EmployeesService {
                 OR: [
                   { fullName: { contains: query.search, mode: "insensitive" } },
                   { employeeCode: { contains: query.search, mode: "insensitive" } },
-                  { companyEmail: { contains: query.search, mode: "insensitive" } }
+                  { personalEmail: { contains: query.search, mode: "insensitive" } }
                 ]
               } satisfies Prisma.EmployeeWhereInput
             ]
@@ -532,20 +578,20 @@ export class EmployeesService {
   }
 
   private async ensureEmailAvailable(
-    companyEmail: string,
+    personalEmail: string,
     employeeId?: number,
     userId?: number | null
   ) {
     const employee = await this.prisma.employee.findFirst({
       where: {
-        companyEmail,
+        personalEmail,
         id: employeeId ? { not: employeeId } : undefined
       },
       select: { id: true }
     });
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: companyEmail }, { username: companyEmail }],
+        OR: [{ email: personalEmail }, { username: personalEmail }],
         id: userId ? { not: userId } : undefined
       },
       select: { id: true }
