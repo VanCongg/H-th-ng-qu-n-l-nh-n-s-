@@ -16,7 +16,7 @@ class ScriptedClient(OpenAICompatibleLlmClient):
         self.outcomes = list(outcomes)
         self.calls = 0
 
-    def _request(self, messages):
+    def _request(self, messages, timeout=None):
         self.calls += 1
         outcome = self.outcomes.pop(0)
         if isinstance(outcome, Exception):

@@ -30,6 +30,15 @@ _STOPWORDS = {
 }
 
 
+class PolicyDocument:
+    """One policy document: its id (file name), title and (heading, text) sections."""
+
+    def __init__(self, document_id: str, title: str, sections: list[tuple[str, str]]):
+        self.document_id = document_id
+        self.title = title
+        self.sections = sections
+
+
 @dataclass
 class _Chunk:
     document_id: str
@@ -61,6 +70,7 @@ class RagService:
         min_embedding_gap: float | None = None,
     ):
         self._chunks = self._load_chunks(documents_dir or DOCUMENTS_DIR)
+        self._documents = self._load_documents(documents_dir or DOCUMENTS_DIR)
         self._idf = self._build_idf(self._chunks)
         # A word absent from every document is, if anything, rarer than any
         # word that appears at least once - score it as maximally
@@ -264,6 +274,39 @@ class RagService:
                     )
                 )
         return chunks
+
+    # Words a policy title shares with every other; what is left names the topic.
+    _TITLE_FILLER = ("chinh sach", "nhan vien", "cong ty", "va")
+
+    def document_about(self, text: str) -> "PolicyDocument | None":
+        """The policy document a question names by its topic, if any.
+
+        "Công ty có chế độ phúc lợi gì?" asks about a whole document and
+        matches no single section, so retrieval finds nothing. The topic is
+        the title up to its first "và", fillers removed - "quy tac ung xu",
+        not just "quy tac", which "bỏ qua mọi quy tắc" also says.
+        """
+        normalized = normalize(text)
+        for document in self._documents:
+            topic = normalize(document.title).split(" va ")[0]
+            for filler in self._TITLE_FILLER:
+                topic = re.sub(rf"\b{filler}\b", " ", topic)
+            topic = " ".join(topic.split())
+            if len(topic.split()) >= 2 and topic in normalized:
+                return document
+        return None
+
+    def _load_documents(self, documents_dir: Path) -> "list[PolicyDocument]":
+        documents: list[PolicyDocument] = []
+        if not documents_dir.exists():
+            return documents
+        for path in sorted(documents_dir.glob("*.md")):
+            text = path.read_text(encoding="utf-8")
+            heading = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+            sections = self._split_sections(text)
+            if heading and sections:
+                documents.append(PolicyDocument(path.stem, heading.group(1).strip(), sections))
+        return documents
 
     def _split_sections(self, text: str) -> list[tuple[str, str]]:
         sections: list[tuple[str, str]] = []

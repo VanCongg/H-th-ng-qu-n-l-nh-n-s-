@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.5,
+    "latencyMs": 0.6,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -37,7 +37,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.6,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -61,7 +61,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -85,7 +85,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -157,7 +157,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -181,7 +181,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -205,7 +205,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -229,7 +229,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -255,7 +255,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -281,7 +281,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -307,7 +307,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -333,7 +333,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -437,7 +437,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.1,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -489,7 +489,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -518,7 +518,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.5,
+    "latencyMs": 0.8,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -547,7 +547,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -880,7 +880,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_MY_PROFILE"
     ],
@@ -1278,7 +1278,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1308,7 +1309,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1338,7 +1340,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1368,7 +1371,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1398,7 +1402,8 @@
     "arguments": {
       "status": [
         "TODO",
-        "IN_PROGRESS"
+        "IN_PROGRESS",
+        "IN_REVIEW"
       ],
       "limit": 10
     },
@@ -1506,7 +1511,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1530,7 +1535,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "UNKNOWN"
     ],
@@ -1578,7 +1583,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "UNKNOWN"
     ],
@@ -1602,7 +1607,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "UNKNOWN"
     ],
@@ -1626,7 +1631,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "UNKNOWN"
     ],
@@ -1650,7 +1655,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.4,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1674,7 +1679,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.4,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1698,7 +1703,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1722,7 +1727,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1770,7 +1775,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1797,7 +1802,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.9,
+    "latencyMs": 1.1,
     "expectedIntents": [
       "UPDATE_TASK_STATUS_DRAFT"
     ],
@@ -1824,7 +1829,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "UPDATE_TASK_STATUS_DRAFT"
     ],
@@ -1890,6 +1895,199 @@
   },
   {
     "category": "fixture",
+    "message": "Hoàn thành task Viết tài liệu API",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Tôi đã hoàn thành task Viết tài liệu API",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Hoàn tất công việc Viết tài liệu API",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cập nhật task Viết tài liệu API sang hoàn thành",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Cập nhật task Viết tài liệu API đang chờ duyệt thành hoàn thành",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "DONE",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.4,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Rút task Viết tài liệu API về đang làm",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": "update_task_status_draft",
+    "arguments": {
+      "status": "IN_PROGRESS",
+      "taskTitle": "Viết tài liệu API"
+    },
+    "needConfirmation": true,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.4,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      "update_task_status_draft"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Đã hoàn thành task Viết tài liệu API chưa?",
+    "intent": "GET_MY_TASKS",
+    "tool": "get_my_tasks",
+    "arguments": {
+      "status": [
+        "TODO",
+        "IN_PROGRESS",
+        "IN_REVIEW"
+      ],
+      "limit": 10
+    },
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.3,
+    "expectedIntents": [
+      "GET_MY_TASKS"
+    ],
+    "expectedTools": [
+      "get_my_tasks"
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
     "message": "Đánh dấu task hoàn thành",
     "intent": "UPDATE_TASK_STATUS_DRAFT",
     "tool": null,
@@ -1902,7 +2100,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "UPDATE_TASK_STATUS_DRAFT"
     ],
@@ -1926,7 +2124,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "UPDATE_TASK_STATUS_DRAFT"
     ],
@@ -1950,7 +2148,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.5,
+    "latencyMs": 0.7,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1974,7 +2172,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1998,7 +2196,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -2022,7 +2220,55 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
+    "expectedIntents": [
+      "GET_HR_POLICY_INFO"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "chuyển sang review",
+    "intent": "UPDATE_TASK_STATUS_DRAFT",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.2,
+    "expectedIntents": [
+      "UPDATE_TASK_STATUS_DRAFT"
+    ],
+    "expectedTools": [
+      null
+    ],
+    "exactOk": true,
+    "unsafeWrite": false
+  },
+  {
+    "category": "fixture",
+    "message": "Phép năm có được chuyển sang năm sau không?",
+    "intent": "GET_HR_POLICY_INFO",
+    "tool": null,
+    "arguments": {},
+    "needConfirmation": false,
+    "intentOk": true,
+    "toolOk": true,
+    "confirmOk": true,
+    "argsOk": true,
+    "wrongArgs": {},
+    "fallbackUsed": false,
+    "fallbackReason": null,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],

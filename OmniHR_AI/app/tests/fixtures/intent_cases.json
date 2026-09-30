@@ -84,5 +84,7 @@
   {"message": "Chính sách nghỉ phép của công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
   {"message": "Nội quy công ty thế nào?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
   {"message": "Chính sách của công ty", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
-  {"message": "Quy định về làm việc từ xa", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false}
+  {"message": "Quy định về làm việc từ xa", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false},
+  {"message": "chuyển sang review", "expectedIntent": "UPDATE_TASK_STATUS_DRAFT", "expectedTool": null, "confirmationRequired": false},
+  {"message": "Phép năm có được chuyển sang năm sau không?", "expectedIntent": "GET_HR_POLICY_INFO", "expectedTool": null, "confirmationRequired": false}
 ]

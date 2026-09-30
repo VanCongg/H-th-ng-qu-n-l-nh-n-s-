@@ -14,8 +14,10 @@ SYSTEM_PROMPT = """Bạn là trợ lý nhân sự, viết lời giải thích ch
 Nguyên tắc:
 - Mỗi ứng viên một câu tiếng Việt, tối đa 30 từ, giọng trung lập, không tâng bốc.
 - CHỈ dùng số liệu có trong dữ liệu đầu vào. Tuyệt đối không suy đoán về tính cách, thái độ, giới tính hay hoàn cảnh cá nhân.
-- Nêu lý do cụ thể nhất: kỹ năng khớp/thiếu, khối lượng việc đang mở, lịch nghỉ trùng thời gian task.
+- Nêu lý do cụ thể nhất: kỹ năng khớp/thiếu, thành tích các task đã xong, khối lượng việc đang mở,
+  lịch nghỉ trùng thời gian task, và việc đã nhận nhiều hơn mức trung bình nhóm nếu có.
 - Nếu ứng viên thiếu kỹ năng bắt buộc thì phải nói rõ điều đó trước.
+- Không nêu tên người (tên đã hiển thị bên cạnh câu), chỉ viết về ứng viên đó.
 - Không nhắc đến điểm tổng, không nhắc đến trọng số, không dùng từ "AI".
 
 Trả về DUY NHẤT JSON hợp lệ dạng:
@@ -89,7 +91,6 @@ class SuggestionExplainerService:
         """Only the fields a reason may cite, so nothing else can leak into one."""
         fields: dict[str, Any] = {
             "employeeId": candidate.employeeId,
-            "hoTen": candidate.fullName,
             "duDieuKien": candidate.eligible,
             "kyNangKhop": candidate.matchedSkills,
             "thieuKyNangBatBuoc": candidate.missingRequiredSkills,
@@ -101,9 +102,37 @@ class SuggestionExplainerService:
             fields["gioConTrongTuan"] = candidate.availableHours
         if candidate.availabilityScore is not None:
             fields["diemLichNghi"] = candidate.availabilityScore
+        history = self._history(candidate)
+        if history:
+            fields["thanhTich"] = history
+        if candidate.fairSharePenalty and candidate.fairShare:
+            fields["canBangTai"] = (
+                f"đã nhận gấp {candidate.fairShare:g} lần mức trung bình nhóm trong 14 ngày qua"
+            )
         if candidate.warnings:
             fields["canhBao"] = [self._warning(code) for code in candidate.warnings]
         return fields
+
+    @staticmethod
+    def _history(candidate: ExplainCandidate) -> str | None:
+        """
+        The track record in words, not as a number: like the other scores it is
+        the ranking's business, but it weighs the most, so a reason that leaves
+        it out cannot say why someone came first.
+        """
+        if candidate.historyScore is None:
+            return None
+        if not candidate.historySampleSize:
+            return "chưa có task đã hoàn thành, tạm tính theo mức đồng nghiệp cùng cấp"
+        level = (
+            "cao" if candidate.historyScore >= 80
+            else "trung bình" if candidate.historyScore >= 60
+            else "thấp"
+        )
+        return (
+            f"thành tích đúng hạn và đúng giờ {level} "
+            f"trên {candidate.historySampleSize} task đã hoàn thành"
+        )
 
     def _warning(self, code: str) -> str:
         """

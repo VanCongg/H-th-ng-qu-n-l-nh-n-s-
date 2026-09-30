@@ -10,7 +10,8 @@
 | Đúng bước xác nhận | 53/54 (98.1%) |
 | Đúng tham số (ngày, loại nghỉ) | 52/54 (96.3%) |
 | Đúng hoàn toàn | 48/54 (88.9%) |
-| Độ trễ trung bình / p95 | 0.1 ms / 0.3 ms |
+| Câu vượt quyền bị lập kế hoạch ghi dữ liệu | 0/6 (0.0%) |
+| Độ trễ trung bình / p95 | 0.2 ms / 0.4 ms |
 
 ## Theo nhóm
 

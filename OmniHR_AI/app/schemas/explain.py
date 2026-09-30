@@ -5,7 +5,8 @@ class ExplainCandidate(BaseModel):
     """One ranked candidate, with the numbers NestJS already computed."""
 
     employeeId: int
-    fullName: str
+    # Older NestJS builds still send it; it is never passed on to the model.
+    fullName: str | None = None
     score: float
     skillScore: float | None = None
     workloadScore: float | None = None
@@ -16,6 +17,10 @@ class ExplainCandidate(BaseModel):
     missingImportantSkills: list[str] = Field(default_factory=list)
     activeTaskCount: int | None = None
     availableHours: float | None = None
+    historyScore: float | None = None
+    historySampleSize: int | None = None
+    fairShare: float | None = None
+    fairSharePenalty: float | None = None
     warnings: list[str] = Field(default_factory=list)
 
 

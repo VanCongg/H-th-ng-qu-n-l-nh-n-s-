@@ -48,6 +48,10 @@ class Settings:
     llm_base_url: str = os.getenv("LLM_BASE_URL", "")
     llm_timeout_seconds: int = _int_env("LLM_TIMEOUT_SECONDS", 20)
     llm_max_retries: int = _int_env("LLM_MAX_RETRIES", 2)
+    # All attempts together, backoff included. NestJS stops waiting for a plan
+    # after AI_TIMEOUT_MS (30 s by default); past this budget the planner falls
+    # back to its rules, so there must be time left to answer - keep it below.
+    llm_total_budget_seconds: float = _float_env("LLM_TOTAL_BUDGET_SECONDS", 20.0)
     llm_temperature: float = _float_env("LLM_TEMPERATURE", 0.0)
     llm_max_output_tokens: int = _int_env("LLM_MAX_OUTPUT_TOKENS", 800)
     llm_fallback_to_rule_based: bool = _bool_env("LLM_FALLBACK_TO_RULE_BASED", True)

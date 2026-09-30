@@ -9,6 +9,8 @@ from app.llm.base import LlmClientError
 RETRYABLE_STATUS = {408, 409, 429, 500, 502, 503, 504}
 BACKOFF_BASE_SECONDS = 0.5
 BACKOFF_CAP_SECONDS = 4.0
+# Not worth starting an attempt with less time than this left in the budget.
+MIN_ATTEMPT_SECONDS = 2.0
 
 
 class RetryableLlmError(LlmClientError):
@@ -26,21 +28,30 @@ class OpenAICompatibleLlmClient:
 
     def complete_json(self, messages: list[dict[str, str]]) -> str:
         attempts = max(1, self.settings.llm_max_retries + 1)
+        # One budget for every attempt: a slow provider must not use up the
+        # time the caller waits, or the rule-based fallback never gets to answer.
+        deadline = time.monotonic() + self.settings.llm_total_budget_seconds
 
         for attempt in range(attempts):
+            remaining = deadline - time.monotonic()
+            if remaining < MIN_ATTEMPT_SECONDS:
+                raise LlmClientError("LLM time budget used up")
             try:
-                return self._request(messages)
+                return self._request(messages, timeout=min(self.settings.llm_timeout_seconds, remaining))
             except RetryableLlmError as error:
                 if attempt + 1 >= attempts:
                     raise
                 delay = error.retry_after
                 if delay is None:
                     delay = BACKOFF_BASE_SECONDS * (2**attempt)
-                time.sleep(min(delay, BACKOFF_CAP_SECONDS))
+                delay = min(delay, BACKOFF_CAP_SECONDS)
+                if time.monotonic() + delay + MIN_ATTEMPT_SECONDS > deadline:
+                    raise
+                time.sleep(delay)
 
         raise LlmClientError("LLM request failed")
 
-    def _request(self, messages: list[dict[str, str]]) -> str:
+    def _request(self, messages: list[dict[str, str]], timeout: float | None = None) -> str:
         import httpx
 
         headers = {
@@ -59,7 +70,7 @@ class OpenAICompatibleLlmClient:
         }
 
         try:
-            with httpx.Client(timeout=self.settings.llm_timeout_seconds) as client:
+            with httpx.Client(timeout=timeout or self.settings.llm_timeout_seconds) as client:
                 response = client.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,

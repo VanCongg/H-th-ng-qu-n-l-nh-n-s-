@@ -1,4 +1,4 @@
-# Đánh giá HRGenie planner — chế độ `hybrid`, bộ `holdout`
+# Đánh giá HRGenie planner — chế độ `hybrid`, bộ `dev`
 
 - Model: `openai_compatible/gemini-3.5-flash-lite`
 - Số câu: 82

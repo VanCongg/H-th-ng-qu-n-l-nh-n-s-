@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1943.5,
+    "latencyMs": 4399.6,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -37,7 +37,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1528.5,
+    "latencyMs": 3158.1,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -61,7 +61,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1559.1,
+    "latencyMs": 10982.9,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -85,7 +85,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1896.9,
+    "latencyMs": 2643.2,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY",
       "GET_HR_POLICY_INFO"
@@ -111,7 +111,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1516.1,
+    "latencyMs": 3249.5,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY",
       "GET_HR_POLICY_INFO"
@@ -137,7 +137,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1651.4,
+    "latencyMs": 4830.1,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -163,7 +163,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1646.3,
+    "latencyMs": 4496.3,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -189,7 +189,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1735.1,
+    "latencyMs": 6600.6,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -215,7 +215,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1729.4,
+    "latencyMs": 9473.6,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -241,7 +241,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1834.8,
+    "latencyMs": 9988.7,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -267,7 +267,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1553.4,
+    "latencyMs": 3458.9,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -293,7 +293,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1634.0,
+    "latencyMs": 6134.3,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -317,7 +317,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1477.6,
+    "latencyMs": 2782.6,
     "expectedIntents": [
       "GET_LEAVE_TYPES",
       "GET_HR_POLICY_INFO"
@@ -343,7 +343,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1449.1,
+    "latencyMs": 2712.2,
     "expectedIntents": [
       "GET_LEAVE_TYPES"
     ],
@@ -359,7 +359,7 @@
     "intent": "GET_MY_TASKS",
     "tool": "get_my_tasks",
     "arguments": {
-      "status": "PENDING"
+      "status": "TODO"
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -369,7 +369,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1632.8,
+    "latencyMs": 11957.5,
     "expectedIntents": [
       "GET_MY_TASKS",
       "GET_MY_UPCOMING_TASKS"
@@ -395,7 +395,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1511.1,
+    "latencyMs": 3181.3,
     "expectedIntents": [
       "GET_MY_TASKS"
     ],
@@ -412,7 +412,7 @@
     "tool": "get_my_upcoming_tasks",
     "arguments": {
       "days": 3,
-      "includeOverdue": true
+      "limit": 10
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -422,7 +422,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1603.5,
+    "latencyMs": 16781.5,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
     ],
@@ -438,8 +438,7 @@
     "intent": "GET_MY_UPCOMING_TASKS",
     "tool": "get_my_upcoming_tasks",
     "arguments": {
-      "includeOverdue": true,
-      "mode": "overdue"
+      "includeOverdue": true
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -449,7 +448,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1579.6,
+    "latencyMs": 4517.4,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
     ],
@@ -465,7 +464,7 @@
     "intent": "GET_MY_UPCOMING_TASKS",
     "tool": "get_my_upcoming_tasks",
     "arguments": {
-      "mode": "due_soon",
+      "mode": "overdue_and_upcoming",
       "days": 1,
       "limit": 5,
       "includeOverdue": true
@@ -478,7 +477,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1892.4,
+    "latencyMs": 4025.8,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS",
       "GET_MY_TASKS"
@@ -504,7 +503,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1558.2,
+    "latencyMs": 3652.6,
     "expectedIntents": [
       "GET_MY_PROFILE"
     ],
@@ -528,7 +527,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1582.9,
+    "latencyMs": 5538.5,
     "expectedIntents": [
       "GET_MY_PROFILE"
     ],
@@ -552,7 +551,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1626.8,
+    "latencyMs": 5352.9,
     "expectedIntents": [
       "GET_MY_MANAGER",
       "GET_MY_PROFILE"
@@ -578,7 +577,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1653.6,
+    "latencyMs": 2827.2,
     "expectedIntents": [
       "GET_MY_MANAGER",
       "GET_MY_PROFILE"
@@ -596,7 +595,9 @@
     "intent": "GET_EMPLOYEE_BIRTHDAYS",
     "tool": "get_employee_birthdays",
     "arguments": {
-      "scope": "team"
+      "scope": "team",
+      "fromDate": "2026-11-16",
+      "toDate": "2026-11-22"
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -606,7 +607,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1548.5,
+    "latencyMs": 3071.6,
     "expectedIntents": [
       "GET_EMPLOYEE_BIRTHDAYS"
     ],
@@ -633,7 +634,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1720.3,
+    "latencyMs": 2450.5,
     "expectedIntents": [
       "GET_EMPLOYEE_BIRTHDAYS"
     ],
@@ -649,7 +650,7 @@
     "intent": "GET_WHO_IS_ON_LEAVE_TODAY",
     "tool": "get_who_is_on_leave_today",
     "arguments": {
-      "scope": "department"
+      "scope": "team"
     },
     "needConfirmation": false,
     "intentOk": true,
@@ -659,7 +660,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1746.7,
+    "latencyMs": 2473.9,
     "expectedIntents": [
       "GET_WHO_IS_ON_LEAVE_TODAY"
     ],
@@ -683,7 +684,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1496.8,
+    "latencyMs": 2812.8,
     "expectedIntents": [
       "GET_WHO_IS_ON_LEAVE_TODAY"
     ],
@@ -711,7 +712,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1686.2,
+    "latencyMs": 3409.5,
     "expectedIntents": [
       "GET_UPCOMING_LEAVES"
     ],
@@ -739,7 +740,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1665.8,
+    "latencyMs": 2688.0,
     "expectedIntents": [
       "GET_UPCOMING_LEAVES"
     ],
@@ -765,7 +766,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1540.8,
+    "latencyMs": 3059.8,
     "expectedIntents": [
       "GET_TEAM_ATTENDANCE_SUMMARY"
     ],
@@ -791,7 +792,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1537.7,
+    "latencyMs": 2813.2,
     "expectedIntents": [
       "GET_TEAM_ATTENDANCE_SUMMARY"
     ],
@@ -807,6 +808,7 @@
     "intent": "GET_TEAM_TASK_SUMMARY",
     "tool": "get_team_task_summary",
     "arguments": {
+      "scope": "team",
       "includeOverdue": true
     },
     "needConfirmation": false,
@@ -817,7 +819,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1565.3,
+    "latencyMs": 2433.2,
     "expectedIntents": [
       "GET_TEAM_TASK_SUMMARY"
     ],
@@ -841,7 +843,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1559.6,
+    "latencyMs": 2378.2,
     "expectedIntents": [
       "GET_TEAM_TASK_SUMMARY"
     ],
@@ -865,7 +867,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1470.4,
+    "latencyMs": 2574.4,
     "expectedIntents": [
       "GET_DEPARTMENT_HEADCOUNT"
     ],
@@ -891,7 +893,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1546.1,
+    "latencyMs": 2419.1,
     "expectedIntents": [
       "GET_DEPARTMENT_HEADCOUNT"
     ],
@@ -915,7 +917,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1877.5,
+    "latencyMs": 4291.6,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -939,7 +941,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1768.5,
+    "latencyMs": 4487.2,
     "expectedIntents": [
       "GET_HR_POLICY_INFO",
       "GET_ATTENDANCE_POLICY"
@@ -965,7 +967,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1823.3,
+    "latencyMs": 4054.7,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -989,7 +991,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1598.1,
+    "latencyMs": 2570.7,
     "expectedIntents": [
       "GET_HR_POLICY_INFO",
       "GET_LEAVE_TYPES"
@@ -1015,7 +1017,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1524.4,
+    "latencyMs": 9345.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1039,7 +1041,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1600.1,
+    "latencyMs": 2817.0,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1063,7 +1065,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1697.8,
+    "latencyMs": 3616.0,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1087,7 +1089,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1643.2,
+    "latencyMs": 2831.4,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -1113,7 +1115,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1554.0,
+    "latencyMs": 3041.2,
     "expectedIntents": [
       "GET_MY_LEAVE_BALANCE"
     ],
@@ -1137,7 +1139,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1474.4,
+    "latencyMs": 2662.9,
     "expectedIntents": [
       "GET_MY_TASKS"
     ],
@@ -1161,7 +1163,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1739.5,
+    "latencyMs": 2327.1,
     "expectedIntents": [
       "GET_MY_MANAGER",
       "GET_MY_PROFILE"
@@ -1192,7 +1194,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1896.5,
+    "latencyMs": 3645.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1216,7 +1218,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1733.0,
+    "latencyMs": 2688.2,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -1232,6 +1234,7 @@
     "intent": "GET_WHO_IS_ON_LEAVE_TODAY",
     "tool": "get_who_is_on_leave_today",
     "arguments": {
+      "date": "2026-11-19",
       "scope": "department"
     },
     "needConfirmation": false,
@@ -1242,7 +1245,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1898.8,
+    "latencyMs": 6916.0,
     "expectedIntents": [
       "GET_WHO_IS_ON_LEAVE_TODAY"
     ],
@@ -1258,6 +1261,7 @@
     "intent": "GET_MY_UPCOMING_TASKS",
     "tool": "get_my_upcoming_tasks",
     "arguments": {
+      "mode": "overdue",
       "includeOverdue": true
     },
     "needConfirmation": false,
@@ -1268,7 +1272,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1561.2,
+    "latencyMs": 3042.4,
     "expectedIntents": [
       "GET_MY_UPCOMING_TASKS"
     ],
@@ -1292,7 +1296,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1638.8,
+    "latencyMs": 6472.8,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -1316,7 +1320,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1556.8,
+    "latencyMs": 5809.9,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1335,7 +1339,7 @@
       "leaveTypeCode": "ANNUAL_LEAVE",
       "startDate": "2026-11-20",
       "endDate": "2026-11-20",
-      "reason": "Đi khám răng"
+      "reason": "đi khám răng"
     },
     "needConfirmation": true,
     "intentOk": true,
@@ -1345,7 +1349,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1743.4,
+    "latencyMs": 5643.8,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1374,7 +1378,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1682.3,
+    "latencyMs": 6233.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1390,9 +1394,9 @@
     "intent": "CREATE_LEAVE_REQUEST_DRAFT",
     "tool": "create_leave_request_draft",
     "arguments": {
-      "leaveTypeCode": "ANNUAL_LEAVE",
       "startDate": "2026-12-01",
       "endDate": "2026-12-02",
+      "leaveTypeCode": "ANNUAL_LEAVE",
       "reason": "Tạo từ HRGenie"
     },
     "needConfirmation": true,
@@ -1403,7 +1407,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1880.7,
+    "latencyMs": 7633.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1432,7 +1436,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1676.3,
+    "latencyMs": 10066.3,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1461,7 +1465,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1822.1,
+    "latencyMs": 6962.9,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1480,7 +1484,7 @@
       "leaveTypeCode": "MARRIAGE_LEAVE",
       "startDate": "2026-12-14",
       "endDate": "2026-12-16",
-      "reason": "Tôi cưới vợ"
+      "reason": "Nghỉ kết hôn"
     },
     "needConfirmation": true,
     "intentOk": true,
@@ -1490,7 +1494,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1826.4,
+    "latencyMs": 6807.5,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1519,7 +1523,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1854.4,
+    "latencyMs": 5272.4,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1543,7 +1547,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1710.4,
+    "latencyMs": 6810.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1567,7 +1571,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1624.1,
+    "latencyMs": 5765.6,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1593,7 +1597,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1759.0,
+    "latencyMs": 6999.3,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -1617,7 +1621,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1560.0,
+    "latencyMs": 2670.0,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -1641,7 +1645,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1486.3,
+    "latencyMs": 5661.4,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -1665,7 +1669,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1453.1,
+    "latencyMs": 9372.2,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1691,7 +1695,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1555.9,
+    "latencyMs": 6461.7,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1718,7 +1722,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1520.3,
+    "latencyMs": 5617.5,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN"
@@ -1743,7 +1747,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1544.3,
+    "latencyMs": 9264.0,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN"
@@ -1768,7 +1772,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1775.7,
+    "latencyMs": 4829.0,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1794,7 +1798,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1574.3,
+    "latencyMs": 3782.3,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1820,7 +1824,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1632.9,
+    "latencyMs": 5556.3,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1847,7 +1851,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1634.9,
+    "latencyMs": 6804.1,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1873,7 +1877,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1628.5,
+    "latencyMs": 6217.5,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1899,7 +1903,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1800.0,
+    "latencyMs": 5762.2,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1925,7 +1929,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1438.9,
+    "latencyMs": 2821.5,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -1950,7 +1954,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1600.6,
+    "latencyMs": 2878.2,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -1975,7 +1979,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1497.2,
+    "latencyMs": 4766.7,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -2000,7 +2004,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1621.5,
+    "latencyMs": 2669.9,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -2025,7 +2029,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1459.0,
+    "latencyMs": 2872.3,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -2050,7 +2054,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 1585.6,
+    "latencyMs": 4294.9,
     "expectedIntents": [
       "SMALL_TALK"
     ],

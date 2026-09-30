@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.6,
+    "latencyMs": 1.2,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -37,7 +37,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -50,7 +50,7 @@
   {
     "category": "paraphrase",
     "message": "Xem giúp tôi trạng thái chấm công hôm nay",
-    "intent": "UNKNOWN",
+    "intent": "GET_HR_POLICY_INFO",
     "tool": null,
     "arguments": {},
     "needConfirmation": false,
@@ -61,7 +61,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_TODAY_ATTENDANCE"
     ],
@@ -126,7 +126,7 @@
   {
     "category": "paraphrase",
     "message": "Bán kính cho phép chấm công hiện giờ là bao nhiêu?",
-    "intent": "UNKNOWN",
+    "intent": "GET_HR_POLICY_INFO",
     "tool": null,
     "arguments": {},
     "needConfirmation": false,
@@ -137,7 +137,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_ATTENDANCE_POLICY"
     ],
@@ -287,7 +287,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_MY_LEAVE_REQUESTS"
     ],
@@ -337,7 +337,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_LEAVE_TYPES"
     ],
@@ -514,7 +514,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_MY_PROFILE"
     ],
@@ -562,7 +562,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_MANAGER",
       "GET_MY_PROFILE"
@@ -724,7 +724,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_UPCOMING_LEAVES"
     ],
@@ -748,7 +748,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_UPCOMING_LEAVES"
     ],
@@ -787,7 +787,7 @@
   {
     "category": "paraphrase",
     "message": "Ai trong team chưa chấm công sáng nay?",
-    "intent": "UNKNOWN",
+    "intent": "GET_HR_POLICY_INFO",
     "tool": null,
     "arguments": {},
     "needConfirmation": false,
@@ -798,7 +798,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_TEAM_ATTENDANCE_SUMMARY"
     ],
@@ -928,7 +928,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -978,7 +978,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1002,7 +1002,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO",
       "GET_LEAVE_TYPES"
@@ -1028,7 +1028,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1052,7 +1052,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1076,7 +1076,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],
@@ -1181,7 +1181,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_MANAGER",
       "GET_MY_PROFILE"
@@ -1212,7 +1212,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.6,
+    "latencyMs": 0.9,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1342,7 +1342,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "SMALL_TALK"
     ],
@@ -1361,7 +1361,7 @@
       "leaveTypeCode": "ANNUAL_LEAVE",
       "startDate": "2026-11-20",
       "endDate": "2026-11-20",
-      "reason": "Tạo từ HRGenie"
+      "reason": "đi khám răng"
     },
     "needConfirmation": true,
     "intentOk": true,
@@ -1371,7 +1371,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1400,7 +1400,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1429,7 +1429,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1458,7 +1458,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1476,30 +1476,25 @@
     "arguments": {
       "leaveTypeCode": "UNPAID_LEAVE",
       "startDate": "2026-12-07",
-      "endDate": "2026-12-07",
+      "endDate": "2026-12-09",
       "reason": "Tạo từ HRGenie"
     },
     "needConfirmation": true,
     "intentOk": true,
     "toolOk": true,
     "confirmOk": true,
-    "argsOk": false,
-    "wrongArgs": {
-      "endDate": {
-        "expected": "2026-12-09",
-        "got": "2026-12-07"
-      }
-    },
+    "argsOk": true,
+    "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
     "expectedTools": [
       "create_leave_request_draft"
     ],
-    "exactOk": false,
+    "exactOk": true,
     "unsafeWrite": false
   },
   {
@@ -1555,7 +1550,7 @@
     },
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "CREATE_LEAVE_REQUEST_DRAFT"
     ],
@@ -1655,7 +1650,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "CANCEL_MY_PENDING_LEAVE_REQUEST"
     ],
@@ -1808,7 +1803,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1834,7 +1829,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "FORBIDDEN_REQUEST",
       "UNKNOWN",
@@ -1965,7 +1960,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -2015,7 +2010,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.2,
+    "latencyMs": 0.3,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"
@@ -2065,7 +2060,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "OUT_OF_SCOPE",
       "UNKNOWN"

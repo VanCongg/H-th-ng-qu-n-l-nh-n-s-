@@ -127,9 +127,20 @@ class LlmPlannerService:
 
     def _policy_context(self, message: str) -> list[dict[str, str]]:
         result = self.rag_service.search(RagSearchRequest(query=message, topK=3))
+        if result.items:
+            return [
+                {"title": item.title, "content": item.content}
+                for item in result.items
+            ]
+        # A question about a whole policy ("chế độ phúc lợi gì") finds no single
+        # section; give the model the whole document rather than nothing, or it
+        # is told to say no such policy exists.
+        document = self.rag_service.document_about(message)
+        if document is None:
+            return []
         return [
-            {"title": item.title, "content": item.content}
-            for item in result.items
+            {"title": f"{document.title} - {title}", "content": content[:600]}
+            for title, content in document.sections
         ]
 
     def _history_payload(self, request: ChatPlanRequest) -> list[dict[str, str]]:

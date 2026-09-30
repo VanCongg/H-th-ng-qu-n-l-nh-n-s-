@@ -154,3 +154,41 @@ def test_warning_codes_reach_the_model_as_words():
         "có đơn nghỉ đang chờ duyệt trùng thời gian task",
         "SOMETHING_NEW",
     ]
+
+
+def test_the_name_never_reaches_the_model():
+    client = FakeLlmClient(json.dumps({"explanations": []}))
+    service = SuggestionExplainerService(client=client)
+
+    service.explain(request_with(candidate(10, "Lê Bảo Ngọc")))
+
+    assert client.messages is not None
+    assert "Lê Bảo Ngọc" not in client.messages[1]["content"]
+
+
+def test_track_record_and_fair_share_reach_the_model_as_words():
+    client = FakeLlmClient(json.dumps({"explanations": []}))
+    service = SuggestionExplainerService(client=client)
+
+    service.explain(
+        request_with(
+            candidate(
+                10,
+                "Lê Bảo Ngọc",
+                historyScore=86.4,
+                historySampleSize=12,
+                fairShare=1.8,
+                fairSharePenalty=8.0,
+            ),
+            candidate(11, "Vũ Anh Tuấn", historyScore=55.0, historySampleSize=0),
+        )
+    )
+
+    assert client.messages is not None
+    sent = json.loads(client.messages[1]["content"])["candidates"]
+    assert sent[0]["thanhTich"] == "thành tích đúng hạn và đúng giờ cao trên 12 task đã hoàn thành"
+    assert "1.8 lần" in sent[0]["canBangTai"]
+    assert "đồng nghiệp cùng cấp" in sent[1]["thanhTich"]
+    assert "canBangTai" not in sent[1]
+    # Words, not the number the ranking used.
+    assert "86.4" not in client.messages[1]["content"]

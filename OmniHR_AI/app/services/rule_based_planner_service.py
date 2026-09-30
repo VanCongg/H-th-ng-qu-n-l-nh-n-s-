@@ -194,7 +194,7 @@ class RuleBasedPlannerService:
         # Before the profile branch: "gửi task X cho quản lý duyệt" contains
         # "quản lý" but is a status change, not a question about the org chart.
         if self._is_task_status_update(normalized):
-            return self._task_status_plan(text, normalized, available)
+            return self._task_status_plan(text, normalized, available, request.history)
 
         if self._has_any(normalized, "phong ban", "manager", "quan ly", "ho so", "toi la ai"):
             return self._tool_plan(
@@ -205,6 +205,12 @@ class RuleBasedPlannerService:
             )
 
         if self._has_any(normalized, "sap den han", "qua han", "hom nay can lam", "can lam gi"):
+            return self._upcoming_tasks_plan(normalized, available)
+
+        # "Tuần này tôi có task nào đến hạn?" asks what is due soon, not for every open task.
+        if self._has_any(normalized, "den han", "deadline", "han chot") and self._has_any(
+            normalized, "tuan nay", "tuan sau", "tuan toi", "thang nay", "ngay mai", "sap", "nao"
+        ):
             return self._upcoming_tasks_plan(normalized, available)
 
         if self._has_any(normalized, "task", "cong viec", "deadline", "den han"):
@@ -285,6 +291,28 @@ class RuleBasedPlannerService:
             confidence=0.7,
         )
 
+    def _document_overview(self, text: str) -> ChatPlanResponse | None:
+        """A question about a whole policy ("phúc lợi công ty có gì") matches no
+        single section, so no retrieval hit comes back. When it names a
+        document's topic, answer with what that document covers and let the
+        person pick, rather than the generic "what can I help with"."""
+        document = self.rag_service.document_about(text)
+        if document is None:
+            return None
+        return ChatPlanResponse(
+            type="answer",
+            intent="GET_HR_POLICY_INFO",
+            reply=(
+                f"{document.title} gồm các nội dung: "
+                f"{'; '.join(title for title, _ in document.sections)}. "
+                "Bạn muốn biết chi tiết phần nào?"
+            ),
+            confidence=0.7,
+            citations=[
+                {"documentId": document.document_id, "chunkId": document.document_id, "title": document.title}
+            ],
+        )
+
     def _policy_plan(self, text: str, normalized: str) -> ChatPlanResponse | None:
         result = self.rag_service.search(RagSearchRequest(query=text, topK=1))
         if not result.items:
@@ -305,7 +333,7 @@ class RuleBasedPlannerService:
                 result = self.rag_service.search(RagSearchRequest(query=expanded, topK=1))
 
         if not result.items:
-            return self._policy_topics_answer(normalized)
+            return self._document_overview(text) or self._policy_topics_answer(normalized)
 
         top = result.items[0]
         reply = f"{top.title}: {top.content}"
@@ -362,6 +390,10 @@ class RuleBasedPlannerService:
         if half_day:
             days = 1
         end_date = start_date + timedelta(days=max(days - 1, 0))
+        # "từ 18/05 đến 20/05": an explicit last day wins over a day count.
+        explicit_end = None if half_day else self._extract_end_date(start_date, normalized)
+        if explicit_end is not None:
+            end_date = explicit_end
         leave_type_code = self._leave_type_code(normalized)
         reason = self._extract_reason(original_text)
         arguments: dict[str, object] = {
@@ -453,7 +485,7 @@ class RuleBasedPlannerService:
             "get_my_upcoming_tasks",
             {
                 "mode": mode,
-                "days": 7,
+                "days": 30 if "thang nay" in normalized else 14 if "tuan sau" in normalized else 7,
                 "limit": 10,
                 "includeOverdue": self._has_any(normalized, "qua han", "tre han"),
             },
@@ -555,6 +587,10 @@ class RuleBasedPlannerService:
             "sua gio", "chinh gio", "doi gio",
             "doi muc ky nang", "sua ky nang", "doi ky nang", "chinh ky nang",
         )
+        # Credentials are never data HRGenie hands out, whoever they belong to.
+        if self._has_any(normalized, "token", "access key", "api key", "secret key"):
+            return self._forbidden("Tôi không thể cung cấp token hay khóa truy cập của bất kỳ ai. "
+                                   "Nếu cần hỗ trợ tài khoản, bạn vui lòng liên hệ quản trị hệ thống.")
         if self._has_any(normalized, *edits):
             return self._forbidden("Tôi không thể tự sửa lương, điểm đánh giá, kỹ năng hay giờ chấm công. "
                                    "Bạn vui lòng liên hệ quản lý hoặc phòng nhân sự để được điều chỉnh.")
@@ -603,7 +639,9 @@ class RuleBasedPlannerService:
             "thay anh ", "thay chi ", "thay cho", "cho dong nghiep", "cho nhan vien",
             "cho ca ", "cho moi nguoi", "cua anh ", "cua chi ", "cua dong nghiep",
             "cua nhan vien", "cua truong", "cua sep", "cua ca ", "cua moi nguoi",
-            "ca phong", "ca team",
+            "ca phong", "ca team", "ca nhom",
+            # "của phòng/team/nhóm tôi" is everyone's leave in the unit, not the caller's.
+            "cua phong", "cua team", "cua nhom",
         ) or re.search(r"(của|cho|hộ|giúp|thay)\s+[A-ZĐ]", text) is not None
 
     def _out_of_scope(self, reply: str) -> ChatPlanResponse:
@@ -949,6 +987,16 @@ class RuleBasedPlannerService:
         return None
 
     def _is_task_status_update(self, normalized: str) -> bool:
+        # A follow-up such as "chuyển sang review" names no task, but only a
+        # task moves to a status - unlike "phép có chuyển sang năm sau không".
+        segment = self._target_status_segment(normalized)
+        if (
+            segment is not None
+            and self._has_any(normalized, "chuyen", "doi", "cap nhat", "dua")
+            and self._status_in(segment) is not None
+            and not self._has_any(normalized, "phep", "nghi", "don", "luong")
+        ):
+            return True
         if not self._has_any(normalized, "task", "cong viec"):
             return False
 
@@ -1003,6 +1051,21 @@ class RuleBasedPlannerService:
         return False
 
     @staticmethod
+    def _task_from_history(history: list) -> str | None:
+        """The task the conversation was just about: the latest assistant turn
+        that named one, as 'công việc "X"' or '- Công việc: X'."""
+        for message in reversed(history[-6:]):
+            if getattr(message, "role", None) != "assistant":
+                continue
+            content = getattr(message, "content", "") or ""
+            match = re.search(r'[Cc]ông việc\s*[“"]([^”"\n]{2,120})[”"]', content) or re.search(
+                r"-\s*Công việc:\s*([^\n]{2,120}?)\s*(?:\n|- Dự án|$)", content
+            )
+            if match:
+                return match.group(1).strip()
+        return None
+
+    @staticmethod
     def _target_status_segment(normalized: str) -> str | None:
         """The words after "sang", "thành" or "về": where the task is going,
         as opposed to where it is now ("task X đang chờ duyệt thành hoàn
@@ -1018,6 +1081,7 @@ class RuleBasedPlannerService:
         original_text: str,
         normalized: str,
         available: set[str],
+        history: list | None = None,
     ) -> ChatPlanResponse:
         if "update_task_status_draft" not in available:
             return ChatPlanResponse(
@@ -1041,6 +1105,9 @@ class RuleBasedPlannerService:
 
         task_id = self._extract_task_id(normalized)
         task_title = None if task_id else self._extract_task_title(original_text)
+        if task_id is None and not task_title:
+            # "chuyển sang review" right after talking about a task means that task.
+            task_title = self._task_from_history(history or [])
         if task_id is None and not task_title:
             return ChatPlanResponse(
                 type="answer",
@@ -1202,6 +1269,26 @@ class RuleBasedPlannerService:
         except ValueError:
             return None
 
+    def _extract_end_date(self, start_date: date, normalized: str) -> date | None:
+        """The last day of a range written as "... đến (ngày) dd/mm[/yyyy]"."""
+        match = re.search(
+            r"\b(?:den|toi)(?: het)?(?: ngay)?\s+(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b",
+            normalized,
+        )
+        if not match:
+            return None
+        year = int(match.group(3)) if match.group(3) else start_date.year
+        if year < 100:
+            year += 2000
+        try:
+            end_date = date(year, int(match.group(2)), int(match.group(1)))
+        except ValueError:
+            return None
+        if end_date < start_date and not match.group(3):
+            # "từ 29/12 đến 02/01" runs into the next year.
+            end_date = date(end_date.year + 1, end_date.month, end_date.day)
+        return end_date if end_date >= start_date else None
+
     _WEEKDAYS = {
         "2": 0, "hai": 0, "3": 1, "ba": 1, "4": 2, "tu": 2,
         "5": 3, "nam": 3, "6": 4, "sau": 4, "7": 5, "bay": 5,
@@ -1241,9 +1328,17 @@ class RuleBasedPlannerService:
         return "ANNUAL_LEAVE"
 
     def _extract_reason(self, text: str) -> str:
-        match = re.search(r"\b(vì|vi)\s+(.+)$", text, re.IGNORECASE)
-        if match:
-            return match.group(2).strip().rstrip(".")
+        """What the person gave as the reason: "lý do: ...", "vì ...", "do ...",
+        or a purpose, "để ..."; the planner's own label only when none."""
+        for pattern in (
+            r"\blý do(?:\s+là)?\s*[:\-]?\s*(.+)$",
+            r"\b(?:bởi vì|vì)\s+(.+)$",
+            r"(?:^|[\s,])do\s+(.+)$",
+            r"(?:^|[\s,])để\s+(.+)$",
+        ):
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match and match.group(1).strip(" .,"):
+                return match.group(1).strip().rstrip(".").strip()
         return "Tạo từ HRGenie"
 
     def _today(self, request: ChatPlanRequest) -> date:

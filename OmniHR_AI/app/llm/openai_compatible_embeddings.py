@@ -63,8 +63,14 @@ class OpenAICompatibleEmbeddingClient:
 
         data = response.json()
         try:
-            rows = sorted(data["data"], key=lambda row: row["index"])
-            vectors = [row["embedding"] for row in rows]
+            # Gemini's OpenAI-compatible endpoint leaves "index" out of the first
+            # row (a zero default dropped on serialisation), so fall back to the
+            # row's position rather than rejecting a valid answer.
+            rows = sorted(
+                enumerate(data["data"]),
+                key=lambda pair: pair[1].get("index", pair[0]),
+            )
+            vectors = [row["embedding"] for _, row in rows]
         except (KeyError, IndexError, TypeError) as error:
             raise EmbeddingClientError(
                 "Embedding provider returned an invalid response"

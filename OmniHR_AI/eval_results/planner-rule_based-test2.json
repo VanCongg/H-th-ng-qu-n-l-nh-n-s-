@@ -13,7 +13,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.4,
+    "latencyMs": 0.5,
     "expectedIntents": [
       "GET_MY_ATTENDANCE_SUMMARY"
     ],
@@ -289,7 +289,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.4,
+    "latencyMs": 0.9,
     "expectedIntents": [
       "OUT_OF_SCOPE"
     ],
@@ -745,7 +745,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.1,
+    "latencyMs": 0.2,
     "expectedIntents": [
       "GET_MY_TEAM_MEMBERS",
       "GET_MY_MANAGER"
@@ -1337,7 +1337,7 @@
     "wrongArgs": {},
     "fallbackUsed": false,
     "fallbackReason": null,
-    "latencyMs": 0.3,
+    "latencyMs": 0.4,
     "expectedIntents": [
       "GET_HR_POLICY_INFO"
     ],

@@ -12,7 +12,7 @@
 | Đúng hoàn toàn | 80/80 (100.0%) |
 | Câu vượt quyền bị lập kế hoạch ghi dữ liệu | 0/10 (0.0%) |
 | Quay về luật | 0/80 (0.0%) |
-| Độ trễ trung bình / p95 | 1642.7 ms / 1892.4 ms |
+| Độ trễ trung bình / p95 | 4955.6 ms / 9988.7 ms |
 
 ## Theo nhóm
 
