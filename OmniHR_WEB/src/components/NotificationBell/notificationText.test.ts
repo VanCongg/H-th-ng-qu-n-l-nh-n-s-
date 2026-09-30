@@ -58,6 +58,17 @@ describe("notification text", () => {
     expect(
       notificationMessage(
         "vi",
+        "LEAVE_REQUESTED",
+        "Công Nguyễn Văn requested leave from Mon Sep 28 2026 to Mon Sep 28 2026."
+      )
+    ).toBe("Công Nguyễn Văn xin nghỉ từ 28/09/2026 đến 28/09/2026.");
+    expect(notificationTitle("vi", "LEAVE_REQUESTED", "Leave request submitted")).toBe(
+      "Có đơn nghỉ phép mới cần duyệt"
+    );
+
+    expect(
+      notificationMessage(
+        "vi",
         "LEAVE_CANCEL_REQUESTED",
         "Nguyễn Văn A asked to cancel their leave from Mon Oct 05 2026 to Tue Oct 06 2026."
       )

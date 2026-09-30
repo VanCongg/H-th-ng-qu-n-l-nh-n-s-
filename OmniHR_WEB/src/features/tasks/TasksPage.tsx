@@ -1137,90 +1137,108 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
               />
             ) : null}
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <Select
-                label={tx("Project")}
-                data={formProjectOptions}
-                clearable
-                searchable
-                required={!isSubtaskForm}
-                disabled={Boolean(editing) || isSubtaskForm}
-                value={form.values.projectId || null}
-                onChange={handleProjectChange}
-                error={form.errors.projectId}
-              />
-              <Select
-                label={tx("Team")}
-                data={teamOptions}
-                clearable={!isSubtaskForm}
-                searchable
-                required={!isSubtaskForm}
-                disabled={Boolean(editing) || isSubtaskForm || !form.values.projectId}
-                value={form.values.teamId || null}
-                onChange={handleTeamChange}
-                error={form.errors.teamId}
-              />
+              {/* A subtask's project and team are its parent's, shown above. */}
+              {!isSubtaskForm ? (
+                <>
+                  <Select
+                    label={tx("Project")}
+                    data={formProjectOptions}
+                    clearable
+                    searchable
+                    required
+                    disabled={Boolean(editing)}
+                    value={form.values.projectId || null}
+                    onChange={handleProjectChange}
+                    error={form.errors.projectId}
+                  />
+                  <Select
+                    label={tx("Team")}
+                    description={tx("The team takes responsibility; its lead splits and assigns the work")}
+                    inputWrapperOrder={["label", "input", "description", "error"]}
+                    data={teamOptions}
+                    clearable
+                    searchable
+                    required
+                    disabled={Boolean(editing) || !form.values.projectId}
+                    value={form.values.teamId || null}
+                    onChange={handleTeamChange}
+                    error={form.errors.teamId}
+                  />
+                </>
+              ) : null}
               <Select
                 label={tx("Priority")}
                 data={taskPriorities.map((value) => ({ value, label: te(value) }))}
                 allowDeselect={false}
                 {...form.getInputProps("priority")}
               />
-              <Group grow align="flex-start">
+              {isSubtaskForm ? (
                 <Select
-                  label={tx("Suitable level from")}
-                  description={tx(isSubtaskForm ? "Empty: as the team task" : "Empty: any level")}
-                  placeholder={tx("Any")}
-                  data={careerLevels.map((value) => ({ value, label: te(value) }))}
-                  clearable
-                  {...form.getInputProps("minLevel")}
+                  label={tx("Status")}
+                  data={(editing ? statusChoices(editing) : taskStatuses).map((value) => ({
+                    value,
+                    label: te(value)
+                  }))}
+                  allowDeselect={false}
+                  {...form.getInputProps("status")}
                 />
-                <Select
-                  label={tx("to")}
-                  placeholder={tx("Any")}
-                  data={careerLevels.map((value) => ({ value, label: te(value) }))}
-                  clearable
-                  error={levelRangeError}
-                  {...form.getInputProps("maxLevel")}
-                />
-              </Group>
-              <Select
-                label={tx("Status")}
-                data={(editing ? statusChoices(editing) : taskStatuses).map((value) => ({
-                  value,
-                  label: te(value)
-                }))}
-                allowDeselect={false}
-                disabled={!isSubtaskForm}
-                {...form.getInputProps("status")}
-              />
-              {!isSubtaskForm ? (
-                <TextInput
-                  label={tx("Responsibility")}
-                  value={tx("Assigned to the selected team")}
-                  readOnly
-                />
-              ) : null}
-              <TextInput label={tx("Start date")} type="date" {...form.getInputProps("startDate")} />
-              <TextInput label={tx("Due date")} type="date" {...form.getInputProps("dueDate")} />
-              <NumberInput
-                label={tx(isSubtaskForm ? "Estimated hours" : "Total estimated hours")}
-                placeholder={!isSubtaskForm ? tx("Optional") : undefined}
-                min={0}
-                decimalScale={1}
-                {...form.getInputProps("estimatedHours")}
-              />
-              {isSubtaskForm && editing ? (
+              ) : (
                 <NumberInput
-                  label={tx("Actual hours")}
+                  label={tx("Total estimated hours")}
+                  placeholder={tx("Optional")}
                   min={0}
                   decimalScale={1}
-                  {...form.getInputProps("actualHours")}
+                  {...form.getInputProps("estimatedHours")}
                 />
-              ) : !isSubtaskForm && editing ? (
+              )}
+              <TextInput label={tx("Start date")} type="date" {...form.getInputProps("startDate")} />
+              <TextInput label={tx("Due date")} type="date" {...form.getInputProps("dueDate")} />
+              {/* Both ends on one line, the hint under them, so the pair lines up with its neighbour. */}
+              <Stack gap={4}>
+                <Group grow align="flex-start" wrap="nowrap">
+                  <Select
+                    label={tx("Suitable level from")}
+                    placeholder={tx("Any")}
+                    data={careerLevels.map((value) => ({ value, label: te(value) }))}
+                    clearable
+                    {...form.getInputProps("minLevel")}
+                  />
+                  <Select
+                    label={tx("to")}
+                    placeholder={tx("Any")}
+                    data={careerLevels.map((value) => ({ value, label: te(value) }))}
+                    clearable
+                    error={levelRangeError}
+                    {...form.getInputProps("maxLevel")}
+                  />
+                </Group>
+                <Text size="xs" c="dimmed">
+                  {tx(isSubtaskForm ? "Empty: as the team task" : "Empty: any level")}
+                </Text>
+              </Stack>
+              {isSubtaskForm ? (
+                <Group grow align="flex-start" wrap="nowrap">
+                  <NumberInput
+                    label={tx("Estimated hours")}
+                    min={0}
+                    decimalScale={1}
+                    {...form.getInputProps("estimatedHours")}
+                  />
+                  {editing ? (
+                    <NumberInput
+                      label={tx("Actual hours")}
+                      min={0}
+                      decimalScale={1}
+                      {...form.getInputProps("actualHours")}
+                    />
+                  ) : null}
+                </Group>
+              ) : editing ? (
                 <TextInput
                   label={tx("Actual hours from subtasks")}
                   value={Number(editing.actualHours ?? 0)}
                   readOnly
+                  variant="filled"
                 />
               ) : null}
             </SimpleGrid>

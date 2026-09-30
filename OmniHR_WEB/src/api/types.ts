@@ -81,9 +81,9 @@ export type Employee = {
   id: number;
   employeeCode: string;
   fullName: string;
-  companyEmail: string;
+  /** The one email of the person, also their account's login email. */
+  personalEmail: string;
   avatarUrl?: string | null;
-  personalEmail?: string | null;
   phone?: string | null;
   birthDate: string;
   hireDate?: string | null;
@@ -102,7 +102,7 @@ export type EmployeeCreateResult = {
   userId: number;
   employeeCode: string;
   fullName: string;
-  companyEmail: string;
+  personalEmail: string;
   username: string;
   defaultPassword: string;
   mustChangePassword: boolean;
@@ -160,7 +160,17 @@ export type LeaveRequest = {
   createdAt: string;
 };
 
+export type VerificationPurpose = "PASSWORD_CHANGE" | "PHONE_CHANGE" | "EMAIL_CHANGE";
+
+export type VerificationCodeSent = {
+  purpose: VerificationPurpose;
+  sentTo: string;
+  expiresAt: string;
+  resendAfterSeconds: number;
+};
+
 export type NotificationType =
+  | "LEAVE_REQUESTED"
   | "LEAVE_APPROVED"
   | "LEAVE_REJECTED"
   | "LEAVE_CANCEL_REQUESTED"
@@ -168,7 +178,8 @@ export type NotificationType =
   | "LEAVE_CANCEL_REJECTED"
   | "TASK_ASSIGNED"
   | "TASK_STATUS_CHANGED"
-  | "ATTENDANCE_ADJUSTED";
+  | "ATTENDANCE_ADJUSTED"
+  | "PASSWORD_CHANGED";
 
 export type Notification = {
   id: number;
@@ -486,7 +497,7 @@ export type EmployeeRef = {
   id: number;
   employeeCode: string;
   fullName: string;
-  companyEmail: string;
+  personalEmail: string;
   department?: Pick<Department, "id" | "code" | "name"> | null;
   position?: Pick<Position, "id" | "code" | "name"> | null;
 };

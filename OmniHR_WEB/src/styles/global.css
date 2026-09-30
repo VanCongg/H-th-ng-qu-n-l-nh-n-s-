@@ -728,6 +728,19 @@ select {
   align-items: stretch;
 }
 
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .employee-avatar-upload {
   min-height: 100%;
   display: flex;

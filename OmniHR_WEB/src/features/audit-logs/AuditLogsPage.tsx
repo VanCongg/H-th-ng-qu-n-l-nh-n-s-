@@ -8,14 +8,16 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
+  TextInput,
   Tooltip
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Eye } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getApiErrorMessage } from "../../api/axios";
-import { auditLogsApi } from "../../api/endpoints";
+import { auditLogsApi, usersApi } from "../../api/endpoints";
 import { formatDateTime } from "../../api/format";
 import type { AuditLog } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
@@ -27,6 +29,28 @@ import {
   translateEntityType,
   useTranslation
 } from "../../i18n";
+
+/** The groups the API filters by (src/common/audit-actions.ts). */
+const AUDIT_CATEGORIES = ["SECURITY", "PEOPLE", "LEAVE", "WORK", "AI"] as const;
+const CATEGORY_LABELS: Record<(typeof AUDIT_CATEGORIES)[number], { en: string; vi: string }> = {
+  SECURITY: { en: "Security & access", vi: "Bảo mật & phân quyền" },
+  PEOPLE: { en: "People & organisation", vi: "Nhân sự & tổ chức" },
+  LEAVE: { en: "Leave", vi: "Nghỉ phép" },
+  WORK: { en: "Projects & tasks", vi: "Dự án & công việc" },
+  AI: { en: "AI & HRGenie", vi: "AI & HRGenie" }
+};
+
+const pad = (value: number) => String(value).padStart(2, "0");
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+/** The last seven days, today included: what an admin usually looks for. */
+function lastWeek() {
+  const today = new Date();
+  const from = new Date(today);
+  from.setDate(today.getDate() - 6);
+  return { fromDate: dateKey(from), toDate: dateKey(today) };
+}
 
 function actionColor(action: string) {
   if (action.includes("DELETE") || action.includes("REJECT") || action.includes("CANCEL")) {
@@ -100,6 +124,11 @@ export function AuditLogsPage() {
   const { tx, ta, tn, language } = useTranslation();
   const [action, setAction] = useState<string | null>(null);
   const [entityType, setEntityType] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [range, setRange] = useState(lastWeek);
+  // Sign-ins, task status moves and chatbot turns hidden unless asked for.
+  const [importantOnly, setImportantOnly] = useState(true);
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const actionOptions = useMemo(
@@ -116,47 +145,102 @@ export function AuditLogsPage() {
         .sort((a, b) => a.label.localeCompare(b.label, language)),
     [language]
   );
+  const usersQuery = useQuery({
+    queryKey: ["users", "audit-filter"],
+    queryFn: () => usersApi.list({ limit: 100 })
+  });
+  const userOptions = (usersQuery.data?.items ?? []).map((user) => ({
+    value: String(user.id),
+    label: user.username
+  }));
+  const categoryOptions = AUDIT_CATEGORIES.map((value) => ({
+    value,
+    label: CATEGORY_LABELS[value][language === "vi" ? "vi" : "en"]
+  }));
   const query = useQuery({
-    queryKey: ["audit-logs", action, entityType, page],
+    queryKey: ["audit-logs", action, entityType, category, userId, range, importantOnly, page],
     queryFn: () =>
       auditLogsApi.list({
         action,
         entityType: entityType || undefined,
+        category: category || undefined,
+        userId: userId ? Number(userId) : undefined,
+        fromDate: range.fromDate || undefined,
+        toDate: range.toDate || undefined,
+        importantOnly,
         page,
         limit: 20
       })
   });
+  const reset = <T,>(setter: (value: T) => void) => (value: T) => {
+    setter(value);
+    setPage(1);
+  };
 
   return (
     <Stack gap="md">
       <PageHeader title="Audit Logs" description="Review important system actions." />
       <Paper withBorder radius="md" p="md" className="filter-bar">
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-          <Select
-            label={tx("Action")}
-            placeholder={tx("All actions")}
-            data={actionOptions}
-            clearable
-            searchable
-            value={action}
-            onChange={(value) => {
-              setAction(value);
-              setPage(1);
-            }}
-          />
-          <Select
-            label={tx("Entity type")}
-            placeholder={tx("All entity types")}
-            data={entityTypeOptions}
-            clearable
-            searchable
-            value={entityType || null}
-            onChange={(value) => {
-              setEntityType(value ?? "");
-              setPage(1);
-            }}
-          />
-        </SimpleGrid>
+        <Stack gap="sm">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+            <Select
+              label={tx("Group")}
+              placeholder={tx("All groups")}
+              data={categoryOptions}
+              clearable
+              value={category}
+              onChange={reset(setCategory)}
+            />
+            <Select
+              label={tx("Action")}
+              placeholder={tx("All actions")}
+              data={actionOptions}
+              clearable
+              searchable
+              value={action}
+              onChange={reset(setAction)}
+            />
+            <Select
+              label={tx("Entity type")}
+              placeholder={tx("All entity types")}
+              data={entityTypeOptions}
+              clearable
+              searchable
+              value={entityType || null}
+              onChange={(value) => reset(setEntityType)(value ?? "")}
+            />
+            <Select
+              label={tx("Performed by")}
+              placeholder={tx("Everyone")}
+              data={userOptions}
+              clearable
+              searchable
+              value={userId}
+              onChange={reset(setUserId)}
+            />
+          </SimpleGrid>
+          <Group align="flex-end" gap="md">
+            <TextInput
+              label={tx("From date")}
+              type="date"
+              value={range.fromDate}
+              onChange={(event) => reset(setRange)({ ...range, fromDate: event.currentTarget.value })}
+            />
+            <TextInput
+              label={tx("To date")}
+              type="date"
+              value={range.toDate}
+              onChange={(event) => reset(setRange)({ ...range, toDate: event.currentTarget.value })}
+            />
+            <Switch
+              mb={8}
+              label={tx("Only important changes")}
+              description={tx("Hides sign-ins, task status moves and chatbot turns")}
+              checked={importantOnly}
+              onChange={(event) => reset(setImportantOnly)(event.currentTarget.checked)}
+            />
+          </Group>
+        </Stack>
       </Paper>
       <DataTable<AuditLog>
         className="audit-log-table"
@@ -182,7 +266,7 @@ export function AuditLogsPage() {
             width: 210,
             render: (item) => (
               <Badge color={actionColor(item.action)} variant="light" className="audit-action-badge">
-                {tx(item.action)}
+                {ta(item.action)}
               </Badge>
             )
           },

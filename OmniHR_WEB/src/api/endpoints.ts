@@ -26,6 +26,8 @@ import type {
   Skill,
   GroupedTasks,
   Task,
+  VerificationCodeSent,
+  VerificationPurpose,
   TaskAssignment,
   Team,
   UserSummary,
@@ -47,8 +49,19 @@ export const authApi = {
     ),
   logout: () => unwrap(api.post("/auth/logout")),
   me: () => unwrap<AuthUser>(api.get("/auth/me")),
+  /** Emails a reset code to the account's address; answers the same whether or not it exists. */
+  forgotPassword: (identifier: string) =>
+    unwrap<{ message: string }>(api.post("/auth/forgot-password", { identifier })),
+  resetPassword: (identifier: string, otpCode: string, newPassword: string) =>
+    unwrap<{ message: string }>(api.post("/auth/reset-password", { identifier, otpCode, newPassword })),
+  /** Emails a one-time code; the change it approves must send it back as `otpCode`. */
+  requestVerificationCode: (purpose: VerificationPurpose, target?: string | null) =>
+    unwrap<VerificationCodeSent>(api.post("/auth/verification-codes", { purpose, target })),
+  /** Other sessions are signed out; this one gets fresh tokens back to keep. */
   changePassword: (currentPassword: string, newPassword: string) =>
-    unwrap(api.post("/auth/change-password", { currentPassword, newPassword }))
+    unwrap<LoginResponse & { message: string }>(
+      api.post("/auth/change-password", { currentPassword, newPassword })
+    )
 };
 
 export const dashboardApi = {
@@ -65,7 +78,8 @@ export const employeesApi = {
   team: (params?: QueryParams) =>
     unwrap<Paginated<Employee>>(api.get("/employees/team", { params })),
   me: () => unwrap<Employee>(api.get("/employees/me")),
-  updateMe: (payload: Partial<Employee>) =>
+  /** A new email or phone needs `otpCode`: the code emailed for that change. */
+  updateMe: (payload: Partial<Employee> & { otpCode?: string }) =>
     unwrap<Employee>(api.patch("/employees/me", payload)),
   get: (id: number) => unwrap<Employee>(api.get(`/employees/${id}`)),
   create: (payload: Record<string, unknown>) =>

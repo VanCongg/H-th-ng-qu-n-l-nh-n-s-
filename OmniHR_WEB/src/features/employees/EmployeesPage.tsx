@@ -110,7 +110,6 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     initialValues: {
       employeeCode: "",
       fullName: "",
-      companyEmail: "",
       avatarUrl: "",
       personalEmail: "",
       phone: "",
@@ -251,9 +250,8 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     form.setValues({
       employeeCode: item.employeeCode,
       fullName: item.fullName,
-      companyEmail: item.companyEmail,
       avatarUrl: item.avatarUrl ?? "",
-      personalEmail: item.personalEmail ?? "",
+      personalEmail: item.personalEmail,
       phone: item.phone ?? "",
       birthDate: item.birthDate?.slice(0, 10) ?? "",
       hireDate: item.hireDate?.slice(0, 10) ?? "",
@@ -500,7 +498,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
         onPageChange={setPage}
         columns={[
           { key: "code", label: "Code", render: (item) => <Text fw={700}>{item.employeeCode}</Text> },
-          { key: "name", label: "Name", render: (item) => <Group gap="sm" wrap="nowrap"><EmployeeAvatar employee={item} /><Stack gap={0}><Text fw={700}>{item.fullName}</Text><Text size="xs" c="dimmed">{item.companyEmail}</Text></Stack></Group> },
+          { key: "name", label: "Name", render: (item) => <Group gap="sm" wrap="nowrap"><EmployeeAvatar employee={item} /><Stack gap={0}><Text fw={700}>{item.fullName}</Text><Text size="xs" c="dimmed">{item.personalEmail}</Text></Stack></Group> },
           { key: "department", label: "Department", render: (item) => formatDepartmentName(item.department, tx) },
           { key: "position", label: "Position", render: (item) => <PositionLabel employee={item} /> },
           { key: "birthDate", label: "Birth date", render: (item) => formatDate(item.birthDate) },
@@ -546,8 +544,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
               <SimpleGrid cols={{ base: 1, sm: 2 }}>
                 <TextInput label={tx("Employee code")} required {...form.getInputProps("employeeCode")} />
                 <TextInput label={tx("Full name")} required {...form.getInputProps("fullName")} />
-                <TextInput label={tx("Company email")} required {...form.getInputProps("companyEmail")} />
-                <TextInput label={tx("Personal email")} {...form.getInputProps("personalEmail")} />
+                <TextInput label={tx("Email")} description={tx("Also the login email of the account")} required {...form.getInputProps("personalEmail")} />
                 <TextInput label={tx("Phone")} {...form.getInputProps("phone")} />
                 <TextInput label={tx("Birth date")} type="date" required {...form.getInputProps("birthDate")} />
                 <TextInput label={tx("Hire date")} type="date" {...form.getInputProps("hireDate")} />
@@ -623,7 +620,6 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
 function normalizeEmployeePayload(values: {
   employeeCode: string;
   fullName: string;
-  companyEmail: string;
   avatarUrl: string;
   personalEmail: string;
   phone: string;
@@ -639,9 +635,8 @@ function normalizeEmployeePayload(values: {
   return {
     employeeCode: values.employeeCode,
     fullName: values.fullName,
-    companyEmail: values.companyEmail,
     avatarUrl: values.avatarUrl.trim() || null,
-    personalEmail: values.personalEmail || undefined,
+    personalEmail: values.personalEmail.trim().toLowerCase(),
     phone: values.phone || undefined,
     birthDate: values.birthDate,
     hireDate: values.hireDate || undefined,

@@ -73,6 +73,13 @@ const theme: MantineThemeOverride = createTheme({
         centered: true
       }
     },
+    // The hint goes under the field, not between label and input: otherwise a
+    // field with a hint sits lower than its neighbour in the same row.
+    InputWrapper: {
+      defaultProps: {
+        inputWrapperOrder: ["label", "input", "description", "error"]
+      }
+    },
     TextInput: {
       defaultProps: {
         radius: "md"

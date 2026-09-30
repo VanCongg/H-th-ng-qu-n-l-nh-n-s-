@@ -325,6 +325,9 @@ export function ProjectsPage({ scope }: ProjectsPageProps) {
                   tx
                 )}
                 readOnly
+                variant="filled"
+                // Below the field, so this input lines up with Status beside it.
+                inputWrapperOrder={["label", "input", "description", "error"]}
                 description={tx("Automatically determined from the department head")}
               />
               <TextInput label={tx("Start date")} type="date" {...form.getInputProps("startDate")} />

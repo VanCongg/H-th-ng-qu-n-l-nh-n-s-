@@ -1,4 +1,5 @@
 import {
+  Anchor,
   Button,
   Center,
   Group,
@@ -13,11 +14,12 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { useMutation } from "@tanstack/react-query";
 import { LogIn, ShieldCheck, Users } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getApiErrorMessage } from "../../api/axios";
 import { authApi } from "../../api/endpoints";
 import { BrandLogo } from "../../components/BrandLogo";
+import { ForgotPasswordModal } from "./ForgotPasswordModal";
 import { useTranslation } from "../../i18n";
 import { useAuthStore } from "../../store/auth";
 import type { RoleName } from "../../api/types";
@@ -34,6 +36,7 @@ export function LoginPage() {
   const location = useLocation();
   const setSession = useAuthStore((state) => state.setSession);
   const user = useAuthStore((state) => state.user);
+  const [forgotOpened, setForgotOpened] = useState(false);
 
   const form = useForm({
     initialValues: {
@@ -129,6 +132,11 @@ export function LoginPage() {
               placeholder={tx("Password")}
               {...form.getInputProps("password")}
             />
+            <Group justify="flex-end" mt={-12}>
+              <Anchor component="button" type="button" size="sm" onClick={() => setForgotOpened(true)}>
+                {tx("Forgot password?")}
+              </Anchor>
+            </Group>
             <Button
               type="submit"
               size="md"
@@ -142,6 +150,15 @@ export function LoginPage() {
           </Stack>
         </form>
       </Paper>
+      <ForgotPasswordModal
+        opened={forgotOpened}
+        initialIdentifier={form.values.usernameOrEmail}
+        onClose={() => setForgotOpened(false)}
+        onReset={(identifier) => {
+          setForgotOpened(false);
+          form.setValues({ usernameOrEmail: identifier, password: "" });
+        }}
+      />
     </Center>
   );
 }

@@ -9,6 +9,8 @@ import type { AppLanguage } from "../../store/preferences";
  * The sentences come from, and must keep these exact shapes in:
  *   TASK_ASSIGNED        tasks.service.ts, seed.ts, simulate-day.ts
  *   TASK_STATUS_CHANGED  tasks.service.ts, simulate-day.ts
+ *   LEAVE_REQUESTED      leave-requests.service.ts
+ *   PASSWORD_CHANGED     auth.service.ts
  *   LEAVE_APPROVED       leave-requests.service.ts, seed.ts, simulate-day.ts
  *   LEAVE_CANCEL_*       leave-requests.service.ts
  *   ATTENDANCE_ADJUSTED  attendance.service.ts
@@ -18,6 +20,7 @@ import type { AppLanguage } from "../../store/preferences";
  */
 
 const TITLES: Record<string, string> = {
+  LEAVE_REQUESTED: "Có đơn nghỉ phép mới cần duyệt",
   LEAVE_APPROVED: "Đơn nghỉ phép đã được duyệt",
   LEAVE_REJECTED: "Đơn nghỉ phép bị từ chối",
   LEAVE_CANCEL_REQUESTED: "Có yêu cầu hủy đơn nghỉ đã duyệt",
@@ -25,7 +28,8 @@ const TITLES: Record<string, string> = {
   LEAVE_CANCEL_REJECTED: "Yêu cầu hủy đơn nghỉ bị từ chối",
   TASK_ASSIGNED: "Bạn được giao công việc mới",
   TASK_STATUS_CHANGED: "Công việc bị trả về để sửa",
-  ATTENDANCE_ADJUSTED: "Bản ghi chấm công được điều chỉnh"
+  ATTENDANCE_ADJUSTED: "Bản ghi chấm công được điều chỉnh",
+  PASSWORD_CHANGED: "Mật khẩu đã được thay đổi"
 };
 
 // TASK_STATUS_CHANGED covers two events, told apart by the stored title:
@@ -46,6 +50,9 @@ const STATUS_MOVED = /^"(.+)" was moved to ([A-Z_]+) by (.+)\.$/s;
 const LEAVE_APPROVED = /^Your leave request from (.+) to (.+) was approved\.$/;
 const ATTENDANCE = /^An attendance record for (.+) was (created|updated) by an admin\.$/;
 const CANCEL_REQUESTED = /^(.+) asked to cancel their leave from (.+) to (.+)\.$/s;
+const LEAVE_REQUESTED = /^(.+) requested leave from (.+) to (.+)\.$/s;
+const PASSWORD_CHANGED =
+  "Your password was changed. If this was not you, contact an administrator right away.";
 const CANCEL_APPROVED = /^Your leave from (.+) to (.+) was cancelled\.$/;
 
 const MONTHS: Record<string, number> = {
@@ -121,6 +128,16 @@ export function notificationMessage(
         return `Đơn nghỉ phép từ ${messageDate(match[1])} đến ${messageDate(
           match[2]
         )} của bạn đã được duyệt.`;
+      }
+      break;
+    case "PASSWORD_CHANGED":
+      if (message === PASSWORD_CHANGED) {
+        return "Mật khẩu tài khoản của bạn vừa được thay đổi. Nếu không phải bạn, hãy báo ngay cho quản trị viên.";
+      }
+      break;
+    case "LEAVE_REQUESTED":
+      if ((match = LEAVE_REQUESTED.exec(message))) {
+        return `${match[1]} xin nghỉ từ ${messageDate(match[2])} đến ${messageDate(match[3])}.`;
       }
       break;
     case "LEAVE_CANCEL_REQUESTED":
