@@ -1,5 +1,7 @@
 # AI gợi ý giao việc: công thức chấm điểm và cách huấn luyện trọng số
 
+> **Phiên bản cũ (21/09/2026), giữ lại để đối chiếu.** Từ 27/09 thuật toán đã đổi: kỹ năng chấm theo độ khớp thay vì "càng giỏi càng cao", thêm hệ số độ khó cho lịch sử, tầng lịch nghỉ, cân bằng tải, và hàm mục tiêu đa mục tiêu với luật sản phẩm (lịch sử ≤ 0,4, kỹ năng ≥ 0,2). Bộ trọng số 0,10/0,15/0,10/0,65 dưới đây vì vậy **không còn dùng**; trọng số hiện hành là 0,30/0,20/0,10/0,40. Mô tả và số liệu hiện hành: `docs/ai/AI_GOI_Y_GIAO_VIEC.md`.
+
 *Phần dành cho báo cáo. Số liệu đo trên mã nguồn và cơ sở dữ liệu mô phỏng tại ngày 21/09/2026.*
 
 ## 1. Bài toán và nguyên tắc thiết kế
