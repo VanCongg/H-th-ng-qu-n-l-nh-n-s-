@@ -1,3 +1,5 @@
+// API xem audit log (admin).
+
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Permissions } from "../common/decorators/permissions.decorator";

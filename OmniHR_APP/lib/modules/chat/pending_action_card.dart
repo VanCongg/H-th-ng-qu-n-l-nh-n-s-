@@ -1,3 +1,6 @@
+// Thẻ bản nháp chờ xác nhận trong chat: tóm tắt thao tác (đơn nghỉ / hủy đơn / đổi trạng thái task)
+// và hai nút Xác nhận / Hủy.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

@@ -1,3 +1,6 @@
+# Viết câu lý do (tiếng Việt, tối đa 30 từ) cho từng ứng viên trong gợi ý giao việc, bằng LLM.
+# Không xếp hạng, không quyết định: lỗi hay trả lời sai chỉ mất phần lời văn.
+
 import json
 import logging
 from typing import Any
@@ -49,6 +52,7 @@ class SuggestionExplainerService:
     def __init__(self, client: LlmClient | None = None):
         self._client = client
 
+    # Gọi LLM; mọi lỗi đều trả danh sách rỗng để NestJS giữ câu mặc định.
     def explain(self, request: ExplainRequest) -> ExplainResponse:
         if not request.candidates:
             return ExplainResponse(explanations=[], source="empty")
@@ -87,6 +91,7 @@ class SuggestionExplainerService:
         }
         return json.dumps(payload, ensure_ascii=False)
 
+    # Chỉ gửi cho LLM các số liệu được phép nhắc tới, để không lộ thông tin khác.
     def _candidate(self, candidate: ExplainCandidate) -> dict[str, Any]:
         """Only the fields a reason may cite, so nothing else can leak into one."""
         fields: dict[str, Any] = {
@@ -142,6 +147,7 @@ class SuggestionExplainerService:
         """
         return WARNING_LABELS.get(code, code)
 
+    # Đọc JSON trả về; bỏ id ứng viên lạ (LLM bịa ra người) và cắt câu quá dài.
     def _explanations(
         self, parsed: Any, request: ExplainRequest
     ) -> list[Explanation]:

@@ -1,3 +1,5 @@
+// Dữ liệu nhân viên tự sửa hồ sơ: ảnh đại diện, email, điện thoại, và mã OTP khi đổi email / điện thoại.
+
 import { IsEmail, IsOptional, IsString, Length, MaxLength } from "class-validator";
 import {
   IsSafeAvatar,

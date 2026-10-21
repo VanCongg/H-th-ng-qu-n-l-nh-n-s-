@@ -79,6 +79,9 @@ class PlannerSafety(BaseModel):
 
 
 class PlannerResponse(BaseModel):
+    """JSON mà LLM bắt buộc phải trả về. extra="forbid": LLM thêm trường lạ là
+    bị coi là không hợp lệ và chuyển sang planner rule-based."""
+
     model_config = ConfigDict(extra="forbid")
 
     intent: PlannerIntent
@@ -117,12 +120,15 @@ READ_TOOLS = {
     PlannerToolName.GET_MY_TASK_STATS,
 }
 
+# Tool ghi dữ liệu: luôn phải có confirmationRequired=True.
 WRITE_TOOLS = {
     PlannerToolName.CREATE_LEAVE_REQUEST_DRAFT,
     PlannerToolName.CANCEL_MY_PENDING_LEAVE_REQUEST,
     PlannerToolName.UPDATE_TASK_STATUS_DRAFT,
 }
 
+# Tham số được phép cho từng tool. Tham số ngoài danh sách (vd. employeeId,
+# approverId do prompt injection chèn vào) bị xóa trước khi gửi về NestJS.
 TOOL_ARGUMENT_ALLOWLISTS = {
     PlannerToolName.GET_MY_PROFILE: set(),
     PlannerToolName.GET_TODAY_ATTENDANCE: set(),
@@ -170,6 +176,12 @@ def validate_planner_response(
     response: PlannerResponse,
     available_tools: set[str],
 ) -> PlannerResponse:
+    """Kiểm tra an toàn kết quả của LLM; vi phạm thì ném PlannerValidationError:
+    - safety.allowed=False hoặc còn missingFields thì không được gọi tool;
+    - tool phải nằm trong availableTools (tool người dùng có quyền);
+    - tool ghi bắt buộc confirmationRequired=True;
+    - tham số bị lọc theo TOOL_ARGUMENT_ALLOWLISTS.
+    """
     if not response.safety.allowed and response.toolCalls:
         raise PlannerValidationError("Unsafe planner response cannot include tool calls")
 

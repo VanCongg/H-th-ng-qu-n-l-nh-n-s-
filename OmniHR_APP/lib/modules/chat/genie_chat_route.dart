@@ -1,3 +1,5 @@
+// Hiệu ứng chuyển màn hình mở chat HRGenie (thần đèn bay ra từ bong bóng, kèm khói).
+
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 

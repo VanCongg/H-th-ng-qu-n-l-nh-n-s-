@@ -1,3 +1,6 @@
+// Model dữ liệu đọc từ API (fromJson): người dùng, nhân viên, phòng ban, đơn nghỉ, chấm công,
+// kỹ năng, task, thông báo...
+
 import '../core/i18n.dart';
 import '../core/utils.dart';
 

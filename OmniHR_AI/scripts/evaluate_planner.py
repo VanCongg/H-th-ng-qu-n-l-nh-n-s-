@@ -1,3 +1,6 @@
+# Đánh giá planner HRGenie trên bộ câu có nhãn (dev / test / injection...): độ đúng intent, tool, tham số,
+# an toàn với yêu cầu bị cấm. Ghi báo cáo vào eval_results/.
+
 """Evaluate the HRGenie planner on a labelled message set.
 
     python scripts/evaluate_planner.py                         # rule_based on the dev set

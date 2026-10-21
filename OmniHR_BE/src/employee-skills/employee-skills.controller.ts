@@ -1,3 +1,5 @@
+// API kỹ năng của từng nhân viên: xem, thêm, sửa, xóa.
+
 import {
   Body,
   Controller,

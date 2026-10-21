@@ -1,3 +1,6 @@
+// Tính khối lượng việc từ các task đang mở: tổng giờ còn lại, phần rơi vào tuần tới (so với 40 giờ/tuần),
+// số task quá hạn. AI gợi ý giao việc dùng số liệu này cho tiêu chí "khối lượng".
+
 import { Injectable } from "@nestjs/common";
 import { Prisma, TaskStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -51,6 +54,7 @@ export class TaskWorkloadService {
     private readonly systemSettings: SystemSettingsService
   ) {}
 
+  // Khối lượng việc của các nhân viên trong phạm vi được xem.
   async findAll(user: AuthUser, query: TaskWorkloadQueryDto) {
     const allowedIds = await this.employeeScope(user, query.scope ?? "all");
     const employeeIds = query.employeeId
@@ -74,6 +78,7 @@ export class TaskWorkloadService {
    * One query for everyone rather than one per person: a department head's
    * workload page or a suggestion shortlist covers dozens of employees.
    */
+  // Khối lượng việc của nhiều nhân viên trong một lần truy vấn.
   async summariesForEmployees(employeeIds: number[]) {
     const map = new Map<number, WorkloadSummary>();
     if (!employeeIds.length) {
@@ -102,6 +107,7 @@ export class TaskWorkloadService {
     return map;
   }
 
+  // Khối lượng việc của một nhân viên.
   async summaryForEmployee(employeeId: number, today?: Date): Promise<WorkloadSummary> {
     const tasks = await this.prisma.task.findMany({
       where: {

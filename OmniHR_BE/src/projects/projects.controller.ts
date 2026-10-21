@@ -1,3 +1,5 @@
+// API dự án: danh sách theo quyền, chi tiết, tạo / sửa / xóa.
+
 import {
   Body,
   Controller,

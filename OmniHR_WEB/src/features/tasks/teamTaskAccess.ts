@@ -1,3 +1,5 @@
+// Quy tắc phía client cho trang task của team (khớp với backend).
+
 import type { AuthUser, Project } from "../../api/types";
 
 /**
@@ -6,6 +8,7 @@ import type { AuthUser, Project } from "../../api/types";
  * project's department qualifies — being the project manager or a team lead
  * is not enough.
  */
+// Dự án người dùng được tạo task nhóm: admin, hoặc trưởng phòng của phòng sở hữu dự án.
 export function teamTaskProjects(
   projects: Project[],
   user: AuthUser | null | undefined
@@ -25,6 +28,7 @@ const pad = (value: number) => String(value).padStart(2, "0");
  * sent with `includeOpen` so unfinished work from earlier months stays on it.
  * Only finished work from past months drops off.
  */
+// Khoảng mặc định: task đến hạn trong tháng này (kèm task chưa xong của các tháng trước).
 export function currentMonthRange(today: Date = new Date()) {
   const year = today.getFullYear();
   const month = today.getMonth();

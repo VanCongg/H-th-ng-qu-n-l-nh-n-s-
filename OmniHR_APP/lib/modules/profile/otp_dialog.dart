@@ -1,3 +1,5 @@
+// Hộp thoại nhập mã OTP gửi qua email (dùng khi đổi mật khẩu, số điện thoại, email).
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

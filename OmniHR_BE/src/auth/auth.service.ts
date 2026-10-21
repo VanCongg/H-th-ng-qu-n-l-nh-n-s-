@@ -1,3 +1,9 @@
+// Nghiệp vụ xác thực.
+// - Mật khẩu băm bằng bcrypt; refresh token cũng chỉ lưu bản băm.
+// - Refresh token có số phiên bản (refreshTokenVersion): dùng lại token cũ bị coi là bị lộ,
+//   mọi phiên bị thu hồi và ghi audit REFRESH_TOKEN_REUSE_DETECTED.
+// - Thông tin người dùng (roles, permissions) được cache trên Redis vì cần ở mọi request.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -28,6 +34,7 @@ export const PASSWORD_CHANGE_WINDOW_MS = 15 * 60 * 1000;
  * name part of the email, inside it (case ignored). Short names - three
  * letters or fewer - are left out, or "an" would forbid half the dictionary.
  */
+// Mật khẩu mới không được chứa username hoặc phần tên của email.
 export function passwordContainsIdentity(password: string, username: string, email: string) {
   const lower = password.toLowerCase();
   return [username, email.split("@")[0]]
@@ -46,6 +53,7 @@ type SignInCandidate = {
  * behind it still works here: a terminated employee's login stops with the
  * contract, even if nobody went on to disable the user account as well.
  */
+// Tài khoản đăng nhập được khi đang hoạt động, chưa bị xóa, và nhân viên chưa nghỉ việc.
 export function canSignIn(user: SignInCandidate) {
   return (
     user.isActive &&
@@ -78,6 +86,7 @@ export class AuthService {
    * the employee code (e.g. "IT011"), so a username that happens to equal
    * someone else's code still finds its own account.
    */
+  // Tìm tài khoản theo username hoặc email trước, sau đó theo mã nhân viên (vd. "IT011").
   private async findAccount(identifier: string) {
     const name = identifier.trim();
     const include = { employee: { select: { status: true } } } as const;
@@ -102,6 +111,9 @@ export class AuthService {
     );
   }
 
+  // Đăng nhập: tìm tài khoản -> kiểm tra còn được đăng nhập -> so mật khẩu bcrypt
+  // -> cập nhật lần đăng nhập cuối -> cấp token -> ghi audit LOGIN.
+  // Sai tài khoản hay sai mật khẩu đều trả cùng một lỗi để không lộ tài khoản nào tồn tại.
   async login(dto: LoginDto, context?: RequestContext) {
     const user = await this.findAccount(dto.usernameOrEmail);
 
@@ -156,6 +168,8 @@ export class AuthService {
     };
   }
 
+  // Làm mới token: token phải khớp phiên bản và bản băm đang lưu.
+  // Không khớp (token cũ bị dùng lại) thì xóa refresh token, tăng phiên bản -> mọi thiết bị phải đăng nhập lại.
   async refresh(dto: RefreshTokenDto, context?: RequestContext) {
     let payload: JwtRefreshPayload;
     try {
@@ -226,6 +240,7 @@ export class AuthService {
     };
   }
 
+  // Đăng xuất: xóa refresh token đang lưu.
   async logout(user: AuthUser, context?: RequestContext) {
     await this.prisma.user.update({
       where: { id: user.id },
@@ -246,6 +261,7 @@ export class AuthService {
     return { message: "Logged out" };
   }
 
+  // Trả thông tin người dùng hiện tại (đã nạp roles, permissions).
   async me(user: AuthUser) {
     const authUser = await this.hydrateAuthUser(user.id);
     if (!authUser) {
@@ -263,6 +279,8 @@ export class AuthService {
    * session is signed out; this one gets fresh tokens back, so the device the
    * change was made on stays signed in. The owner is told, in case it was not them.
    */
+  // Đổi mật khẩu: sai mật khẩu hiện tại 5 lần trong 15 phút thì khóa form; cần mã OTP;
+  // mọi phiên khác bị đăng xuất, thiết bị hiện tại nhận token mới; gửi email báo cho chủ tài khoản.
   async changePassword(user: AuthUser, dto: ChangePasswordDto, context?: RequestContext) {
     if ((await this.recentPasswordFailures(user.id)).length >= PASSWORD_CHANGE_MAX_FAILURES) {
       throw new ApiError(
@@ -355,6 +373,8 @@ export class AuthService {
    * exists, is disabled, or was sent a code a moment ago - otherwise this
    * form would tell anyone which names have accounts.
    */
+  // Quên mật khẩu: gửi mã về email của tài khoản. Luôn trả cùng một câu trả lời
+  // dù tài khoản có tồn tại hay không, để không ai dò được tài khoản.
   async forgotPassword(dto: ForgotPasswordDto, context?: RequestContext) {
     const account = await this.findAccount(dto.identifier);
     if (account && canSignIn(account)) {
@@ -374,6 +394,7 @@ export class AuthService {
    * Sets a new password with the emailed code. Every session of the account
    * is signed out; the person signs in again with the new password.
    */
+  // Đặt lại mật khẩu bằng mã email; mọi phiên của tài khoản bị đăng xuất.
   async resetPassword(dto: ResetPasswordDto, context?: RequestContext) {
     const account = await this.findAccount(dto.identifier);
     if (!account || !canSignIn(account)) {
@@ -425,6 +446,7 @@ export class AuthService {
     return { message: "Password reset; sign in with the new password" };
   }
 
+  // Số lần nhập sai mật khẩu hiện tại gần đây (Redis + bộ nhớ, để vẫn chặn được khi Redis lỗi).
   private async recentPasswordFailures(userId: number) {
     const since = Date.now() - PASSWORD_CHANGE_WINDOW_MS;
     const shared = (await this.cache.get<number[]>(cacheKeys.passwordChangeFailures(userId))) ?? [];
@@ -459,6 +481,8 @@ export class AuthService {
    * locked out for a whole TTL. Callers that change a user's roles, status or
    * password drop `cacheKeys.authUser(id)` themselves.
    */
+  // Nạp người dùng kèm roles + permissions, đọc qua Redis cache. Chạy ở MỌI request đã đăng nhập.
+  // Kết quả null (khóa, xóa) không được cache. Ai đổi role / trạng thái / mật khẩu phải xóa cache này.
   async hydrateAuthUser(userId: number): Promise<AuthUser | null> {
     return this.cache.wrap(
       cacheKeys.authUser(userId),
@@ -467,6 +491,7 @@ export class AuthService {
     );
   }
 
+  // Đọc DB: User -> UserRole -> Role -> RolePermission -> Permission.
   private async loadAuthUser(userId: number): Promise<AuthUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -512,6 +537,7 @@ export class AuthService {
     };
   }
 
+  // Cấp access token (ngắn hạn) + refresh token (dài hạn), tăng phiên bản refresh, lưu bản băm.
   private async issueTokens(user: AuthUser) {
     const current = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },

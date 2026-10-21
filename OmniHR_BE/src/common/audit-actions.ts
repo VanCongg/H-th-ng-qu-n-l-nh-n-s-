@@ -1,3 +1,6 @@
+// Danh sách hành động audit log, chia nhóm (bảo mật / nhân sự / nghỉ phép / công việc / AI).
+// Thêm action mới phải khai báo ở đây, nếu không bộ lọc trên web sẽ không tìm thấy.
+
 /**
  * What the audit log records, grouped the way an admin reads it. The web page
  * filters by these groups, and retention keeps the security group longest.

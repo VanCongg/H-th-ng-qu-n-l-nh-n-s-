@@ -1,3 +1,5 @@
+// Prisma extension đóng dấu createdAt / updatedAt bằng đồng hồ mô phỏng (chỉ dùng trong mô phỏng).
+
 import { Prisma, PrismaClient } from "@prisma/client";
 
 /**

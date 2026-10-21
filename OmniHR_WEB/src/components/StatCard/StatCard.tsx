@@ -1,3 +1,5 @@
+// Thẻ số liệu trên dashboard (tiêu đề, giá trị, biểu tượng).
+
 import { Group, Paper, Stack, Text, ThemeIcon } from "@mantine/core";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "../../i18n";

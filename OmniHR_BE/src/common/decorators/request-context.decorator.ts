@@ -1,3 +1,5 @@
+// @ReqContext(): lấy IP và user-agent của request để ghi vào audit log.
+
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import { RequestContext } from "../types";
 

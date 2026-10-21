@@ -1,3 +1,5 @@
+// Dữ liệu tạo tài khoản: username, email, mật khẩu, đang hoạt động, bắt buộc đổi mật khẩu, role, hồ sơ nhân viên đi kèm.
+
 import {
   IsArray,
   IsBoolean,

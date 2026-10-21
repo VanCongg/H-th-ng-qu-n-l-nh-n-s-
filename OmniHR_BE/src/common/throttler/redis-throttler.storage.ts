@@ -1,3 +1,6 @@
+// Bộ đếm rate limit lưu trên Redis để mọi instance API dùng chung một hạn mức.
+// Redis lỗi thì tạm đếm trong bộ nhớ: giới hạn lỏng hơn nhưng request vẫn chạy.
+
 import { Injectable, OnApplicationShutdown } from "@nestjs/common";
 import { ThrottlerStorage, ThrottlerStorageService } from "@nestjs/throttler";
 import { RedisService } from "../../redis/redis.service";

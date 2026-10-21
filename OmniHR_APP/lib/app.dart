@@ -1,3 +1,6 @@
+// Widget gốc của app: theme sáng / tối, ngôn ngữ, và chọn màn hình theo trạng thái phiên
+// (đang khởi động -> onboarding lần đầu -> đăng nhập -> màn hình chính).
+
 import 'core/i18n.dart';
 import 'package:flutter/material.dart';
 
@@ -41,6 +44,7 @@ class _OmniHrAppState extends State<OmniHrApp> {
   /// pushed on top (a sub screen, a dialog, a bottom sheet) would stay there
   /// showing errors it can never recover from. Losing the session therefore
   /// unwinds the navigator back to the root route.
+  // Vừa đăng xuất thì đóng hết các màn hình đang mở, quay về màn hình gốc.
   void _onSessionChanged() {
     final loggedIn = widget.session.isLoggedIn;
     if (_wasLoggedIn && !loggedIn) {
@@ -76,6 +80,7 @@ class _OmniHrAppState extends State<OmniHrApp> {
   }
 }
 
+// Màn hình chờ trong lúc đọc lại phiên đăng nhập.
 class BootScreen extends StatelessWidget {
   const BootScreen({super.key});
 

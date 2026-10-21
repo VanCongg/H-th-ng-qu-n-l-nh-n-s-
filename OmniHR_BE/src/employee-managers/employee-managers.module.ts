@@ -1,3 +1,5 @@
+// Module quan hệ quản lý.
+
 import { Module } from "@nestjs/common";
 import { EmployeeManagersController } from "./employee-managers.controller";
 import { EmployeeManagersService } from "./employee-managers.service";

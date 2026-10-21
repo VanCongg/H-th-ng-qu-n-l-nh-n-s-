@@ -1,3 +1,5 @@
+// Tạo và đọc thông báo. Mỗi thông báo mới: lưu DB -> đẩy qua WebSocket -> gửi push (không chờ).
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { NotificationType, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -16,6 +18,7 @@ export class NotificationsService {
     private readonly push?: PushService
   ) {}
 
+  // Tạo thông báo cho một người dùng; push gửi bất đồng bộ để không làm chậm request.
   async create(
     userId: number,
     type: NotificationType,
@@ -35,6 +38,7 @@ export class NotificationsService {
     return notification;
   }
 
+  // Thông báo của người dùng, mới nhất trước.
   async findSelf(user: AuthUser, query: NotificationQueryDto) {
     const where: Prisma.NotificationWhereInput = {
       userId: user.id,
@@ -54,12 +58,14 @@ export class NotificationsService {
     return { items, meta: { total, page, limit } };
   }
 
+  // Đếm thông báo chưa đọc.
   unreadCount(user: AuthUser) {
     return this.prisma.notification.count({
       where: { userId: user.id, isRead: false }
     });
   }
 
+  // Đánh dấu đã đọc (chỉ thông báo của chính mình).
   async markRead(id: number, user: AuthUser) {
     const notification = await this.prisma.notification.findUnique({ where: { id } });
     if (!notification || notification.userId !== user.id) {
@@ -76,6 +82,7 @@ export class NotificationsService {
     });
   }
 
+  // Đánh dấu tất cả đã đọc.
   async markAllRead(user: AuthUser) {
     await this.prisma.notification.updateMany({
       where: { userId: user.id, isRead: false },

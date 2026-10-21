@@ -1,3 +1,5 @@
+// Yêu cầu gửi mã OTP: mục đích (đổi mật khẩu / số điện thoại / email) và giá trị mới nếu có.
+
 import { VerificationPurpose } from "@prisma/client";
 import { IsEnum, IsOptional, IsString, MaxLength } from "class-validator";
 

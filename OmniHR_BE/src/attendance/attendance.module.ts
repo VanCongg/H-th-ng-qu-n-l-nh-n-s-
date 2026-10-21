@@ -1,3 +1,5 @@
+// Module chấm công và bảng công.
+
 import { Module } from "@nestjs/common";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { AttendanceController } from "./attendance.controller";

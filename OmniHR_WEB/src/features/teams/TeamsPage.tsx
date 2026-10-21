@@ -1,3 +1,5 @@
+// Trang nhóm: danh sách theo phạm vi, tạo / sửa nhóm, chọn trưởng nhóm và thành viên cùng phòng ban.
+
 import {
   ActionIcon,
   Badge,
@@ -191,6 +193,7 @@ export function TeamsPage({ scope }: TeamsPageProps) {
     hasPermission("TEAM_CREATE") && (isAdminScope || managedDepartmentIds.length > 0);
   const canDelete = hasPermission("TEAM_DELETE") && isAdminScope;
 
+  // Được sửa nhóm không: có quyền TEAM_UPDATE và (đang ở khu admin hoặc là trưởng phòng của nhóm).
   function canUpdateTeam(item: Team) {
     return (
       hasPermission("TEAM_UPDATE") &&

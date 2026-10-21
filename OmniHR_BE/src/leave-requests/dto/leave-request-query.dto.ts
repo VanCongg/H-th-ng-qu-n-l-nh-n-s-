@@ -1,3 +1,5 @@
+// Bộ lọc đơn nghỉ: trạng thái, nhân viên, phòng ban, loại nghỉ, khoảng ngày, tháng / năm, chỉ đơn đang chờ hủy.
+
 import { Transform, Type } from "class-transformer";
 import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, Max, Min } from "class-validator";
 import { LeaveRequestStatus } from "@prisma/client";

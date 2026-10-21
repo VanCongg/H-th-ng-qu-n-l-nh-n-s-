@@ -1,3 +1,5 @@
+// Khung cho màn hình con (có nút quay lại và tiêu đề).
+
 import 'package:flutter/material.dart';
 
 import 'brand_backdrop.dart';

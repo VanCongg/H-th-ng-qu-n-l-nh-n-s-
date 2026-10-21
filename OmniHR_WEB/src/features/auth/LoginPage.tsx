@@ -1,3 +1,5 @@
+// Trang đăng nhập (username / email / mã nhân viên + mật khẩu), có liên kết quên mật khẩu.
+
 import {
   Anchor,
   Button,
@@ -163,6 +165,8 @@ export function LoginPage() {
   );
 }
 
+// Sau khi đăng nhập: quay lại trang đang mở nếu được phép; không thì ADMIN -> /admin,
+// MANAGER -> /app, nhân viên thường -> trang báo dùng app mobile.
 function postLoginPath(roles: RoleName[], from?: string) {
   if (from && canReturnToPath(roles, from)) {
     return from;
@@ -176,6 +180,7 @@ function postLoginPath(roles: RoleName[], from?: string) {
   return "/employee-web-notice";
 }
 
+// Trang cũ có thuộc khu mà role hiện tại được vào không.
 function canReturnToPath(roles: RoleName[], path: string) {
   if (path.startsWith("/admin")) {
     return roles.includes("ADMIN");

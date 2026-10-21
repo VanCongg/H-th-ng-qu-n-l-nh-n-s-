@@ -1,3 +1,5 @@
+// Module API quản lý ngày lễ (HolidaysService là global trong PrismaModule).
+
 import { Module } from "@nestjs/common";
 import { HolidaysController } from "./holidays.controller";
 

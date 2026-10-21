@@ -1,3 +1,5 @@
+// Dữ liệu tạo đơn nghỉ: loại nghỉ, ngày bắt đầu / kết thúc, lý do, nghỉ nửa buổi (sáng / chiều).
+
 import { LeaveHalf } from "@prisma/client";
 import { IsDateString, IsEnum, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 

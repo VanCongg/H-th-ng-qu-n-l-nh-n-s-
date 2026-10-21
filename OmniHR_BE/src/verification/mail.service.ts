@@ -1,3 +1,6 @@
+// Gửi email qua SMTP (mặc định Gmail + app password). Không cấu hình SMTP:
+// môi trường dev in nội dung email (mã OTP) ra log, production thì từ chối.
+
 import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";

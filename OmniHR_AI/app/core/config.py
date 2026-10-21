@@ -1,3 +1,6 @@
+# Cấu hình đọc từ biến môi trường (.env): token nội bộ, chế độ planner, thông tin LLM / embedding,
+# ngưỡng RAG, giới hạn thời gian gọi LLM...
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +41,7 @@ def _float_env(name: str, default: float) -> float:
         return default
 
 
+# Toàn bộ cấu hình của service; giá trị đọc một lần khi import.
 @dataclass(frozen=True)
 class Settings:
     internal_token: str = os.getenv("AI_INTERNAL_TOKEN", "")

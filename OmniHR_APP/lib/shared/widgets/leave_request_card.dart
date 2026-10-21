@@ -1,3 +1,5 @@
+// Thẻ hiển thị một đơn nghỉ.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

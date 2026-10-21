@@ -1,3 +1,5 @@
+// Trang vị trí / chức danh: danh sách, tạo / sửa / xóa, gắn phòng ban.
+
 import { ActionIcon, Button, Group, Modal, Select, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";

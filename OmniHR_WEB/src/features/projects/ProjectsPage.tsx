@@ -1,3 +1,5 @@
+// Trang dự án: danh sách theo phạm vi, xem chi tiết, tạo / sửa / xóa (trưởng phòng hoặc admin).
+
 import {
   ActionIcon,
   Badge,

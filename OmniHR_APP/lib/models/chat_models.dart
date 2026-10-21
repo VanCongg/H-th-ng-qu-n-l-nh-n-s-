@@ -1,8 +1,11 @@
+// Model cho màn hình chat HRGenie.
+
 import '../core/i18n.dart';
 import '../core/utils.dart';
 
 enum ChatMessageRole { user, assistant }
 
+// Một tin nhắn trong khung chat (của người dùng hoặc HRGenie), có thể kèm bản nháp chờ xác nhận.
 class ChatMessage {
   const ChatMessage({
     required this.role,
@@ -15,6 +18,7 @@ class ChatMessage {
   final PendingChatAction? pendingAction;
 }
 
+// Bản nháp chờ xác nhận do backend tạo (đơn nghỉ, hủy đơn, đổi trạng thái task).
 class PendingChatAction {
   const PendingChatAction({
     required this.actionId,

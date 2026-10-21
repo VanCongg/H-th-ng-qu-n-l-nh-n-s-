@@ -1,5 +1,9 @@
+// Đa ngôn ngữ (vi / en): chuỗi giao diện, dịch giá trị enum, dịch thông báo lỗi từ backend,
+// nhãn hành động audit log.
+
 import { usePreferencesStore, type AppLanguage } from "./store/preferences";
 
+// Chuỗi giao diện theo khóa, cho từng ngôn ngữ.
 export const messages = {
   en: {
     account: "Account",
@@ -971,6 +975,7 @@ const viEnums: Record<string, string> = {
   EXHAUSTED: "Hết phép"
 };
 
+// Ngôn ngữ đang chọn.
 export function getCurrentLanguage(): AppLanguage {
   if (typeof window !== "undefined") {
     const storedLanguage = window.localStorage.getItem("omnihr_language");
@@ -1185,6 +1190,7 @@ function translateSegment(text: string): string {
   return text;
 }
 
+// Dịch một câu (vd. thông báo lỗi tiếng Anh từ backend) sang ngôn ngữ đang chọn.
 export function translateText(language: AppLanguage, text?: string | null) {
   if (!text) {
     return "";
@@ -1207,6 +1213,7 @@ export function translateText(language: AppLanguage, text?: string | null) {
     : translateSegment(text);
 }
 
+// Dịch giá trị enum (vd. PENDING -> Chờ duyệt).
 export function translateEnum(language: AppLanguage, value?: string | null) {
   if (!value) {
     return "";
@@ -1400,6 +1407,7 @@ function humanizeCode(code: string) {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : code;
 }
 
+// Nhãn dễ đọc cho mã hành động audit log.
 export function translateAuditAction(language: AppLanguage, action?: string | null) {
   if (!action) {
     return "";

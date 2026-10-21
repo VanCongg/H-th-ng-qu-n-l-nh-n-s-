@@ -1,3 +1,5 @@
+// Màn hình đăng nhập (tên đăng nhập / email / mã nhân viên + mật khẩu), có quên mật khẩu.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';
@@ -29,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Đăng nhập; lỗi thì hiện thông báo dễ hiểu.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);

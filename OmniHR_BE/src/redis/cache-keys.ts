@@ -1,3 +1,5 @@
+// Toàn bộ khóa cache và thời gian sống (TTL) đặt ở một chỗ. Thêm khóa mới thì thêm ở đây, không viết trực tiếp.
+
 /**
  * Every cache key the app uses, in one place, so an invalidation site and the
  * read that filled the entry cannot drift apart.

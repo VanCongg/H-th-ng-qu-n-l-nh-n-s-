@@ -1,3 +1,5 @@
+// Phần tử giao diện nhỏ dùng chung: nhãn (pill), dòng thông tin, tiêu đề mục, biểu tượng trạng thái.
+
 import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';

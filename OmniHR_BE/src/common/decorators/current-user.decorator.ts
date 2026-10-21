@@ -1,3 +1,5 @@
+// @CurrentUser(): lấy người dùng đang đăng nhập (do JwtStrategy gắn vào request).
+
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import { AuthUser } from "../types";
 

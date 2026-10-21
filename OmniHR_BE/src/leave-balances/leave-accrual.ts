@@ -1,3 +1,9 @@
+// Các hàm thuần tính phép năm:
+// - tích lũy theo tháng làm việc đủ (12 ngày/năm -> 1 ngày mỗi tháng đủ);
+// - cộng ngày thâm niên (1 ngày cho mỗi N năm làm việc, cấu hình được);
+// - chuyển ngày phép chưa dùng sang năm sau (có giới hạn);
+// - còn lại = chuyển sang + tích lũy - đã duyệt; khả dụng = còn lại - đang chờ duyệt.
+
 import { calculateLeaveDays, NO_HOLIDAYS } from "../common/utils";
 
 export const ANNUAL_LEAVE_CODE = "ANNUAL_LEAVE";
@@ -39,6 +45,7 @@ export type LeaveSpan = { startDate: Date; endDate: Date; totalDays: number };
 const MINUTE_MS = 60_000;
 
 /** Today's date in the company timezone, as a UTC date-only value. */
+// Ngày hôm nay theo múi giờ công ty.
 export function companyToday(timezoneOffsetMinutes: number, now = new Date()) {
   const local = new Date(now.getTime() + timezoneOffsetMinutes * MINUTE_MS);
   return new Date(
@@ -63,6 +70,7 @@ function addMonths(date: Date, months: number) {
  * month on 15 April. Service before the year started is not counted, and an
  * unknown hire date is treated as employed since the start of the year.
  */
+// Số tháng làm việc đủ trong năm tính tới ngày asOf (tính từ ngày vào làm).
 export function monthsWorkedInYear(year: number, hireDate: Date | null, asOf: Date) {
   const yearStart = new Date(Date.UTC(year, 0, 1));
   const limit = Math.min(asOf.getTime(), Date.UTC(year + 1, 0, 1));
@@ -75,6 +83,7 @@ export function monthsWorkedInYear(year: number, hireDate: Date | null, asOf: Da
 }
 
 /** Full years of service completed on `at`. */
+// Số năm làm việc đủ.
 export function fullYearsOfService(hireDate: Date, at: Date) {
   let years = at.getUTCFullYear() - hireDate.getUTCFullYear();
   if (addMonths(hireDate, years * 12).getTime() > at.getTime()) {
@@ -84,6 +93,7 @@ export function fullYearsOfService(hireDate: Date, at: Date) {
 }
 
 /** Seniority days for `year`, judged at the end of that year or today, whichever is earlier. */
+// Số ngày phép thâm niên của năm.
 export function seniorityDays(
   year: number,
   hireDate: Date | null,
@@ -98,6 +108,7 @@ export function seniorityDays(
 }
 
 /** Working days of a leave request inside `year`; a request spanning New Year is split. */
+// Số ngày công của một đơn nằm trong năm (đơn vắt qua năm mới thì tách ra).
 export function leaveDaysInYear(
   leave: LeaveSpan,
   year: number,
@@ -114,6 +125,7 @@ export function leaveDaysInYear(
 }
 
 /** Working days of a leave request between two dates, both inclusive. */
+// Số ngày công của một đơn nằm giữa hai mốc.
 export function leaveDaysBetween(
   leave: LeaveSpan,
   from: Date,
@@ -139,6 +151,7 @@ export function leaveDaysBetween(
  * Annual leave accrues in proportion to full months worked: with the usual
  * 12-day allowance that is one day per full month, never above the entitlement.
  */
+// Tính số dư phép năm: tích lũy, thâm niên, chuyển sang, đã dùng, đang chờ, còn lại, khả dụng, trạng thái.
 export function annualLeaveBalance(input: {
   year: number;
   hireDate: Date | null;
@@ -184,6 +197,7 @@ export function annualLeaveBalance(input: {
  * chain starts at the year leave tracking began, so years before the system
  * held any leave data are not treated as fully unused.
  */
+// Số ngày chuyển sang năm này từ các năm trước, mỗi năm không quá giới hạn trong chính sách.
 export function carriedOverDays(input: {
   year: number;
   trackingStartYear: number;

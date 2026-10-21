@@ -1,3 +1,6 @@
+// Gọi AI service (POST /internal/suggestions/explain) để viết lại câu lý do cho từng ứng viên.
+// Chỉ là lời văn: lỗi, hết giờ, hay AI trả id lạ thì giữ nguyên câu template.
+
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 

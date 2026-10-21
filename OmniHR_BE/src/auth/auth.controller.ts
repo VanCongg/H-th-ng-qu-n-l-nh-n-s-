@@ -1,3 +1,6 @@
+// API xác thực: đăng nhập, làm mới token, đăng xuất, quên / đặt lại mật khẩu,
+// gửi mã xác thực (OTP) và đổi mật khẩu.
+
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
@@ -22,6 +25,7 @@ export class AuthController {
     private readonly verification: VerificationService
   ) {}
 
+  // Đăng nhập bằng username / email / mã nhân viên + mật khẩu; trả access token và refresh token.
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post("login")
@@ -37,6 +41,7 @@ export class AuthController {
     return this.authService.forgotPassword(dto, context);
   }
 
+  // Đặt mật khẩu mới bằng mã đã gửi qua email (luồng quên mật khẩu).
   @Public()
   @Throttle({ default: { limit: 10, ttl: 15 * 60000 } })
   @Post("reset-password")
@@ -44,6 +49,7 @@ export class AuthController {
     return this.authService.resetPassword(dto, context);
   }
 
+  // Đổi refresh token lấy cặp token mới (token cũ hết hiệu lực).
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post("refresh")
@@ -51,12 +57,14 @@ export class AuthController {
     return this.authService.refresh(dto, context);
   }
 
+  // Đăng xuất: thu hồi refresh token hiện tại.
   @ApiBearerAuth()
   @Post("logout")
   logout(@CurrentUser() user: AuthUser, @ReqContext() context: RequestContext) {
     return this.authService.logout(user, context);
   }
 
+  // Thông tin người dùng đang đăng nhập, kèm roles và permissions.
   @ApiBearerAuth()
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
@@ -75,6 +83,7 @@ export class AuthController {
     return this.verification.requestCode(user, dto.purpose, dto.target, context);
   }
 
+  // Đổi mật khẩu khi đang đăng nhập: cần mật khẩu hiện tại và mã OTP gửi qua email.
   @ApiBearerAuth()
   @Post("change-password")
   changePassword(

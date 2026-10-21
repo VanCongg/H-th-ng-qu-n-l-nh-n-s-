@@ -1,3 +1,5 @@
+// Module vị trí / chức danh.
+
 import { Module } from "@nestjs/common";
 import { PositionsController } from "./positions.controller";
 import { PositionsService } from "./positions.service";

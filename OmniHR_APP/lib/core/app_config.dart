@@ -1,3 +1,6 @@
+// Địa chỉ backend: lấy từ --dart-define=API_BASE_URL lúc build; không có thì localhost (web / desktop)
+// hoặc 10.0.2.2 (máy ảo Android). Người dùng không xem / sửa được.
+
 import 'package:flutter/foundation.dart';
 
 class AppConfig {

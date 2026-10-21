@@ -1,3 +1,5 @@
+// Nghiệp vụ phòng ban (có phòng cha / phòng con và trưởng phòng).
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -48,6 +50,7 @@ export class DepartmentsService {
     });
   }
 
+  // Dựng cây phòng ban từ danh sách phẳng.
   async tree() {
     const departments = await this.prisma.department.findMany({
       where: { deletedAt: null },
@@ -179,6 +182,7 @@ export class DepartmentsService {
     return department;
   }
 
+  // Xóa mềm phòng ban.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id);
     const department = await this.prisma.department.update({
@@ -212,6 +216,7 @@ export class DepartmentsService {
     }
   }
 
+  // Chặn vòng lặp cha - con (phòng A không thể là con của chính phòng con của nó).
   private async ensureNoParentCycle(departmentId: number, parentId: number) {
     const visited = new Set<number>();
     let currentId: number | null = parentId;
@@ -242,6 +247,7 @@ export class DepartmentsService {
     }
   }
 
+  // Trưởng phòng phải là nhân viên của phòng đó.
   private async ensureManagerInDepartment(managerId: number, departmentId: number) {
     const manager = await this.prisma.employee.findFirst({
       where: currentEmployeeWhere({

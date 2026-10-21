@@ -1,3 +1,5 @@
+// Dữ liệu quên mật khẩu: tên đăng nhập / email / mã nhân viên.
+
 import { IsString, MaxLength, MinLength } from "class-validator";
 
 export class ForgotPasswordDto {

@@ -1,3 +1,5 @@
+// Cây menu của hai khu (admin và quản lý); mỗi mục có thể giới hạn theo role hoặc permission.
+
 import {
   Activity,
   BadgeCheck,
@@ -29,6 +31,7 @@ export type NavItem = {
   permissions?: string[];
 };
 
+// Menu khu quản lý (/app).
 export const appNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/app/dashboard", icon: BarChart3 },
   { labelKey: "myTeam", to: "/app/team", icon: Users },
@@ -47,6 +50,7 @@ export const appNavItems: NavItem[] = [
 
 const adminOnly: RoleName[] = ["ADMIN"];
 
+// Menu khu admin (/admin).
 export const adminNavItems: NavItem[] = [
   { labelKey: "dashboard", to: "/admin/dashboard", icon: BarChart3, roles: adminOnly },
   {

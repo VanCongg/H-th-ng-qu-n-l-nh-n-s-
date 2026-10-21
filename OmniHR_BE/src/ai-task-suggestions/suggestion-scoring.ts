@@ -1,3 +1,7 @@
+// Các hàm chấm điểm thuần (không đọc DB), dùng chung cho API, script đánh giá offline
+// và script tinh chỉnh trọng số -> đánh giá offline đo đúng thứ API đang dùng để xếp hạng.
+// Mọi điểm thành phần nằm trên thang 0-100.
+
 import { CareerLevel, SkillProficiency, TaskSkillImportance } from "@prisma/client";
 
 /**
@@ -6,6 +10,7 @@ import { CareerLevel, SkillProficiency, TaskSkillImportance } from "@prisma/clie
  * means the offline evaluation measures exactly what the API ranks with.
  */
 
+// Trọng số 4 tiêu chí: kỹ năng, khối lượng việc, lịch nghỉ, thành tích.
 export type ScoreWeights = {
   skill: number;
   workload: number;
@@ -30,6 +35,7 @@ export type TaskDifficulty = "EASY" | "MEDIUM" | "HARD";
  * level matches the task wins, not the one with the longest record. Hard
  * work is where a proven record matters, so it counts in full.
  */
+// Task càng khó thì thành tích càng được tính nhiều: dễ 25%, trung bình 60%, khó 100% trọng số.
 export const HISTORY_SHARE: Record<TaskDifficulty, number> = { EASY: 0.25, MEDIUM: 0.6, HARD: 1 };
 
 /**
@@ -40,6 +46,8 @@ export const HISTORY_SHARE: Record<TaskDifficulty, number> = { EASY: 0.25, MEDIU
  * deployment. `combineScores` renormalises whatever it is given, so they need
  * not sum to 1 and dropping a term costs nothing.
  */
+// Trọng số mặc định: kỹ năng 0.3, khối lượng 0.2, lịch nghỉ 0.1, thành tích 0.4.
+// Không chọn tay mà do prisma/tune-weights.ts tìm ra trên dữ liệu giao việc quá khứ.
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
   skill: 0.3,
   workload: 0.2,
@@ -61,6 +69,7 @@ const PROFICIENCY_RANK: Record<SkillProficiency, number> = {
  * Only required skills count when there are any: a nice-to-have at Expert
  * does not make the work hard.
  */
+// Độ khó task: KHÓ nếu cần kỹ năng Advanced/Expert hoặc từ Senior; TRUNG BÌNH nếu Intermediate hoặc từ Middle; còn lại DỄ.
 export function taskDifficulty(
   requiredSkills: Array<{ importance: TaskSkillImportance | string; requiredProficiency: SkillProficiency }>,
   minLevel?: CareerLevel | null
@@ -79,6 +88,7 @@ export function taskDifficulty(
 }
 
 /** The weights for one task: the history weight scaled by its difficulty. */
+// Trọng số cho một task cụ thể: trọng số thành tích nhân theo độ khó.
 export function weightsForTask(weights: ScoreWeights, difficulty?: TaskDifficulty): ScoreWeights {
   const share = difficulty ? HISTORY_SHARE[difficulty] : 1;
   return { ...weights, history: weights.history * share };
@@ -98,6 +108,9 @@ export type CandidateSignals = {
  * replay, the tuner and the diagnostics all call it, so none of them can
  * weigh a candidate differently from the others.
  */
+// Điểm tổng của một ứng viên = trung bình có trọng số các tiêu chí.
+// Ví dụ (trọng số mặc định 0.3/0.2/0.1/0.4, task khó): kỹ năng 90, khối lượng 80, lịch nghỉ 100, thành tích 70
+// -> (90*0.3 + 80*0.2 + 100*0.1 + 70*0.4) / 1.0 = 81.
 export function scoreCandidate(weights: ScoreWeights, signals: CandidateSignals) {
   const task = weightsForTask(weights, signals.difficulty);
   return combineScores([
@@ -111,6 +124,7 @@ export function scoreCandidate(weights: ScoreWeights, signals: CandidateSignals)
 }
 
 /** Keeps a hand-edited settings row from zeroing every candidate's score. */
+// Trọng số sửa tay mà bằng 0 hết thì dùng mặc định, tránh mọi ứng viên đều 0 điểm.
 export function usableWeights(weights: ScoreWeights): ScoreWeights {
   const total =
     weights.skill + weights.workload + weights.availability + weights.history;
@@ -123,6 +137,7 @@ export function usableWeights(weights: ScoreWeights): ScoreWeights {
  * this group separately, because a ranking that quietly buries every new hire
  * looks fine on average and is unusable in practice.
  */
+// Dưới 3 task đã xong thì coi là người mới (cold-start).
 export const COLD_START_TASKS = 3;
 
 export type FinishedTask = {
@@ -160,6 +175,7 @@ export type HistorySignal = {
 };
 
 /** Finished tasks old enough to count at `asOf`. */
+// Chỉ tính các task đã xong đủ lâu tại thời điểm xét.
 export function usableHistory(
   finished: FinishedTask[],
   asOf: Date,
@@ -173,6 +189,8 @@ export function usableHistory(
  * Raw track record, or null when the person has finished nothing yet.
  * Used both as the candidate's own score and to build the peer prior.
  */
+// Điểm thành tích thô = kết hợp tỉ lệ hoàn thành đúng hạn và hiệu suất giờ
+// (làm vượt giờ ước tính bị trừ, làm nhanh hơn không được cộng).
 export function rawHistoryScore(finished: FinishedTask[], onTimeShare: number) {
   if (!finished.length) {
     return null;
@@ -197,6 +215,7 @@ export const NEUTRAL_HISTORY = 50;
  * from the candidates of this very suggestion, so it needs no extra query and
  * means exactly the same thing in the API and in the offline replay.
  */
+// Mức tham chiếu: trung vị thành tích của các ứng viên cùng cấp bậc, không có thì cả danh sách, không có nữa thì 50.
 export function historyPrior(peerScores: Array<number | null>, fallback: Array<number | null> = []) {
   return (
     median(peerScores) ?? median(fallback) ?? NEUTRAL_HISTORY
@@ -224,6 +243,8 @@ function median(values: Array<number | null>) {
  * accumulates. `confidence` is surfaced so an explanation can say how much of
  * the number is really about this person.
  */
+// Điểm thành tích "co về" mức tham chiếu: (n * điểm riêng + k * tham chiếu) / (n + k), n = số task đã xong.
+// Người mới được chấm ngang đồng nghiệp thay vì bị loại; càng làm nhiều thì điểm riêng càng chiếm ưu thế.
 export function historySignal(
   finished: FinishedTask[],
   asOf: Date,
@@ -278,6 +299,7 @@ export type LevelFit = {
  * elsewhere). No range, or no level on the person, changes nothing.
  * Folded into the skill score, so it needs no weight of its own.
  */
+// Cấp bậc so với khoảng yêu cầu của task: thấp hơn bị trừ nặng (15 điểm/bậc), cao hơn trừ nhẹ (8 điểm/bậc).
 export function levelFit(
   level: CareerLevel | null | undefined,
   minLevel: CareerLevel | null | undefined,
@@ -307,6 +329,7 @@ export function levelFit(
 }
 
 /** The skill score after the level fit, still on 0-100. */
+// Điểm kỹ năng sau khi trừ điểm lệch cấp bậc.
 export function skillScoreWithLevel(skillScore: number, fit: LevelFit) {
   return clampScore(skillScore - fit.penalty);
 }
@@ -343,6 +366,7 @@ export type WeeklyLoad = {
  *   to the due date; overdue or undated work all lands this week, and a task
  *   that only starts after the coming week adds nothing yet.
  */
+// Khối lượng việc: số giờ còn lại của task đang mở, và phần rơi vào tuần tới (để so với 40 giờ/tuần).
 export function weeklyLoad(tasks: OpenTaskLoad[], today: Date): WeeklyLoad {
   const day = toDayStart(today).getTime();
   const weekEnd = day + 6 * DAY_MS;
@@ -435,6 +459,8 @@ export type SkillAssessment = {
 };
 
 /** `asOf` dates skill recency; the evaluation replays it at assignment time. */
+// Điểm kỹ năng: so trình độ thực tế với yêu cầu từng kỹ năng, có trọng số theo mức quan trọng,
+// cộng điểm kinh nghiệm, trừ điểm nếu lâu không dùng. Thiếu kỹ năng bắt buộc -> không đủ điều kiện.
 export function assessSkills(
   requiredSkills: RequiredSkillInput[],
   employeeSkills: EmployeeSkillInput[],
@@ -543,6 +569,7 @@ export function assessSkills(
  * more on harder work, and a beginner's task is how a beginner grows. So a
  * task asking for Beginner goes to a beginner before an expert.
  */
+// Điểm trình độ: đúng mức yêu cầu hoặc cao hơn thì cao, thấp hơn càng nhiều bậc càng ít điểm.
 export function proficiencyScore(actual: SkillProficiency, required: SkillProficiency) {
   const gap = PROFICIENCY_RANK[actual] - PROFICIENCY_RANK[required];
   if (gap >= 0) {
@@ -556,6 +583,7 @@ const OVER_PROFICIENCY_SCORES = [100, 85, 75, 65];
 /** Score by how many levels below it: -, -1, -2, -3. */
 const UNDER_PROFICIENCY_SCORES = [100, 50, 25, 10];
 
+// Điểm cộng theo số năm kinh nghiệm.
 export function experienceBonus(years: number) {
   if (years >= 4) {
     return 10;
@@ -569,6 +597,7 @@ export function experienceBonus(years: number) {
   return 0;
 }
 
+// Điểm trừ khi kỹ năng lâu rồi không dùng.
 export function recencyPenalty(lastUsedAt: Date | null | undefined, asOf: Date = new Date()) {
   if (!lastUsedAt) {
     return 0;
@@ -580,6 +609,7 @@ export function recencyPenalty(lastUsedAt: Date | null | undefined, asOf: Date =
   return ageInDays > 365 ? 5 : 0;
 }
 
+// Trình độ thực tế có đạt yêu cầu không.
 export function meetsProficiency(actual: SkillProficiency, required: SkillProficiency) {
   const rank: Record<SkillProficiency, number> = {
     BEGINNER: 0,
@@ -603,6 +633,7 @@ export type LeaveOverlap = {
  * A half day counts 0.5, two halves of one date add up to the whole day, and
  * a day already off on approved leave adds nothing more from a pending one.
  */
+// Số ngày làm việc của task bị trùng với ngày nghỉ (nghỉ nửa ngày tính 0.5).
 export function leaveOverlapDays(leaves: LeaveOverlap[]) {
   const approved = new Map<string, number>();
   const pending = new Map<string, number>();
@@ -623,6 +654,7 @@ export function leaveOverlapDays(leaves: LeaveOverlap[]) {
 }
 
 /** Approved leave costs up to 60 points and pending leave up to 25. */
+// Điểm lịch nghỉ = 100 - phạt nghỉ đã duyệt (tối đa 60) - phạt nghỉ đang chờ (tối đa 25), theo tỉ lệ ngày trùng.
 export function availabilityScoreFor(
   taskWorkDays: number,
   approvedOverlapWorkDays: number,
@@ -637,6 +669,8 @@ export function availabilityScoreFor(
 }
 
 /** Open estimated hours against a 40-hour week, minus 10 per overdue task. */
+// Điểm khối lượng: còn trống >= 20 giờ/tuần -> 100, >= 10 -> 80, >= 5 -> 60, > 0 -> 40, hết chỗ -> 20;
+// trừ thêm 10 điểm cho mỗi task quá hạn.
 export function workloadScoreFor(
   totalEstimatedHours: number,
   overdueTaskCount: number,
@@ -666,6 +700,7 @@ function baseWorkloadScore(availableHours: number) {
  * Combines the weighted signals, dropping any the candidate has no data for
  * and renormalising what remains so every candidate is scored out of 100.
  */
+// Gộp điểm có trọng số; tiêu chí nào ứng viên không có dữ liệu thì bỏ và chia lại theo tổng trọng số còn lại.
 export function combineScores(components: Array<{ value: number | null; weight: number }>) {
   const usable = components.filter(
     (component): component is { value: number; weight: number } => component.value !== null
@@ -679,6 +714,7 @@ export function combineScores(components: Array<{ value: number | null; weight: 
 }
 
 /** How many days of recent assignments the fair-share check looks at. */
+// Cân bằng công bằng xét số task được giao trong 14 ngày gần đây.
 export const FAIR_SHARE_WINDOW_DAYS = 14;
 /** Points removed per team share above the average: twice the share costs this much. */
 export const FAIR_SHARE_PENALTY = 10;
@@ -689,6 +725,7 @@ export const FAIR_SHARE_PENALTY = 10;
  * imbalance on held-out decisions (0.228 -> 0.430) for no real gain in
  * separation, because a runaway count is exactly what rebalancing is for.
  */
+// Điểm trừ theo mức nhận việc vượt trung bình team (gấp đôi trung bình -> trừ 10 điểm).
 export function fairSharePenalty(share: number) {
   return FAIR_SHARE_PENALTY * Math.max(0, share - 1);
 }
@@ -709,6 +746,7 @@ export type FairShare = {
  * Only people above the team average are touched, so the penalty can never
  * promote a candidate the ranking did not already rate.
  */
+// Mức nhận việc của từng người so với trung bình team (1 = đúng bằng trung bình).
 export function fairShares(recentCounts: Map<number, number>): Map<number, FairShare> {
   const counts = [...recentCounts.values()];
   const average = counts.length
@@ -730,6 +768,7 @@ export function fairShares(recentCounts: Map<number, number>): Map<number, FairS
  * Above this share of the task's workdays already covered by approved leave,
  * a candidate is set aside rather than merely scored down.
  */
+// Nghỉ phép đã duyệt quá 50% số ngày làm việc của task -> xếp sau mọi người.
 export const LEAVE_BLOCK_THRESHOLD = 0.5;
 
 export type RankableCandidate = {
@@ -749,6 +788,8 @@ export type RankableCandidate = {
  * fortnight, and a manager shown that suggestion stops trusting the rest of
  * the list. Weights decide who is *better*; tiers decide who is *possible*.
  */
+// Thứ tự xếp hạng: đủ kỹ năng bắt buộc trước -> không bị chặn vì nghỉ phép -> điểm cao hơn -> điểm kỹ năng cao hơn.
+// Trọng số quyết định ai GIỎI HƠN; các tầng quyết định ai CÓ THỂ làm.
 export function compareCandidates(left: RankableCandidate, right: RankableCandidate) {
   return (
     Number(right.eligible) - Number(left.eligible) ||

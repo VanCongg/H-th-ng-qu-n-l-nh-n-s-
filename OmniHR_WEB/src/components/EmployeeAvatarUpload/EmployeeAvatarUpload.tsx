@@ -1,3 +1,5 @@
+// Chọn ảnh đại diện: kiểm tra định dạng (png/jpeg/webp/gif) và dung lượng (tối đa 700KB), đổi sang data URL.
+
 import { ActionIcon, FileInput, Paper, Stack, Text, Tooltip } from "@mantine/core";
 import { ImageUp, X } from "lucide-react";
 import { useState } from "react";

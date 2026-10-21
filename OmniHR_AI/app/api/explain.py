@@ -1,3 +1,6 @@
+# Endpoint nội bộ POST /internal/suggestions/explain: viết lại câu lý do cho từng ứng viên
+# mà NestJS đã xếp hạng. Chỉ là lời văn; trả rỗng thì NestJS giữ câu mặc định.
+
 from fastapi import APIRouter, Depends
 
 from app.core.security import verify_internal_token

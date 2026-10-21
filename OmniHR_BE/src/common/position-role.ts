@@ -1,3 +1,5 @@
+// Nhận biết một vị trí (chức danh) có phải vị trí quản lý hay không, dựa trên mã/tên vị trí.
+
 import type { Position } from "@prisma/client";
 
 export type PositionRoleShape = Pick<Position, "code" | "name">;

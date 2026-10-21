@@ -1,3 +1,11 @@
+// Gợi ý người làm task. Không phải mô hình học máy mà là chấm điểm đa tiêu chí có trọng số:
+//   điểm = trung bình có trọng số của kỹ năng, khối lượng việc, lịch nghỉ, thành tích task đã xong.
+// Hai thứ nằm NGOÀI điểm có trọng số:
+//   - "tầng" cứng: thiếu kỹ năng bắt buộc, hoặc nghỉ phép đã duyệt quá nửa thời gian task -> xếp sau mọi người;
+//   - cân bằng công bằng: ai nhận nhiều việc hơn trung bình team gần đây thì bị trừ điểm sau khi xếp hạng.
+// Trọng số lấy từ cấu hình hệ thống (được tinh chỉnh trên dữ liệu giao việc trong quá khứ),
+// và mỗi lần gợi ý lưu lại trọng số đã dùng.
+
 import { createHash } from "crypto";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
@@ -60,7 +68,9 @@ import {
   usableWeights
 } from "./suggestion-scoring";
 
+// Phiên bản thuật toán (MCDM = ra quyết định đa tiêu chí), lưu cùng mỗi gợi ý.
 const AI_TASK_ALGORITHM_VERSION = "mcdm-v5";
+// Gợi ý hết hạn sau 24 giờ (dữ liệu khối lượng / lịch nghỉ có thể đã thay đổi).
 const AI_SUGGESTION_TTL_MS = 24 * 60 * 60 * 1000;
 
 const suggestionInclude = {
@@ -159,6 +169,13 @@ export class AiTaskSuggestionsService {
     private readonly notifications: NotificationsService
   ) {}
 
+  // Tạo gợi ý:
+  // 1. Kiểm tra quyền và task còn nhận gợi ý được.
+  // 2. Lấy ứng viên trong phạm vi người dùng quản lý (và trong team của task).
+  // 3. Với mỗi ứng viên: điểm kỹ năng (có tính cấp bậc), khối lượng việc tuần tới,
+  //    lịch nghỉ trùng thời gian task, thành tích task đã xong.
+  // 4. Gộp điểm theo trọng số -> trừ điểm cân bằng công bằng -> xếp hạng (compareCandidates) -> lấy top N.
+  // 5. Nhờ AI service viết lại câu lý do (chỉ là lời văn, không đổi điểm), lưu gợi ý và ghi audit.
   async generate(
     taskId: number,
     dto: GenerateAiTaskSuggestionDto,
@@ -357,6 +374,7 @@ export class AiTaskSuggestionsService {
     return this.present(suggestion);
   }
 
+  // Danh sách gợi ý, lọc theo quyền.
   async findAll(query: AiTaskSuggestionQueryDto, user: AuthUser) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const where = await this.buildWhere(query, user);
@@ -377,6 +395,7 @@ export class AiTaskSuggestionsService {
     };
   }
 
+  // Các gợi ý của một task.
   async findByTask(taskId: number, user: AuthUser) {
     await this.accessControl.ensureCanReadTask(user, taskId);
     const suggestions = await this.prisma.aiTaskSuggestion.findMany({
@@ -387,6 +406,7 @@ export class AiTaskSuggestionsService {
     return suggestions.map((item) => this.present(item));
   }
 
+  // Chi tiết một gợi ý.
   async findOne(id: number, user: AuthUser) {
     const suggestion = await this.prisma.aiTaskSuggestion.findUnique({
       where: { id },
@@ -403,6 +423,8 @@ export class AiTaskSuggestionsService {
     return this.present(suggestion);
   }
 
+  // Chọn ứng viên: kiểm tra gợi ý còn hiệu lực, rồi trong một transaction đánh dấu ứng viên được chọn,
+  // giao task cho người đó và ghi lịch sử giao việc với loại AI_SUGGESTED.
   async select(
     id: number,
     dto: SelectAiTaskSuggestionDto,
@@ -510,6 +532,7 @@ export class AiTaskSuggestionsService {
     return this.present(updated);
   }
 
+  // Hủy gợi ý.
   async cancel(
     id: number,
     dto: CancelAiTaskSuggestionDto,
@@ -677,6 +700,7 @@ export class AiTaskSuggestionsService {
     }
   }
 
+  // Gợi ý chỉ chọn được khi còn hạn và task chưa đổi (so dấu vân tay task) so với lúc tạo.
   private async ensureSuggestionCanBeSelected(suggestion: SuggestionForSelect) {
     if (suggestion.status === AiTaskSuggestionStatus.SELECTED) {
       throw new ApiError(
@@ -749,6 +773,7 @@ export class AiTaskSuggestionsService {
     return assessSkills(requiredSkills, employeeSkills);
   }
 
+  // Đánh giá lịch nghỉ: số ngày làm việc của task bị trùng với đơn nghỉ đã duyệt / đang chờ.
   private async availabilityAssessment(
     employeeId: number,
     startDate?: Date | null,
@@ -904,6 +929,7 @@ export class AiTaskSuggestionsService {
     return candidateIds.filter((candidateId) => teamCandidateIds.has(candidateId));
   }
 
+  // Câu lý do mặc định (template) cho từng ứng viên, ghép từ kỹ năng, cấp bậc, lịch nghỉ, thành tích.
   private reason(
     employee: Pick<EmployeeWithSkills, "fullName">,
     skill: SkillAssessment,
@@ -1039,6 +1065,7 @@ export class AiTaskSuggestionsService {
    * answers in time. The ranking, the scores and the snapshot are already
    * decided here: a slow or missing LLM costs wording, never correctness.
    */
+  // Thay câu template bằng câu AI viết nếu AI trả lời kịp. Điểm và thứ hạng đã chốt từ trước.
   private async withWrittenReasons<T extends ScoredCandidate & { rank: number }>(
     task: TaskWithRequiredSkills,
     items: T[]
@@ -1111,6 +1138,7 @@ export class AiTaskSuggestionsService {
    * this task", this answers "who has had enough for now". Keeping them apart
    * is what lets the UI show the two reasons separately.
    */
+  // Cân bằng công bằng: trừ điểm người nhận nhiều việc hơn trung bình team trong 14 ngày gần đây.
   private applyFairShare<T extends ScoredCandidate>(
     candidates: T[],
     recentCounts: Map<number, number>
@@ -1139,6 +1167,7 @@ export class AiTaskSuggestionsService {
    * for the whole shortlist: a suggestion is generated on demand while a
    * manager waits, so one round trip per candidate is not acceptable.
    */
+  // Điểm thành tích từ các task đã hoàn thành của từng ứng viên (một truy vấn cho cả danh sách).
   private async historyScores(
     employees: Array<{ id: number; careerLevel: string | null }>,
     asOf: Date
@@ -1209,6 +1238,7 @@ export class AiTaskSuggestionsService {
    * Weights live in system settings so prisma/tune-weights.ts can fit them on
    * past assignments and have the API pick the result up without a deploy.
    */
+  // Trọng số đọc từ cấu hình hệ thống (aiWeightSkill / Workload / Availability / History).
   private async scoreWeights(): Promise<ScoreWeights> {
     const settings = await this.systemSettings.getSettings();
     return usableWeights({
@@ -1219,6 +1249,7 @@ export class AiTaskSuggestionsService {
     });
   }
 
+  // Ảnh chụp dữ liệu đầu vào lúc tạo gợi ý, để sau này xem lại vì sao AI xếp như vậy.
   private buildInputSnapshot(
     task: TaskWithRequiredSkills,
     options: GenerateOptions,
@@ -1310,6 +1341,7 @@ export class AiTaskSuggestionsService {
       .sort((left, right) => left.skillId - right.skillId);
   }
 
+  // Dấu vân tay của task (kỹ năng, ngày, cấp bậc...) để biết task có bị sửa sau khi gợi ý không.
   private taskFingerprint(task: TaskWithRequiredSkills) {
     return createHash("sha256")
       .update(JSON.stringify(this.taskFingerprintPayload(task)))

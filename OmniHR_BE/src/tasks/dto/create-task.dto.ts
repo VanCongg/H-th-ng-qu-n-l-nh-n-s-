@@ -1,3 +1,6 @@
+// Dữ liệu tạo task: task cha, dự án, team, tiêu đề, mô tả, công nghệ, độ ưu tiên, trạng thái,
+// khoảng cấp bậc phù hợp (min / max level), người được giao, ngày bắt đầu / hạn, giờ ước tính / thực tế, kỹ năng yêu cầu.
+
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,

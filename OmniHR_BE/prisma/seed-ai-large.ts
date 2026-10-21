@@ -1,3 +1,6 @@
+// Seed bổ sung một bộ dữ liệu lớn cho phòng IT (nhiều team, nhân viên, kỹ năng, task, đơn nghỉ)
+// để thử AI gợi ý giao việc trên quy mô lớn. Chạy: npm run prisma:seed:ai-large.
+
 import "dotenv/config";
 import {
   CareerLevel,
@@ -709,6 +712,7 @@ const teamSeeds: TeamSeed[] = [
  */
 let holidays: ReadonlySet<number> = new Set();
 
+// Tạo / cập nhật phòng IT, các team, nhân viên, kỹ năng, dự án, task và đơn nghỉ.
 async function main() {
   holidays = new Set(
     (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())

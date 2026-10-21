@@ -1,3 +1,5 @@
+// Dữ liệu đăng nhập: username / email / mã nhân viên và mật khẩu.
+
 import { IsString, MaxLength, MinLength } from "class-validator";
 
 export class LoginDto {

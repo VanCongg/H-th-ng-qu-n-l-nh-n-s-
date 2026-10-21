@@ -1,3 +1,6 @@
+// Hồi quy logistic tự viết (không cần Python): fitPointwise học "task có xong đúng hạn không",
+// fitPairwise học "quản lý chọn người A hơn người B" (kiểu RankNet).
+
 /**
  * Logistic regression, written out rather than pulled in, so the whole
  * evaluation pipeline stays inside the backend's own toolchain (tsx + jest)
@@ -44,6 +47,7 @@ export type LogisticModel = {
 const DEFAULTS = { iterations: 400, learningRate: 0.5, l2: 0.01 };
 
 /** Standard logistic curve, guarded against overflow at the tails. */
+// Hàm sigmoid: 1 / (1 + e^-x).
 export function sigmoid(value: number) {
   if (value >= 0) {
     return 1 / (1 + Math.exp(-value));
@@ -130,6 +134,7 @@ function descend(
 }
 
 /** One row per example, label 0/1. */
+// Học xác suất nhãn = 1 cho từng mẫu.
 export function fitPointwise(data: Dataset, options: FitOptions = {}): LogisticModel {
   if (!data.features.length) {
     throw new Error("fitPointwise needs at least one row");
@@ -145,6 +150,7 @@ export function fitPointwise(data: Dataset, options: FitOptions = {}): LogisticM
  * feature vectors, so there is no intercept to fit: a constant preference for
  * "the first one" would be meaningless, and both orderings are fed in.
  */
+// Học sở thích từ hiệu đặc trưng (người được chọn - người không được chọn).
 export function fitPairwise(data: Dataset, options: FitOptions = {}): LogisticModel {
   if (!data.features.length) {
     throw new Error("fitPairwise needs at least one pair");
@@ -177,6 +183,7 @@ export function score(model: LogisticModel, features: number[]) {
  * Weight per feature on the standardised scale, which is what can be compared
  * between features - the raw coefficients are in whatever unit the column uses.
  */
+// Mức quan trọng của từng đặc trưng (theo độ lớn hệ số).
 export function importances(model: LogisticModel, names: string[]) {
   return names
     .map((name, index) => ({ name, weight: model.weights[index] ?? 0 }))

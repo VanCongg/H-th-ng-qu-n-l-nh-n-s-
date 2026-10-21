@@ -9,6 +9,7 @@ CACHE_PATH = Path(__file__).resolve().parent.parent / "rag" / ".embedding_cache.
 
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:
+    # Độ giống nhau giữa hai vector (1 = cùng hướng, 0 = không liên quan).
     if not left or not right or len(left) != len(right):
         return 0.0
 
@@ -28,6 +29,11 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 
 class EmbeddingIndex:
     """Exact nearest-neighbour search over the policy chunks.
+
+    Tóm tắt tiếng Việt: mỗi chunk chính sách được đổi thành vector một lần và
+    lưu cache ra đĩa (.embedding_cache.json, khóa theo model + nội dung), nên
+    khởi động lại không phải embed lại. Khi tìm, quét cosine với mọi chunk; với
+    vài chục chunk thì cách này vừa chính xác vừa nhanh hơn dùng vector database.
 
     Deliberately not a vector database: an ANN index (HNSW, IVF) trades recall
     for speed once you have millions of vectors, and this corpus is a few dozen

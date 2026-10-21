@@ -1,3 +1,5 @@
+// Dữ liệu hủy đơn nghỉ: lý do (hiện cho quản lý khi hủy đơn đã duyệt).
+
 import { IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CancelLeaveRequestDto {

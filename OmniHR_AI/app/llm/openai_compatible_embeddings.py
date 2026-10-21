@@ -1,3 +1,5 @@
+# Client embedding cho mọi API kiểu OpenAI (POST /embeddings), vd. gemini-embedding-001.
+
 import time
 from typing import Any
 
@@ -18,6 +20,7 @@ class OpenAICompatibleEmbeddingClient:
             settings.embedding_base_url or settings.llm_base_url or "https://api.openai.com/v1"
         ).rstrip("/")
 
+    # Trả về vector cho từng văn bản, đúng thứ tự đầu vào.
     def embed(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []

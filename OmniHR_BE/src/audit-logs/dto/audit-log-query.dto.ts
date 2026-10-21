@@ -1,3 +1,5 @@
+// Bộ lọc audit log: hành động, nhóm hành động, người làm, loại bản ghi, khoảng ngày, chỉ thay đổi quan trọng.
+
 import { Transform, Type } from "class-transformer";
 import { IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 import { AUDIT_CATEGORY_KEYS, AuditCategory } from "../../common/audit-actions";

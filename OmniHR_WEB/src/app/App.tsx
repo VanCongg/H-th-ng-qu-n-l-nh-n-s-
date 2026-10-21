@@ -1,3 +1,6 @@
+// Khai báo route của web: trang đăng nhập, khu /admin (AdminLayout) và khu /app (AppLayout, cho quản lý),
+// mỗi route bọc trong guard kiểm tra đăng nhập / role / permission.
+
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/AppLayout";
 import { AdminLayout } from "../layouts/AdminLayout";

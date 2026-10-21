@@ -1,3 +1,6 @@
+// Dữ liệu tạo nhân viên: mã, họ tên, email cá nhân, ảnh, điện thoại, ngày sinh, ngày vào làm,
+// trạng thái, phòng ban, vị trí, cấp bậc.
+
 import {
   IsDateString,
   IsEmail,

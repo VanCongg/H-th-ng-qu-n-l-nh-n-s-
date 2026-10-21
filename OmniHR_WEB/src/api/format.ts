@@ -1,3 +1,5 @@
+// Hàm định dạng hiển thị: ngày, ngày giờ, cấp bậc, tên phòng ban / vị trí / nhóm, màu trạng thái, số phút, số ngày.
+
 import { getCurrentLocale } from "../i18n";
 import type { CareerLevel, Department, Employee, Team } from "./types";
 

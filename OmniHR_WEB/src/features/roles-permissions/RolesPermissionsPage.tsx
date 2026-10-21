@@ -1,3 +1,5 @@
+// Trang role và permission: xem role, tạo / sửa role và chọn permission cho role.
+
 import {
   ActionIcon,
   Badge,

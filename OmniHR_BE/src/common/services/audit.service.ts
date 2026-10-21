@@ -1,3 +1,6 @@
+// Ghi audit log: ai làm gì, lên bản ghi nào, giá trị trước / sau, IP, user-agent.
+// Truyền nguyên bản ghi trước / sau, hàm sẽ tự thu gọn (audit-compaction.ts).
+
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { RequestContext } from "../types";
@@ -17,6 +20,7 @@ type AuditPayload = {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Ghi một dòng audit; old/new value được thu gọn trước khi lưu.
   async log(payload: AuditPayload) {
     const { oldValue, newValue } = compactAuditValues(payload.oldValue, payload.newValue);
     await this.prisma.auditLog.create({

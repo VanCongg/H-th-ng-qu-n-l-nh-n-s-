@@ -1,8 +1,12 @@
+// Hàm tiện ích dùng chung: xử lý ngày, đếm ngày làm việc, phân trang, ẩn trường nhạy cảm của user.
+
+// Cắt bỏ giờ, chỉ giữ ngày (00:00 UTC).
 export function toDateOnly(value: string | Date): Date {
   const date = value instanceof Date ? value : new Date(value);
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+// Mọi ngày giữa hai mốc (tính cả hai đầu).
 export function getDateRange(startDate: Date, endDate: Date) {
   return {
     gte: toDateOnly(startDate),
@@ -10,6 +14,7 @@ export function getDateRange(startDate: Date, endDate: Date) {
   };
 }
 
+// Định dạng ngày kiểu dd/mm/yyyy.
 export function formatDateDdMmYyyy(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
   const day = `${date.getUTCDate()}`.padStart(2, "0");
@@ -28,6 +33,7 @@ const DAY_NAME_TO_UTC_INDEX: Record<string, number> = {
   SATURDAY: 6
 };
 
+// Tuần làm việc mặc định: thứ 2 đến thứ 6.
 export const DEFAULT_WORK_WEEK = [
   "MONDAY",
   "TUESDAY",
@@ -46,6 +52,8 @@ export const NO_HOLIDAYS: ReadonlySet<number> = new Set();
  * through here, so leave length, the monthly standard and a task's window
  * agree on what a working day is.
  */
+// Ví dụ: 29/10 (thứ 5) đến 02/11 (thứ 2), tuần làm việc T2-T6, không ngày lễ
+// -> ["2026-10-29", "2026-10-30", "2026-11-02"]. Không tự viết vòng lặp T2-T6 ở nơi khác.
 export function workdayKeysBetween(
   startDate: Date,
   endDate: Date,
@@ -70,6 +78,7 @@ export function workdayKeysBetween(
   return keys;
 }
 
+// Số ngày nghỉ phép = số ngày làm việc trong khoảng (bỏ cuối tuần và ngày lễ).
 export function calculateLeaveDays(
   startDate: Date,
   endDate: Date,
@@ -79,6 +88,7 @@ export function calculateLeaveDays(
   return workdayKeysBetween(startDate, endDate, workWeek, holidays).length;
 }
 
+// Chuẩn hóa page/limit (limit tối đa 100) và tính skip/take cho Prisma.
 export function pagination(page = 1, limit = 20) {
   const normalizedPage = Math.max(Number(page) || 1, 1);
   const normalizedLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
@@ -90,6 +100,7 @@ export function pagination(page = 1, limit = 20) {
   };
 }
 
+// Bỏ passwordHash và refreshTokenHash trước khi trả user về client.
 export function omitSensitiveUser<T extends Record<string, unknown>>(user: T) {
   const safeUser = { ...user };
   delete safeUser.passwordHash;

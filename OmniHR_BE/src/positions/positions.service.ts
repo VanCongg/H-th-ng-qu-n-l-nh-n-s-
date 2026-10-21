@@ -1,3 +1,5 @@
+// Nghiệp vụ vị trí / chức danh; mọi thay đổi đều ghi audit.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";

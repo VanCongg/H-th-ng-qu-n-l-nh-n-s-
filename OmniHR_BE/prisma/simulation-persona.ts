@@ -1,3 +1,7 @@
+// Đặc điểm ẩn của từng nhân viên trong mô phỏng: năng lực, tỉ lệ đi muộn / về sớm / vắng / ốm,
+// tốc độ làm việc, tỉ lệ qua duyệt. `ability` là "đáp án đúng" để đánh giá AI gợi ý giao việc;
+// API không bao giờ thấy giá trị này.
+
 import { CareerLevel } from "@prisma/client";
 
 /**
@@ -19,6 +23,7 @@ export type Persona = {
 };
 
 /** Stable per employee: the same person is always the same kind of worker. */
+// Sinh đặc điểm ẩn ổn định từ mã nhân viên và cấp bậc (cùng mã -> cùng kết quả).
 export function buildPersona(code: string, level: CareerLevel): Persona {
   const talent = hash01(`talent:${code}`);
   const levelBonus: Record<CareerLevel, number> = {

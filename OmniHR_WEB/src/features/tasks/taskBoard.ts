@@ -1,3 +1,5 @@
+// Hàm thuần dựng dữ liệu cho bảng task: nhóm theo dự án, tiến độ task nhóm, cột Kanban, màu hạn chót.
+
 import type { Project, Task, TaskGroup, TaskStatus } from "../../api/types";
 
 /** A team task (level 0) or one of its subtasks (level 1). */
@@ -35,6 +37,7 @@ export function projectGroupKey(project?: { id: number } | null) {
  * matched, so the match is not buried among the rest; one that matched only
  * by itself (its title, say) lists them all.
  */
+// Gom các task nhóm theo dự án.
 export function buildProjectSections(items: TaskGroup[], filtered: boolean): ProjectSection[] {
   const sections = new Map<string, ProjectSection>();
   for (const item of items) {
@@ -55,6 +58,7 @@ export function buildProjectSections(items: TaskGroup[], filtered: boolean): Pro
 }
 
 /** Finished subtasks out of those still counted; a cancelled one drops out of both. */
+// Tiến độ: số task con đã xong / tổng (không tính task đã hủy).
 export function taskProgress(children: Pick<Task, "status">[]): TaskProgress {
   const counted = children.filter((child) => child.status !== "CANCELLED");
   return {
@@ -74,6 +78,7 @@ export const KANBAN_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "IN_REVIEW"
  * The subtasks on the page by status, for the Kanban view. Cancelled work has
  * no column: it is off the board, not a stage of it.
  */
+// Chia task con vào các cột theo trạng thái.
 export function kanbanColumns(sections: ProjectSection[]): Record<TaskStatus, TaskTreeRow[]> {
   const columns = Object.fromEntries(
     KANBAN_STATUSES.map((status) => [status, [] as TaskTreeRow[]])
@@ -93,6 +98,7 @@ export function kanbanColumns(sections: ProjectSection[]): Record<TaskStatus, Ta
 export type DueTone = "overdue" | "soon" | "normal" | "closed" | "none";
 
 /** How urgent a due date looks today: past, within three days, or fine. */
+// Mức cảnh báo hạn chót: quá hạn / sắp đến hạn (trong 3 ngày) / bình thường; task đã xong hoặc hủy thì không cảnh báo.
 export function dueTone(task: Pick<Task, "dueDate" | "status">, today: string): DueTone {
   if (!task.dueDate) {
     return "none";

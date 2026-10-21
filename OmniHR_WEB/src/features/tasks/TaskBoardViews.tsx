@@ -1,3 +1,5 @@
+// Các kiểu hiển thị task: dạng cây (task nhóm -> task con) và dạng Kanban theo trạng thái.
+
 import {
   ActionIcon,
   Avatar,
@@ -67,6 +69,7 @@ type TreeViewProps = BoardHandlers & {
 };
 
 /** Project > team task > subtask, with subtasks folded away until asked for. */
+// Dạng cây: nhóm theo dự án, mỗi task nhóm mở ra các task con.
 export function TaskTreeView(props: TreeViewProps) {
   const { tx, te } = useTranslation();
   const { sections, filtered, toggledTaskIds, onToggleTask, collapsedProjects, onToggleProject } = props;
@@ -222,6 +225,7 @@ function HiddenRow({ count }: { count: number }) {
 type KanbanViewProps = BoardHandlers & { sections: ProjectSection[] };
 
 /** The page's subtasks as cards in one column per status. */
+// Dạng Kanban: mỗi cột là một trạng thái.
 export function TaskKanbanView({ sections, ...handlers }: KanbanViewProps) {
   const { tx, te } = useTranslation();
   const columns = kanbanColumns(sections);
@@ -417,6 +421,7 @@ function Assignee({ task, handlers, compact }: { task: TaskTreeRow; handlers: Bo
 }
 
 /** A status badge; where the viewer may move the task, a click opens the allowed moves. */
+// Ô đổi trạng thái; chỉ hiện các trạng thái người dùng được phép chuyển tới.
 function StatusControl({ task, handlers }: { task: TaskTreeRow; handlers: BoardHandlers }) {
   const { te, tx } = useTranslation();
   const moves = handlers.statusChoicesFor(task).filter((status) => status !== task.status);
@@ -460,6 +465,7 @@ function StatusControl({ task, handlers }: { task: TaskTreeRow; handlers: BoardH
 }
 
 /** The due date, red once it has passed and orange in the last three days. */
+// Hiển thị hạn chót, tô màu khi sắp hết hạn / quá hạn.
 export function DueDate({ task, today }: { task: Pick<Task, "dueDate" | "status">; today: string }) {
   const { tx } = useTranslation();
   const tone = dueTone(task, today);

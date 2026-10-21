@@ -1,3 +1,5 @@
+// Module thông báo: lưu DB, đẩy qua WebSocket và push (Firebase).
+
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { NotificationsController } from "./notifications.controller";

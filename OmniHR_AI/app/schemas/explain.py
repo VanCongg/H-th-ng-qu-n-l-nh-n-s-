@@ -1,3 +1,5 @@
+# Hợp đồng dữ liệu cho /internal/suggestions/explain.
+
 from pydantic import BaseModel, Field
 
 
@@ -24,12 +26,14 @@ class ExplainCandidate(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+# Yêu cầu: thông tin task và danh sách ứng viên đã xếp hạng.
 class ExplainRequest(BaseModel):
     taskTitle: str
     requiredSkills: list[str] = Field(default_factory=list)
     candidates: list[ExplainCandidate]
 
 
+# Câu lý do cho một ứng viên.
 class Explanation(BaseModel):
     employeeId: int
     reason: str

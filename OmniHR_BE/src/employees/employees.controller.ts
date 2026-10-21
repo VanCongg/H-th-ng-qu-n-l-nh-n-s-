@@ -1,3 +1,6 @@
+// API hồ sơ nhân viên: danh sách, cấp dưới, hồ sơ của tôi, tạo / sửa / xóa,
+// đặt lại mật khẩu, khóa / mở khóa tài khoản.
+
 import {
   Body,
   Controller,
@@ -26,24 +29,28 @@ import { EmployeesService } from "./employees.service";
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
+  // Danh sách nhân viên (HR / admin).
   @Permissions("EMPLOYEE_READ_ALL")
   @Get()
   findAll(@Query() query: EmployeeQueryDto) {
     return this.employeesService.findAll(query);
   }
 
+  // Danh sách cấp dưới của người đang đăng nhập.
   @Permissions("EMPLOYEE_READ_TEAM")
   @Get("team")
   findTeam(@CurrentUser() user: AuthUser, @Query() query: EmployeeQueryDto) {
     return this.employeesService.findTeam(user, query);
   }
 
+  // Hồ sơ của chính mình.
   @Permissions("EMPLOYEE_READ_SELF")
   @Get("me")
   me(@CurrentUser() user: AuthUser) {
     return this.employeesService.myProfile(user);
   }
 
+  // Tự sửa hồ sơ; đổi số điện thoại hoặc email cần mã OTP gửi qua email.
   @Permissions("EMPLOYEE_UPDATE_SELF")
   @Patch("me")
   updateMe(
@@ -54,12 +61,14 @@ export class EmployeesController {
     return this.employeesService.updateSelf(user, dto, context);
   }
 
+  // Hồ sơ một nhân viên (kiểm tra quyền xem).
   @Permissions("EMPLOYEE_READ_ALL", "EMPLOYEE_READ_TEAM", "EMPLOYEE_READ_SELF")
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.employeesService.findOne(id, user);
   }
 
+  // Tạo nhân viên mới, đồng thời tạo tài khoản đăng nhập.
   @Permissions("EMPLOYEE_CREATE")
   @Post()
   create(
@@ -70,6 +79,7 @@ export class EmployeesController {
     return this.employeesService.create(dto, user, context);
   }
 
+  // HR / admin sửa hồ sơ nhân viên (không cần OTP).
   @Permissions("EMPLOYEE_UPDATE_ALL")
   @Patch(":id")
   update(
@@ -81,6 +91,7 @@ export class EmployeesController {
     return this.employeesService.update(id, dto, user, context);
   }
 
+  // Xóa mềm nhân viên.
   @Permissions("EMPLOYEE_DELETE")
   @Delete(":id")
   remove(
@@ -91,6 +102,7 @@ export class EmployeesController {
     return this.employeesService.softDelete(id, user, context);
   }
 
+  // Đặt lại mật khẩu về mặc định (ngày sinh dd/mm/yyyy), bắt buộc đổi khi đăng nhập.
   @Permissions("EMPLOYEE_UPDATE_ALL")
   @Post(":id/reset-password")
   resetPassword(
@@ -101,6 +113,7 @@ export class EmployeesController {
     return this.employeesService.resetPassword(id, user, context);
   }
 
+  // Khóa tài khoản đăng nhập của nhân viên.
   @Permissions("EMPLOYEE_UPDATE_ALL")
   @Post(":id/lock-user")
   lockUser(
@@ -111,6 +124,7 @@ export class EmployeesController {
     return this.employeesService.setUserActive(id, false, user, context);
   }
 
+  // Mở khóa tài khoản đăng nhập của nhân viên.
   @Permissions("EMPLOYEE_UPDATE_ALL")
   @Post(":id/unlock-user")
   unlockUser(

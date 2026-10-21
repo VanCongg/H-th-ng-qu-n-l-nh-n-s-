@@ -1,3 +1,5 @@
+// Dữ liệu sửa vị trí.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdatePositionDto {

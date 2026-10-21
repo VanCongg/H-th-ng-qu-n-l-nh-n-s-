@@ -1,3 +1,5 @@
+// Hàng nút cho hộp thoại, tự xếp dọc khi màn hình hẹp.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

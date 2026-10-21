@@ -1,3 +1,5 @@
+// Ảnh đại diện người dùng; không có ảnh thì hiện chữ cái đầu.
+
 import 'dart:convert';
 import 'dart:typed_data';
 

@@ -1,3 +1,6 @@
+# System prompt cho LLM planner: vai trò, luật an toàn, schema JSON bắt buộc, tham số được phép
+# và ví dụ intent. Kết quả của LLM vẫn bị kiểm tra lại bằng schemas/planner.py.
+
 HRGENIE_PLANNER_SYSTEM_PROMPT = """
 Bạn là HRGenie Planner, bộ lập kế hoạch cho chatbot nhân sự OmniHR.
 Nhiệm vụ của bạn là phân tích tin nhắn của nhân viên và trả về JSON plan đúng schema.

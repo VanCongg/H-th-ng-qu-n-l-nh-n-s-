@@ -1,3 +1,6 @@
+// Đọc audit log và dọn log cũ mỗi ngày: log thường giữ auditRetentionDays ngày,
+// log bảo mật giữ auditSecurityRetentionDays ngày (0 = giữ mãi). Tắt bằng AUDIT_RETENTION_JOB=false.
+
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
@@ -35,6 +38,7 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
     this.timers.forEach((timer) => clearTimeout(timer));
   }
 
+  // Danh sách audit log theo bộ lọc (nhóm hành động, người làm, khoảng ngày, bỏ hành động thường ngày...).
   async findAll(query: AuditLogQueryDto) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const actionFilters: Prisma.StringFilter[] = [];
@@ -83,6 +87,7 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
    * permissions, passwords, settings) after `auditSecurityRetentionDays`,
    * everything else after `auditRetentionDays`. 0 keeps them forever.
    */
+  // Xóa audit log quá thời gian lưu giữ.
   async purgeExpired(now = new Date()) {
     const settings = await this.systemSettings.getSettings();
     const security = [...SECURITY_AUDIT_ACTIONS];

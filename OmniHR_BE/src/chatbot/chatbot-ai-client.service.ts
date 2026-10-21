@@ -2,10 +2,19 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { AiPlanResponse, AiToolCall } from "./types/chatbot.types";
 
+/**
+ * Gọi AI service nội bộ (OmniHR_AI) để lấy kế hoạch trả lời.
+ * AI chỉ trả về "nên làm gì" (intent, toolCalls); nó không đọc hay ghi dữ liệu.
+ */
 @Injectable()
 export class ChatbotAiClientService {
   constructor(private readonly config: ConfigService) {}
 
+  /**
+   * POST /internal/chat/plan kèm header X-Internal-Service-Token (bí mật chung
+   * giữa hai service). Quá AI_TIMEOUT_MS (mặc định 30s) thì hủy request; lỗi
+   * được ném lên để ChatbotService trả câu dự phòng thay vì lỗi 500.
+   */
   async plan(payload: Record<string, unknown>): Promise<AiPlanResponse> {
     const baseUrl = this.cleanBaseUrl(
       this.config.get<string>("AI_SERVICE_URL") ?? "http://localhost:8000",
@@ -37,6 +46,10 @@ export class ChatbotAiClientService {
     }
   }
 
+  /**
+   * Không tin tuyệt đối dữ liệu AI trả về: kiểm tra type hợp lệ, bỏ tool call
+   * không có tên, ép arguments về object, các trường sai kiểu thì bỏ qua.
+   */
   private normalizePlan(value: unknown): AiPlanResponse {
     if (!isRecord(value)) {
       throw new Error("AI service returned an invalid response");

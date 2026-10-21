@@ -1,3 +1,5 @@
+// Dữ liệu sửa phòng ban.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdateDepartmentDto {

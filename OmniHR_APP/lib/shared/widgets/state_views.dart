@@ -1,3 +1,5 @@
+// Màn hình trạng thái dùng chung: đang tải, lỗi (có nút thử lại), trống.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

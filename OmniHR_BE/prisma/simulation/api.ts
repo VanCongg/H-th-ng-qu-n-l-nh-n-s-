@@ -1,3 +1,5 @@
+// Khởi động app NestJS không có HTTP để bộ mô phỏng gọi thẳng các service như controller vẫn gọi.
+
 import { ConsoleLogger, INestApplicationContext } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { PrismaClient } from "@prisma/client";
@@ -46,6 +48,7 @@ const DEVICES: Record<"mobile" | "web", RequestContext> = {
   }
 };
 
+// Tạo application context và trả về các service cần dùng.
 export async function startSimulationApi(): Promise<SimulationApi> {
   const client = withSimulatedTimestamps(new PrismaClient());
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })

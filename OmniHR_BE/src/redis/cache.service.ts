@@ -1,3 +1,6 @@
+// Cache-aside trên Redis: wrap(key, ttl, loader) đọc cache trước, thiếu thì gọi loader rồi lưu.
+// Redis lỗi thì coi như không có cache (đọc thẳng DB), không bao giờ làm hỏng request.
+
 import { Injectable, Logger } from "@nestjs/common";
 import { RedisService } from "./redis.service";
 

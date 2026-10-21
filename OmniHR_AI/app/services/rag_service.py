@@ -12,11 +12,14 @@ from app.services.text_normalize import normalize
 
 logger = logging.getLogger(__name__)
 
+# Thư mục tài liệu chính sách (.md). Mỗi mục "##" được cắt thành một chunk.
 DOCUMENTS_DIR = Path(__file__).resolve().parent.parent / "rag" / "documents"
 
+# Tìm theo từ khóa: chunk phải trùng ít nhất 2 từ với câu hỏi và đạt điểm >= 0.45.
 MIN_SCORE = 0.45
 MIN_OVERLAP = 2
 
+# Từ quá phổ biến, bỏ qua khi so khớp từ khóa.
 _STOPWORDS = {
     "la", "va", "cua", "cho", "khi", "gi", "the", "nao", "co", "khong",
     "toi", "ban", "duoc", "de", "nhu", "voi", "trong", "mot", "cac", "nay",
@@ -58,6 +61,15 @@ class RagService:
     match a question that shares no words with the policy that answers it.
 
     Search is an exact scan, not a vector database: see EmbeddingIndex.
+
+    Tóm tắt tiếng Việt: tìm đoạn tài liệu chính sách trả lời câu hỏi, bằng hai
+    cách chạy song song:
+    - từ khóa (luôn có, không cần mạng): điểm theo IDF, từ đặc trưng của chủ đề
+      nặng ký hơn từ chung chung; có thêm cặp từ liền nhau để phân biệt từ ghép;
+    - embedding (khi đã cấu hình provider): cosine giữa vector câu hỏi và chunk;
+      chỉ nhận khi chunk tốt nhất bỏ xa chunk thứ hai (có "người thắng rõ ràng").
+    Chế độ hybrid: chunk được giữ nếu một trong hai cách đủ chắc chắn; điểm cuối
+    = 0.4 x từ khóa + 0.6 x embedding. Embedding lỗi thì tự lùi về từ khóa.
     """
 
     def __init__(
@@ -116,6 +128,8 @@ class RagService:
         return self._mode
 
     def search(self, request: RagSearchRequest) -> RagSearchResponse:
+        # Chấm điểm từng chunk theo cả hai cách, giữ chunk đủ tin cậy,
+        # sắp xếp giảm dần và trả về topK.
         query_tokens = self._tokenize(request.query)
         if not query_tokens:
             return RagSearchResponse(items=[])

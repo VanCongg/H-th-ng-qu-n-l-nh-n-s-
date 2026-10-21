@@ -1,3 +1,5 @@
+// Dữ liệu tạo phòng ban: mã, tên, phòng cha, trưởng phòng, đang hoạt động.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CreateDepartmentDto {

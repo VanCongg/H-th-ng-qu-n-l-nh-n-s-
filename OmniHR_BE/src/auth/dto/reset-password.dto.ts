@@ -1,3 +1,5 @@
+// Dữ liệu đặt lại mật khẩu: tên đăng nhập, mã email, mật khẩu mới.
+
 import { IsString, Length, MaxLength, MinLength } from "class-validator";
 import { IsStrongPassword } from "../../common/validators/strong-password";
 

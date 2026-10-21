@@ -1,3 +1,5 @@
+// Màn hình kỹ năng của tôi: xem và thêm kỹ năng (trình độ, số năm kinh nghiệm).
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';

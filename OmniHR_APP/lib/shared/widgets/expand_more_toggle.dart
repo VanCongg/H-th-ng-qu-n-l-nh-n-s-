@@ -1,3 +1,5 @@
+// Nút "Xem thêm / Thu gọn" cho danh sách dài.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

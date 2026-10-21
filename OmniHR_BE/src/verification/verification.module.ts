@@ -1,3 +1,5 @@
+// Module mã xác thực một lần (OTP) gửi qua email.
+
 import { Global, Module } from "@nestjs/common";
 import { AuditService } from "../common/services/audit.service";
 import { MailService } from "./mail.service";

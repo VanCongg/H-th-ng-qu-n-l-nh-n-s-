@@ -1,3 +1,8 @@
+// Tinh chỉnh trọng số AI gợi ý giao việc trên dữ liệu lịch sử thay vì chọn tay.
+// Thử lưới trọng số, chấm mỗi bộ theo độ khớp với năng lực ẩn (mô phỏng) và lựa chọn của quản lý,
+// chia dữ liệu theo thời gian (phần đầu để fit, phần sau để kiểm tra).
+// Chạy: npm run eval:tune-weights; thêm --apply để ghi trọng số vào cấu hình (từ chối nếu quá ít dữ liệu).
+
 /**
  * Fits the AI assignee ranking weights on history instead of hand-picking them.
  *
@@ -294,6 +299,7 @@ function fairSharePenalties(
   return penalties;
 }
 
+// Chấm một bộ trọng số trên tập quyết định.
 export function evaluateWeights(
   weights: ScoreWeights,
   decisions: Decision[],
@@ -474,6 +480,7 @@ function feedbackAgreement(weights: ScoreWeights, feedback: FeedbackDecision[]) 
 // ---------------------------------------------------------------------------
 
 /** Every weight vector on a `step` grid of the 4-signal simplex (sum = 1). */
+// Sinh lưới các bộ trọng số (tổng bằng 1, bước nhảy cố định).
 function weightGrid(step: number) {
   const steps = Math.round(1 / step);
   const grid: ScoreWeights[] = [];
@@ -628,6 +635,7 @@ async function currentWeights(): Promise<ScoreWeights> {
   };
 }
 
+// Ghi trọng số đã chọn vào cấu hình hệ thống.
 async function applyWeights(weights: ScoreWeights) {
   const record = await prisma.systemSetting.findUnique({
     where: { key: SYSTEM_SETTINGS_KEY }

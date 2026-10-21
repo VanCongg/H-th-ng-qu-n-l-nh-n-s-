@@ -1,3 +1,5 @@
+// @Permissions(...): route yêu cầu có ít nhất một trong các permission này (PermissionsGuard kiểm tra).
+
 import { SetMetadata } from "@nestjs/common";
 
 export const PERMISSIONS_KEY = "permissions";

@@ -1,3 +1,8 @@
+// Seed dữ liệu mẫu: một công ty demo nhất quán (role, permission, phòng ban, vị trí, nhân viên, nhóm,
+// kỹ năng, dự án, task, đơn nghỉ, chấm công). Dữ liệu tuân theo đúng luật API kiểm tra,
+// ngày tháng tính tương đối theo hôm nay (hoặc SEED_AS_OF). SEED_ORG_ONLY=true chỉ seed phần tổ chức,
+// để simulate-day.ts sinh lịch sử bằng chính API.
+
 import {
   AttendanceRecordType,
   AttendanceShift,
@@ -1280,6 +1285,7 @@ type SeededEmployee = {
  */
 let holidays: ReadonlySet<number> = new Set();
 
+// Chạy lần lượt các bước seed và in bảng tổng kết.
 async function main() {
   holidays = new Set(
     (await prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
@@ -1349,6 +1355,7 @@ async function main() {
   });
 }
 
+// Role (ADMIN / MANAGER / EMPLOYEE), permission, và quyền gắn với từng role.
 async function seedAccessControl() {
   await prisma.role.createMany({
     data: roles.map((name) => ({ name, description: `${name} role`, isSystem: true }))
@@ -1375,6 +1382,7 @@ async function seedAccessControl() {
   return roleIds;
 }
 
+// Danh mục: loại nghỉ, kỹ năng, cấu hình hệ thống.
 async function seedCatalogs() {
   await prisma.leaveType.createMany({
     data: leaveTypes.map(([code, name, annualAllowance, isPaid]) => ({
@@ -1419,6 +1427,7 @@ async function seedCatalogs() {
   });
 }
 
+// Phòng ban và vị trí, gắn kỹ năng phù hợp cho từng vị trí.
 async function seedDepartmentsAndPositions(skillIds: Map<string, number>) {
   const departmentIds = {} as Record<DepartmentCode, number>;
   for (const [code, name] of departments) {
@@ -1457,6 +1466,7 @@ async function seedDepartmentsAndPositions(skillIds: Map<string, number>) {
   return { departmentIds, positionByCode };
 }
 
+// Nhân viên kèm tài khoản đăng nhập.
 async function seedEmployees(
   passwordHash: string,
   roleIds: Record<RoleName, number>,
@@ -1553,6 +1563,7 @@ async function seedEmployees(
   return employees;
 }
 
+// Nhóm, trưởng nhóm, trưởng phòng và quan hệ quản lý.
 async function seedTeamsAndManagers(
   employees: Map<string, SeededEmployee>,
   departmentIds: Record<DepartmentCode, number>
@@ -1613,6 +1624,7 @@ async function seedTeamsAndManagers(
   return teamIds;
 }
 
+// Kỹ năng của từng nhân viên, trình độ theo cấp bậc.
 async function seedEmployeeSkills(
   employees: Map<string, SeededEmployee>,
   positionByCode: Map<string, { skills: readonly string[] }>,
@@ -1639,6 +1651,7 @@ async function seedEmployeeSkills(
   }
   await prisma.employeeSkill.createMany({ data: rows });
 }
+// Dự án, task nhóm và task con với trạng thái hợp lệ.
 async function seedProjectsAndTasks(
   employees: Map<string, SeededEmployee>,
   departmentIds: Record<DepartmentCode, number>,
@@ -1805,6 +1818,7 @@ function deriveParentStatus(statuses: TaskStatus[]): TaskStatus {
 }
 
 /** Returns, per employee id, the work dates covered by approved leave. */
+// Đơn nghỉ phép ở nhiều trạng thái.
 async function seedLeaveRequests(
   employees: Map<string, SeededEmployee>,
   leaveTypeByCode: Map<string, { id: number; annualAllowance: number | null }>,
@@ -1891,6 +1905,7 @@ async function seedLeaveRequests(
  * check-in time, LATE after the shift start, EARLY_OUT when checking out
  * before the check-in shift ends.
  */
+// Dữ liệu chấm công theo ca.
 async function seedAttendance(
   employees: Map<string, SeededEmployee>,
   approvedLeaveDays: Map<number, Set<number>>

@@ -1,3 +1,7 @@
+// Luật chuyển trạng thái task.
+// Người được giao chỉ được: TODO -> IN_PROGRESS -> IN_REVIEW, và rút IN_REVIEW về IN_PROGRESS.
+// Duyệt hoàn thành (DONE), trả lại, hủy, mở lại là việc của người duyệt: trưởng nhóm, trưởng phòng hoặc admin.
+
 import { TaskStatus } from "@prisma/client";
 
 /**
@@ -15,6 +19,7 @@ const ASSIGNEE_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 };
 
 /** Statuses a task can move to from `current`; a reviewer may pick any other one. */
+// Các trạng thái được phép chuyển tới; người duyệt được chọn bất kỳ trạng thái nào khác.
 export function allowedTaskStatuses(current: TaskStatus, isReviewer: boolean): TaskStatus[] {
   if (isReviewer) {
     return Object.values(TaskStatus).filter((status) => status !== current);
@@ -22,6 +27,7 @@ export function allowedTaskStatuses(current: TaskStatus, isReviewer: boolean): T
   return ASSIGNEE_TRANSITIONS[current];
 }
 
+// Có được chuyển từ trạng thái này sang trạng thái kia không.
 export function canMoveTaskStatus(from: TaskStatus, to: TaskStatus, isReviewer: boolean) {
   return from === to || allowedTaskStatuses(from, isReviewer).includes(to);
 }
@@ -31,6 +37,7 @@ export function canMoveTaskStatus(from: TaskStatus, to: TaskStatus, isReviewer: 
  * cleared when it leaves DONE, and left alone otherwise, so editing a finished
  * task does not move the day it was finished.
  */
+// Thời điểm hoàn thành: đặt khi chuyển sang DONE, xóa khi rời DONE, còn lại giữ nguyên.
 export function completedAtFor(
   from: TaskStatus,
   to: TaskStatus | undefined,

@@ -1,3 +1,5 @@
+// Dữ liệu tạo / sửa / lọc ngày lễ.
+
 import { IsDateString, IsInt, IsOptional, IsString, MaxLength, Max, Min, MinLength } from "class-validator";
 import { Type } from "class-transformer";
 

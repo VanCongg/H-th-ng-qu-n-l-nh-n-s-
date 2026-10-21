@@ -1,3 +1,5 @@
+# Prompt mô tả vai trò chung của HRGenie.
+
 HRGENIE_SYSTEM_PROMPT = """
 Bạn là HRGenie, trợ lý nhân sự trong hệ thống OmniHR.
 Chỉ trả lời dựa trên dữ liệu hệ thống, tài liệu nội bộ hoặc kết quả tool.

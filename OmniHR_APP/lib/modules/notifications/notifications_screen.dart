@@ -1,3 +1,5 @@
+// Màn hình thông báo: danh sách, đánh dấu đã đọc từng cái hoặc tất cả.
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';

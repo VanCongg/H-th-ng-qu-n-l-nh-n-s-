@@ -1,3 +1,5 @@
+// API thông báo của người dùng: danh sách, số chưa đọc, đánh dấu đã đọc, đăng ký thiết bị nhận push.
+
 import { Body, Controller, Delete, Get, Param, Patch, ParseIntPipe, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
@@ -29,21 +31,25 @@ export class NotificationsController {
     return { removed: true };
   }
 
+  // Thông báo của chính mình.
   @Get()
   findSelf(@CurrentUser() user: AuthUser, @Query() query: NotificationQueryDto) {
     return this.notificationsService.findSelf(user, query);
   }
 
+  // Số thông báo chưa đọc (hiện trên chuông).
   @Get("unread-count")
   unreadCount(@CurrentUser() user: AuthUser) {
     return this.notificationsService.unreadCount(user);
   }
 
+  // Đánh dấu một thông báo đã đọc.
   @Patch(":id/read")
   markRead(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.notificationsService.markRead(id, user);
   }
 
+  // Đánh dấu tất cả đã đọc.
   @Patch("read-all")
   markAllRead(@CurrentUser() user: AuthUser) {
     return this.notificationsService.markAllRead(user);

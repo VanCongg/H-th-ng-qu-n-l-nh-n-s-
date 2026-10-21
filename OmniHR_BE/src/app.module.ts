@@ -1,3 +1,6 @@
+// Module gốc: kiểm tra cấu hình môi trường bằng Joi, đăng ký mọi module nghiệp vụ,
+// và gắn các guard / filter / interceptor dùng chung cho toàn bộ API.
+
 import { VerificationModule } from "./verification/verification.module";
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
@@ -40,6 +43,7 @@ import { TeamsModule } from "./teams/teams.module";
 import { UsersModule } from "./users/users.module";
 
 const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+// Các giá trị mặc định không an toàn (secret mẫu) bị cấm khi chạy production.
 const insecureProductionValues = new Map<string, string[]>([
   ["JWT_ACCESS_SECRET", ["change_me_access_secret"]],
   ["JWT_REFRESH_SECRET", ["change_me_refresh_secret"]],
@@ -47,6 +51,7 @@ const insecureProductionValues = new Map<string, string[]>([
   ["DEFAULT_ADMIN_PASSWORD", ["Admin@123456"]],
 ]);
 
+// Chặn khởi động production nếu còn dùng secret/mật khẩu mặc định. Không được bỏ kiểm tra này.
 function rejectInsecureProductionConfig(
   env: Record<string, unknown>,
   helpers: Joi.CustomHelpers
@@ -129,6 +134,7 @@ function rejectInsecureProductionConfig(
           "any.invalid": "Production config must not use insecure default secrets",
         }),
     }),
+    // Giới hạn chung 100 request/phút; bộ đếm lưu trên Redis để mọi instance dùng chung.
     ThrottlerModule.forRootAsync({
       imports: [RedisModule],
       inject: [RedisService],
@@ -172,6 +178,8 @@ function rejectInsecureProductionConfig(
     ChatbotModule,
     NotificationsModule,
   ],
+  // Thứ tự guard toàn cục: ThrottlerGuard -> JwtAuthGuard -> RolesGuard -> PermissionsGuard.
+  // HttpExceptionFilter chuẩn hóa lỗi; ResponseInterceptor bọc kết quả thành { success, message, data }.
   providers: [
     {
       provide: APP_FILTER,

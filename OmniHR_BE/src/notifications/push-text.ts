@@ -1,3 +1,5 @@
+// Nội dung push theo ngôn ngữ thiết bị (tiếng Việt / tiếng Anh) cho từng loại thông báo.
+
 /**
  * Notifications are stored in English and translated where they are shown
  * (OmniHR_WEB notificationText.ts, OmniHR_APP lib/core/utils.dart). A push

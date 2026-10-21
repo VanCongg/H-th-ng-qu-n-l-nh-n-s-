@@ -1,3 +1,6 @@
+// Lấy vị trí GPS để chấm công: xin quyền, lấy vị trí hiện tại (hoặc vị trí gần nhất),
+// kèm độ chính xác, có phải vị trí giả, và tuổi của vị trí để backend kiểm tra.
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -14,6 +17,7 @@ class AttendanceLocationException implements Exception {
   String toString() => message;
 }
 
+// Dữ liệu vị trí gửi kèm check-in / check-out; lỗi quyền / tắt GPS thì báo lý do cụ thể.
 Future<Map<String, Object?>> currentAttendanceLocationPayload() async {
   try {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();

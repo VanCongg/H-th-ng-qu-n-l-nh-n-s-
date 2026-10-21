@@ -1,3 +1,5 @@
+// Chọn vị trí văn phòng trên bản đồ và bán kính cho phép chấm công.
+
 import { Button, Group, Paper, Stack, Text } from "@mantine/core";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -146,6 +148,7 @@ export function CompanyLocationPicker({
 
   const hasPoint = latitude !== null && longitude !== null;
 
+  // Lấy vị trí hiện tại của trình duyệt làm vị trí văn phòng.
   function locateMe() {
     if (!navigator.geolocation) {
       return;

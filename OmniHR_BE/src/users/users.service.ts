@@ -1,3 +1,6 @@
+// Nghiệp vụ tài khoản (User). Tài khoản không phải ADMIN thì bắt buộc kèm hồ sơ nhân viên.
+// Mọi thay đổi role / trạng thái / mật khẩu đều xóa cache người dùng (cacheKeys.authUser) và ghi audit.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as bcrypt from "bcrypt";
@@ -48,6 +51,7 @@ export class UsersService {
     private readonly cache: CacheService
   ) {}
 
+  // Danh sách tài khoản theo bộ lọc.
   async findAll(query: UserQueryDto) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const employeeFilter: Prisma.EmployeeWhereInput = {
@@ -136,6 +140,7 @@ export class UsersService {
     return omitSensitiveUser(user as unknown as Record<string, unknown>);
   }
 
+  // Tạo tài khoản (kèm hồ sơ nhân viên nếu cần), mật khẩu băm bcrypt, gán role.
   async create(dto: CreateUserDto, actor: AuthUser, context?: RequestContext) {
     const roleIds = this.uniqueIds(dto.roleIds);
     const email = dto.email.toLowerCase();
@@ -197,6 +202,7 @@ export class UsersService {
     return omitSensitiveUser(user as unknown as Record<string, unknown>);
   }
 
+  // Sửa tài khoản / hồ sơ đi kèm; xóa cache người dùng.
   async update(
     id: number,
     dto: UpdateUserDto,
@@ -307,6 +313,7 @@ export class UsersService {
     return omitSensitiveUser(user as unknown as Record<string, unknown>);
   }
 
+  // Xóa mềm tài khoản và thu hồi phiên đăng nhập.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.prisma.user.findFirst({
       where: currentUserWhere({ id }),
@@ -368,6 +375,7 @@ export class UsersService {
     return omitSensitiveUser(user as unknown as Record<string, unknown>);
   }
 
+  // Gán role, xóa cache để quyền mới có hiệu lực ngay.
   async assignRole(
     userId: number,
     dto: AssignRoleDto,
@@ -397,6 +405,7 @@ export class UsersService {
     return this.findOne(userId);
   }
 
+  // Gỡ role, xóa cache để quyền bị gỡ có hiệu lực ngay.
   async removeRole(
     userId: number,
     roleId: number,
@@ -444,6 +453,7 @@ export class UsersService {
     return this.findOne(userId);
   }
 
+  // Đặt mật khẩu mới (mặc định bắt buộc đổi khi đăng nhập) và thu hồi mọi phiên đăng nhập.
   async resetPassword(
     id: number,
     dto: ResetUserPasswordDto,
@@ -727,6 +737,7 @@ export class UsersService {
     );
   }
 
+  // Mã nhân viên chưa bị dùng.
   private async ensureEmployeeCodeAvailable(employeeCode: string, employeeId?: number) {
     const employee = await this.prisma.employee.findFirst({
       where: {
@@ -747,6 +758,7 @@ export class UsersService {
   // The `username`/`email` columns are unique in the database, including for
   // soft-deleted accounts. Without this pre-check the insert fails with a raw
   // P2002 and the client only learns "Unique constraint violated".
+  // Username và email chưa bị tài khoản khác dùng.
   private async ensureAccountIdentityAvailable(
     username?: string,
     email?: string,
@@ -847,6 +859,7 @@ export class UsersService {
     }
   }
 
+  // Chỉ tài khoản thuần ADMIN mới không cần hồ sơ nhân viên.
   private async requiresEmployeeProfile(roleIds: number[]) {
     if (!roleIds.length) {
       return true;

@@ -1,8 +1,14 @@
+// Axios client dùng chung cho mọi lời gọi API.
+// - Tự gắn access token vào header Authorization.
+// - Gặp 401 thì tự làm mới token bằng refresh token rồi gửi lại request (nhiều request cùng lúc chỉ refresh một lần);
+//   làm mới thất bại thì đăng xuất.
+
 import axios, { AxiosError } from "axios";
 import type { ApiEnvelope, LoginResponse } from "./types";
 import { authStore } from "../store/auth";
 import { getCurrentLanguage, translateText } from "../i18n";
 
+// Địa chỉ backend, lấy từ VITE_API_BASE_URL.
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
@@ -21,6 +27,7 @@ api.interceptors.request.use((config) => {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+// Bắt 401: refresh token một lần (dùng chung refreshPromise) rồi gửi lại request gốc.
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiEnvelope<unknown>>) => {
@@ -53,6 +60,7 @@ api.interceptors.response.use(
   }
 );
 
+// Gọi /auth/refresh; thành công thì lưu token mới, thất bại thì xóa phiên đăng nhập.
 async function refreshAccessToken() {
   const refreshToken = authStore.getState().refreshToken;
   if (!refreshToken) {
@@ -73,6 +81,7 @@ async function refreshAccessToken() {
   }
 }
 
+// Lấy thông báo lỗi dễ đọc từ lỗi API (đã dịch theo ngôn ngữ đang chọn).
 export function getApiErrorMessage(error: unknown) {
   const language = getCurrentLanguage();
 

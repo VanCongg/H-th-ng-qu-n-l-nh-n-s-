@@ -4,13 +4,24 @@ import { ApiError } from "../common/api-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChatbotHistoryItem } from "./types/chatbot.types";
 
+// Câu thay thế cho các tin nhắn có dữ liệu cá nhân khi gửi lịch sử sang AI.
 const SENSITIVE_PLACEHOLDER =
   "[Dữ liệu cá nhân đã được ẩn khỏi ngữ cảnh gửi cho AI]";
 
+/**
+ * Lưu và đọc lịch sử chat (bảng chatbot_conversations, chatbot_messages).
+ * Mỗi tin nhắn có role USER / ASSISTANT / TOOL; metadata ghi intent, tool đã
+ * chạy và cờ `sensitive` để biết có được gửi sang AI hay không.
+ */
 @Injectable()
 export class ChatbotHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Có conversationId: lấy hội thoại đó, nhưng chỉ khi nó thuộc về đúng người
+   * dùng (người khác đoán id cũng nhận 404). Không có: tạo hội thoại mới,
+   * tiêu đề lấy từ tin nhắn đầu tiên.
+   */
   async getOrCreateConversation(
     userId: number,
     conversationId: number | undefined,
@@ -38,6 +49,7 @@ export class ChatbotHistoryService {
     });
   }
 
+  /** Lưu một tin nhắn và đẩy hội thoại lên đầu danh sách (cập nhật updatedAt). */
   async addMessage(
     conversationId: number,
     role: ChatbotMessageRole,
@@ -63,6 +75,10 @@ export class ChatbotHistoryService {
     conversationId: number,
     limit = 12,
   ): Promise<ChatbotHistoryItem[]> {
+    // Lịch sử gửi sang AI làm ngữ cảnh (mặc định 12 tin gần nhất):
+    // - bỏ hẳn các tin TOOL (kết quả thô của tool, AI không cần thấy);
+    // - tin nào đánh dấu sensitive thì thay nội dung bằng SENSITIVE_PLACEHOLDER,
+    //   nên dữ liệu nhân sự không bị gửi ra LLM bên ngoài.
     // Raw tool results are records for the app, not context for the planner:
     // the rendered assistant reply already says what the user was told.
     const messages = await this.prisma.chatbotMessage.findMany({
@@ -88,6 +104,7 @@ export class ChatbotHistoryService {
     );
   }
 
+  /** Danh sách hội thoại kèm tin cuối và bản nháp đang chờ (nếu có). */
   async listConversations(userId: number) {
     await this.expireStaleActions(userId);
     return this.prisma.chatbotConversation.findMany({
@@ -129,6 +146,7 @@ export class ChatbotHistoryService {
     }
   }
 
+  // Bản nháp quá hạn (mặc định 30 phút) chuyển sang EXPIRED để không còn xác nhận được.
   private expireStaleActions(userId: number) {
     return this.prisma.chatbotPendingAction.updateMany({
       where: {

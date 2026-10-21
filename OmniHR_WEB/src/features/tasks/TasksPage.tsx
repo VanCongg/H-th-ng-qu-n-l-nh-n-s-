@@ -1,3 +1,6 @@
+// Trang công việc: danh sách / cây / Kanban theo phạm vi, tạo / sửa task nhóm và task con, giao việc
+// (giao tay hoặc xin AI gợi ý rồi chọn ứng viên), đổi trạng thái, xóa.
+
 import {
   ActionIcon,
   Badge,
@@ -87,6 +90,7 @@ import { useAuthStore } from "../../store/auth";
 const taskPriorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 const TEAM_TASKS_PER_PAGE = 10;
 /** The current status plus the moves the API allows the viewer to make. */
+// Các trạng thái hiển thị trong ô chọn: trạng thái hiện tại + các trạng thái được phép.
 function statusChoices(task: Pick<Task, "status" | "allowedStatuses">): TaskStatus[] {
   if (!task.allowedStatuses) {
     return taskStatuses;
@@ -274,6 +278,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     return map;
   }, [workloadQuery.data]);
 
+  // Lưu task (tạo hoặc sửa).
   const saveMutation = useMutation({
     mutationFn: (values: typeof form.values) => {
       const payload: Record<string, unknown> = normalizeTaskPayload(values);
@@ -305,6 +310,8 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     onError: (error) =>
       notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Giao task: nếu đã chọn ứng viên từ gợi ý AI thì chọn qua API gợi ý (ghi nhận AI_SUGGESTED),
+  // không thì giao tay.
   const assignMutation = useMutation<Task | AiTaskSuggestion, unknown, typeof assignForm.values>({
     mutationFn: (values: typeof assignForm.values) => {
       if (!assigning) {
@@ -340,6 +347,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     onError: (error) =>
       notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Xin AI gợi ý người làm cho task đang giao.
   const generateAiMutation = useMutation({
     mutationFn: () => {
       if (!assigning) {
@@ -361,6 +369,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     onError: (error) =>
       notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Đổi trạng thái task.
   const statusMutation = useMutation({
     mutationFn: (values: { id: number; status: TaskStatus }) =>
       tasksApi.updateStatus(values.id, { status: values.status }),
@@ -491,6 +500,7 @@ export function TasksPage({ scope, mode = "manage" }: TasksPageProps) {
     }
   }
 
+  // Chọn một ứng viên AI gợi ý vào form giao việc.
   function applyAiCandidate(item: AiTaskSuggestionItem) {
     assignForm.setFieldValue("assigneeId", String(item.employeeId));
     setSelectedAiItemId(item.suggestionItemId);

@@ -1,3 +1,5 @@
+// API liệt kê toàn bộ permission (để admin gán vào role).
+
 import { Controller, Get } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Permissions } from "../common/decorators/permissions.decorator";

@@ -1,3 +1,5 @@
+// Trang chính sách: tài liệu tham khảo nguyên tắc vận hành cho admin / quản lý, kèm phần quản lý ngày lễ.
+
 import { List, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { ClipboardCheck, FileText } from "lucide-react";
 import { PageHeader } from "../../components/PageHeader";

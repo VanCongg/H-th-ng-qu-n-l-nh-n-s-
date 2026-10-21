@@ -1,3 +1,5 @@
+// Các guard điều hướng phía client (chỉ để trải nghiệm; backend vẫn kiểm tra quyền thật).
+
 import { Center, Loader } from "@mantine/core";
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
@@ -5,6 +7,7 @@ import type { RoleName } from "../api/types";
 import { useAuthStore } from "../store/auth";
 import { usePreferencesStore } from "../store/preferences";
 
+// Đọc lại phiên đăng nhập từ localStorage khi tải trang.
 export function AuthHydrator() {
   const hydrate = useAuthStore((state) => state.hydrate);
   const hydratePreferences = usePreferencesStore((state) => state.hydrate);
@@ -17,6 +20,7 @@ export function AuthHydrator() {
   return <Outlet />;
 }
 
+// Đang đọc phiên thì hiện loader; chưa đăng nhập thì chuyển về /login (nhớ trang đang mở để quay lại).
 export function RequireAuth() {
   const location = useLocation();
   const hydrated = useAuthStore((state) => state.hydrated);
@@ -38,6 +42,7 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
+// Thiếu role yêu cầu thì chuyển về trang báo không có quyền.
 export function RequireRole({ roles }: { roles: RoleName[] }) {
   const user = useAuthStore((state) => state.user);
 
@@ -55,6 +60,7 @@ export function RequireRole({ roles }: { roles: RoleName[] }) {
   return <Outlet />;
 }
 
+// Vào "/" thì chuyển theo role: ADMIN -> /admin/dashboard, MANAGER -> /app/dashboard.
 export function RootRedirect() {
   const user = useAuthStore((state) => state.user);
 
@@ -73,6 +79,7 @@ export function RootRedirect() {
   return <Navigate to="/employee-web-notice" replace />;
 }
 
+// Thiếu permission yêu cầu thì chặn.
 export function RequirePermission({ permissions }: { permissions: string[] }) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
 

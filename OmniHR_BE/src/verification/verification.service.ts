@@ -1,3 +1,8 @@
+// Mã OTP 6 số gửi qua email trước khi đổi mật khẩu / số điện thoại / email.
+// - Chỉ lưu bản băm SHA-256 có trộn secret của server.
+// - Mã hết hạn sau 10 phút, gửi lại sau 60 giây, sai 5 lần thì vô hiệu.
+// - Mã gắn với giá trị mới cần duyệt; đổi email thì mã gửi tới địa chỉ MỚI để chứng minh quyền sở hữu.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { VerificationPurpose } from "@prisma/client";
@@ -18,6 +23,7 @@ export const MAX_CODE_ATTEMPTS = 5;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** "ng***@gmail.com": enough to recognise one's own address, not to harvest it. */
+// Che bớt email khi hiển thị: "ng***@gmail.com".
 export function maskEmail(email: string) {
   const [name, domain] = email.split("@");
   if (!domain) {
@@ -127,6 +133,8 @@ export class VerificationService {
    * Checks and uses up the code for `purpose`. `target` must be the value the
    * code was sent for. Throws with a code-specific error when it does not pass.
    */
+  // Kiểm tra và dùng mã: đúng mục đích, đúng giá trị, còn hạn, chưa quá số lần sai.
+  // So sánh bằng timingSafeEqual để không lộ thông tin qua thời gian so sánh.
   async consume(userId: number, purpose: VerificationPurpose, code: string | undefined, target: string | null = null) {
     if (!code) {
       throw new ApiError(
@@ -175,6 +183,7 @@ export class VerificationService {
   }
 
   /** Tells the old address that the account's email has moved. */
+  // Báo cho địa chỉ email cũ biết email tài khoản vừa được đổi.
   async notifyEmailChanged(oldEmail: string, newEmail: string, fullName: string | null) {
     const greeting = fullName ? `Xin chào ${fullName},` : "Xin chào,";
     const text = `${greeting}\n\nEmail tài khoản OmniHR của bạn vừa được đổi sang ${maskEmail(newEmail)}. Nếu không phải bạn thực hiện, hãy liên hệ quản trị viên ngay.`;

@@ -1,3 +1,5 @@
+// Dữ liệu sửa task: các trường của CreateTaskDto, đều không bắt buộc.
+
 import { OmitType, PartialType } from "@nestjs/swagger";
 import { CreateTaskDto } from "./create-task.dto";
 

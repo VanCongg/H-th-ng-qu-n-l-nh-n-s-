@@ -1,3 +1,6 @@
+// Tùy chọn khi tạo gợi ý AI: số ứng viên (1-20, mặc định 5), có xét lịch nghỉ không,
+// có tính cả bản thân người giao không, có tính đơn nghỉ đang chờ duyệt không.
+
 import { Type } from "class-transformer";
 import { IsBoolean, IsInt, IsOptional, Max, Min } from "class-validator";
 

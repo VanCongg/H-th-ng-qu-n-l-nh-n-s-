@@ -1,3 +1,5 @@
+// Theme sáng / tối của app (màu thương hiệu, font, kiểu nút, ô nhập...).
+
 import 'package:flutter/material.dart';
 
 /// Two color sets only: [light] and [dark]. Every screen reads colors via

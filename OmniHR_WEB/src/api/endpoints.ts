@@ -1,3 +1,7 @@
+// Toàn bộ lời gọi HTTP của web, nhóm theo domain (authApi, employeesApi, tasksApi...).
+// Thêm endpoint mới ở đây, không gọi axios trực tiếp trong các trang.
+// Backend bọc kết quả dạng { success, message, data }; unwrap() lấy phần data.
+
 import { api } from "./axios";
 import type {
   AdminDashboard,
@@ -37,11 +41,13 @@ import type {
 
 type QueryParams = Record<string, string | number | boolean | undefined | null>;
 
+// Bỏ lớp vỏ { success, message, data }, trả về data.
 export async function unwrap<T>(promise: Promise<{ data: ApiEnvelope<T> }>) {
   const response = await promise;
   return response.data.data;
 }
 
+// Đăng nhập, đăng xuất, quên / đặt lại / đổi mật khẩu, mã OTP.
 export const authApi = {
   login: (usernameOrEmail: string, password: string) =>
     unwrap<LoginResponse>(
@@ -64,6 +70,7 @@ export const authApi = {
     )
 };
 
+// Dashboard và cấu hình hệ thống.
 export const dashboardApi = {
   admin: () => unwrap<AdminDashboard>(api.get("/admin/dashboard")),
   manager: () => unwrap<ManagerDashboard>(api.get("/app/dashboard")),
@@ -72,6 +79,7 @@ export const dashboardApi = {
     unwrap<Record<string, unknown>>(api.patch("/system-settings", { settings }))
 };
 
+// Hồ sơ nhân viên.
 export const employeesApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Employee>>(api.get("/employees", { params })),
@@ -95,6 +103,7 @@ export const employeesApi = {
   unlockUser: (id: number) => unwrap(api.post(`/employees/${id}/unlock-user`))
 };
 
+// Phòng ban.
 export const departmentsApi = {
   list: (search?: string) =>
     unwrap<Department[]>(api.get("/departments", { params: { search } })),
@@ -106,6 +115,7 @@ export const departmentsApi = {
   remove: (id: number) => unwrap<Department>(api.delete(`/departments/${id}`))
 };
 
+// Nhóm và thành viên.
 export const teamsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Team>>(api.get("/teams", { params })),
@@ -123,6 +133,7 @@ export const teamsApi = {
     unwrap<Team>(api.delete(`/teams/${id}/members/${memberId}`))
 };
 
+// Dự án.
 export const projectsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Project>>(api.get("/projects", { params })),
@@ -134,6 +145,7 @@ export const projectsApi = {
   remove: (id: number) => unwrap<Project>(api.delete(`/projects/${id}`))
 };
 
+// Danh mục kỹ năng.
 export const skillsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Skill>>(api.get("/skills", { params })),
@@ -144,6 +156,7 @@ export const skillsApi = {
   remove: (id: number) => unwrap<Skill>(api.delete(`/skills/${id}`))
 };
 
+// Kỹ năng của nhân viên.
 export const employeeSkillsApi = {
   list: (employeeId: number) =>
     unwrap<EmployeeSkill[]>(api.get(`/employees/${employeeId}/skills`)),
@@ -154,6 +167,7 @@ export const employeeSkillsApi = {
   remove: (id: number) => unwrap<EmployeeSkill>(api.delete(`/employee-skills/${id}`))
 };
 
+// Công việc: danh sách, tạo / sửa / xóa, giao việc, đổi trạng thái.
 export const tasksApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Task>>(api.get("/tasks", { params })),
@@ -178,16 +192,19 @@ export const tasksApi = {
     unwrap<Task>(api.patch(`/tasks/${id}/status`, payload))
 };
 
+// Lịch sử giao việc.
 export const taskAssignmentsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<TaskAssignment>>(api.get("/task-assignments", { params }))
 };
 
+// Khối lượng công việc.
 export const taskWorkloadApi = {
   list: (params?: QueryParams) =>
     unwrap<EmployeeWorkload[]>(api.get("/task-workload", { params }))
 };
 
+// AI gợi ý người làm task: tạo, xem, chọn, hủy.
 export const aiTaskSuggestionsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<AiTaskSuggestion>>(
@@ -207,6 +224,7 @@ export const aiTaskSuggestionsApi = {
     )
 };
 
+// Vị trí / chức danh.
 export const positionsApi = {
   list: (params?: QueryParams | string) =>
     unwrap<Position[]>(
@@ -221,6 +239,7 @@ export const positionsApi = {
   remove: (id: number) => unwrap<Position>(api.delete(`/positions/${id}`))
 };
 
+// Quan hệ quản lý.
 export const managersApi = {
   list: () => unwrap<EmployeeManager[]>(api.get("/employee-managers")),
   assign: (payload: Record<string, unknown>) =>
@@ -229,6 +248,7 @@ export const managersApi = {
     unwrap<EmployeeManager>(api.patch(`/employee-managers/${id}/end`, payload))
 };
 
+// Chấm công và bảng công.
 export const attendanceApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<AttendanceRecord>>(api.get("/attendance", { params })),
@@ -246,6 +266,7 @@ export const attendanceApi = {
     unwrap<AttendanceRecord>(api.patch(`/attendance/${id}`, payload))
 };
 
+// Ngày lễ.
 export const holidaysApi = {
   list: (year?: number) =>
     unwrap<Holiday[]>(api.get("/holidays", { params: year ? { year } : undefined })),
@@ -256,6 +277,7 @@ export const holidaysApi = {
   remove: (id: number) => unwrap<Holiday>(api.delete(`/holidays/${id}`))
 };
 
+// Loại nghỉ phép.
 export const leaveTypesApi = {
   list: () => unwrap<LeaveType[]>(api.get("/leave-types")),
   create: (payload: Record<string, unknown>) =>
@@ -265,6 +287,7 @@ export const leaveTypesApi = {
   remove: (id: number) => unwrap<LeaveType>(api.delete(`/leave-types/${id}`))
 };
 
+// Đơn nghỉ phép: tạo, duyệt, từ chối, hủy, yêu cầu hủy.
 export const leaveRequestsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<LeaveRequest>>(api.get("/leave-requests", { params })),
@@ -294,6 +317,7 @@ export const leaveRequestsApi = {
     )
 };
 
+// Tài khoản đăng nhập.
 export const usersApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<UserSummary>>(api.get("/users", { params })),
@@ -306,6 +330,7 @@ export const usersApi = {
     unwrap<UserSummary>(api.post(`/users/${id}/reset-password`, payload))
 };
 
+// Role và permission của role.
 export const rolesApi = {
   list: () => unwrap<Role[]>(api.get("/roles")),
   create: (payload: Record<string, unknown>) =>
@@ -319,10 +344,12 @@ export const rolesApi = {
     unwrap<Role>(api.delete(`/roles/${id}/permissions/${permissionId}`))
 };
 
+// Danh sách permission.
 export const permissionsApi = {
   list: () => unwrap<Permission[]>(api.get("/permissions"))
 };
 
+// Thông báo.
 export const notificationsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<Notification>>(api.get("/notifications", { params })),
@@ -332,11 +359,13 @@ export const notificationsApi = {
   markAllRead: () => unwrap(api.patch("/notifications/read-all"))
 };
 
+// Audit log.
 export const auditLogsApi = {
   list: (params?: QueryParams) =>
     unwrap<Paginated<AuditLog>>(api.get("/audit-logs", { params }))
 };
 
+// Số dư phép năm.
 export const leaveBalancesApi = {
   list: (params?: QueryParams) =>
     unwrap<LeaveBalanceList>(api.get("/leave-balances", { params }))

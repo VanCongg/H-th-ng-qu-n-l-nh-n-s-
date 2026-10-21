@@ -1,3 +1,9 @@
+// Bộ mô phỏng đời sống công ty để sinh dữ liệu lịch sử cho AI: mỗi lần chạy phát lại từng ngày làm việc
+// kể từ lần chạy trước (tối đa tới hôm qua) - nghỉ phép, chấm công, giao việc (thường hỏi AI gợi ý),
+// làm / gửi duyệt / trả lại task, hỏi HRGenie.
+// Mọi hành động đi qua chính service của API với tư cách người thực hiện (đủ kiểm tra quyền, audit, thông báo),
+// không ghi thẳng DB. Không bao giờ sinh dữ liệu cho ngày chưa tới.
+
 /**
  * Company-life simulator that keeps growing the dataset the AI features learn
  * from. Each run replays every workday since the previous run (up to yesterday,
@@ -748,6 +754,7 @@ let api: SimulationApi;
 /** The workday being replayed; every request of the day happens on it. */
 let currentDay: Date;
 
+// Đọc tham số, khởi động API mô phỏng và chạy.
 async function main() {
   if (process.env.NODE_ENV === "production") {
     throw new Error("The simulator writes synthetic data and refuses to run with NODE_ENV=production.");
@@ -764,6 +771,7 @@ async function main() {
   }
 }
 
+// Phát lại từng ngày trong khoảng, rồi lưu trạng thái và in tổng kết.
 async function run(options: ReturnType<typeof parseArgs>) {
   holidays = new Set(
     (await api.prisma.holiday.findMany({ select: { date: true } })).map((row) => row.date.getTime())
@@ -798,6 +806,7 @@ async function run(options: ReturnType<typeof parseArgs>) {
   await printPerformers(context, dateOnly(state.lastDate));
 }
 
+// Tham số dòng lệnh: --from (lần đầu), --until (bị kẹp về hôm nay).
 function parseArgs(args: string[], today = companyToday(new Date())) {
   let until: Date | null = null;
   let from: Date | null = null;
@@ -831,6 +840,7 @@ function parseArgs(args: string[], today = companyToday(new Date())) {
   return { until, from, maxDays };
 }
 
+// Trạng thái mô phỏng đã lưu từ lần chạy trước.
 async function loadState(from: Date | null): Promise<SimulationState> {
   const record = await api.prisma.systemSetting.findUnique({ where: { key: STATE_KEY } });
   if (record) {
@@ -1042,6 +1052,8 @@ function refusalOf(error: unknown) {
  * department head, then an admin - who a real person would turn to when told
  * "you cannot do that". Any other refusal is counted and the request dropped.
  */
+// Thực hiện một hành động qua API với tư cách lần lượt từng người có thể làm;
+// API từ chối thì ghi nhận lại thay vì dừng cả ngày.
 async function act<T>(
   totals: Totals,
   minute: number,
@@ -1080,6 +1092,8 @@ async function act<T>(
 // One simulated workday
 // ---------------------------------------------------------------------------
 
+// Một ngày làm việc: xử lý đơn nghỉ, báo ốm, xin nghỉ, chấm công, đọc thông báo,
+// hỏi HRGenie, tạo việc mới, giao việc, duyệt và làm task.
 async function simulateDay(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   random = createRandom(hashString(`omnihr-simulation:${iso(day)}`));
 
@@ -1111,6 +1125,7 @@ function leaveDeciders(ctx: Context, employee: SimEmployee | undefined, preferre
 }
 
 /** Decides pending requests filed before today. */
+// Quản lý duyệt / từ chối các đơn nghỉ đang chờ.
 async function settleLeaveRequests(ctx: Context, day: Date, totals: Totals) {
   const pending = await api.prisma.leaveRequest.findMany({
     where: { status: LeaveRequestStatus.PENDING, createdAt: { lt: at(day, 0) } },
@@ -1230,6 +1245,7 @@ async function settleCancellationRequests(ctx: Context, day: Date, totals: Total
 }
 
 /** Called in sick this morning, from the app; the manager approves it first thing. */
+// Một số người báo ốm trong ngày.
 async function callInSick(ctx: Context, day: Date, totals: Totals) {
   const sick = ctx.leaveTypes.get("SICK_LEAVE");
   if (!sick) {
@@ -1284,6 +1300,7 @@ async function leaveToday(day: Date) {
  * sometimes by asking HRGenie. When annual leave has run out, some switch to
  * unpaid leave; the rest give up.
  */
+// Nhân viên xin nghỉ phép (qua app hoặc hỏi HRGenie).
 async function fileLeaveRequests(
   ctx: Context,
   day: Date,
@@ -1384,6 +1401,7 @@ async function askGenieForLeave(
  * Who comes in today and when they arrive and leave, decided up front so the
  * day's work knows how long each person is around. Nothing is recorded yet.
  */
+// Quyết định ai đi làm, giờ vào / ra, ai đi muộn, ai quên check-out.
 function planPresence(
   ctx: Context,
   day: Date,
@@ -1504,6 +1522,7 @@ async function readNotifications(presence: Map<number, Presence>, totals: Totals
 // --- HRGenie ------------------------------------------------------------------
 
 /** A handful of people a day ask HRGenie something, sometimes a follow-up too. */
+// Một vài người hỏi HRGenie về phép, task, chính sách.
 async function chatWithGenie(presence: Map<number, Presence>, totals: Totals) {
   const people = [...presence.values()];
   const count = Math.min(people.length, randomInt(2, 6));
@@ -1586,6 +1605,7 @@ const QUICK_PRIORITIES: ReadonlyArray<readonly [TaskPriority, number]> = [
  * new project when the team has none, and teams with no project work on the
  * department's internal one. On top of that, a few unplanned quick jobs.
  */
+// Trưởng phòng mở dự án, trưởng nhóm tạo task nhóm và task con.
 async function createNewWork(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   const backlog = await openHoursByTeam(state);
   const teams = ctx.teams
@@ -2075,6 +2095,7 @@ const FULL_LOAD_HOURS = 16;
 /** How often a lead asks for AI suggestions before assigning. */
 const AI_SUGGESTION_RATE = 0.8;
 
+// Trưởng nhóm giao task con; phần lớn có xin AI gợi ý trước khi giao.
 async function assignTasks(ctx: Context, state: SimulationState, day: Date, onLeave: Set<number>, totals: Totals) {
   const loads = await openHoursByEmployee(state);
   const skillsSelect = { select: { skillId: true, requiredProficiency: true } } as const;
@@ -2200,6 +2221,9 @@ async function assign(
   return Boolean(assigned);
 }
 
+// Trưởng nhóm (mô phỏng) tự chọn người theo cách riêng: không dồn việc cho người đang quá tải,
+// thỉnh thoảng chọn bất kỳ ai đang rảnh, thỉnh thoảng cố ý giao cho người mới để họ học.
+// Không bao giờ chỉ lấy người đứng đầu gợi ý AI, nên đánh giá offline không bị "tự khớp".
 function chooseAssignee(
   ctx: Context,
   team: SimTeam,
@@ -2286,6 +2310,7 @@ function reviewers(ctx: Context, teamId: number | null, departmentId: number | n
  * the hours it took - or sent back for rework. Now and then a task nobody has
  * started is dropped after the requirements change.
  */
+// Người duyệt chấp nhận hoặc trả lại task đang chờ duyệt.
 async function reviewTasks(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   const open = await api.prisma.task.findMany({
     where: {
@@ -2367,6 +2392,7 @@ function forget(state: SimulationState, taskId: number) {
  * tasks, start the ones still waiting and hand in what they finish - through
  * the app, where the assignee can only start work and submit it for review.
  */
+// Người làm tiến hành task; thời gian cần phụ thuộc năng lực ẩn và độ khó.
 async function progressTasks(
   ctx: Context,
   state: SimulationState,
@@ -2497,6 +2523,7 @@ function hardTask(task: {
  * head deletes any team task whose every subtask was dropped, since the API
  * counts that task as still open.
  */
+// Cập nhật trạng thái dự án theo tiến độ task.
 async function syncProjects(ctx: Context, state: SimulationState, day: Date, totals: Totals) {
   const projects = await api.prisma.project.findMany({
     where: { deletedAt: null, status: { in: [ProjectStatus.PLANNING, ProjectStatus.ACTIVE] } },

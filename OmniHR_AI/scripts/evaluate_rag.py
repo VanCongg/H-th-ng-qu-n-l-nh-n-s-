@@ -1,3 +1,6 @@
+# Đánh giá tìm kiếm tài liệu chính sách: Recall@3, Top-1, tỉ lệ trả lời bừa với câu ngoài tài liệu.
+# Ngưỡng chỉ chọn trên tập dev, tập test chấm một lần. Ghi báo cáo vào eval_results/.
+
 """Evaluate policy retrieval (RAG) on a labelled question set.
 
     python scripts/evaluate_rag.py                 # keyword only, plus hybrid if EMBEDDING_* is set

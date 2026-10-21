@@ -1,3 +1,7 @@
+// Kiểm tra việc ĐO LƯỜNG có đáng tin không: rò rỉ dữ liệu (tín hiệu có "lộ" năng lực ẩn không),
+// đối chứng âm (xáo trộn thành tích mà vẫn điểm cao thì đang đo sai), và nhóm người mới (cold start).
+// Chạy: npm run eval:diagnostics.
+
 /**
  * Asks whether the *measurement* is sound, which is a different question from
  * "which weights are best" (prisma/tune-weights.ts) or "is a learned model

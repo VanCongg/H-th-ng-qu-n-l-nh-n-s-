@@ -1,3 +1,5 @@
+// API vị trí / chức danh: danh sách (lọc theo phòng ban), tạo / sửa / xóa.
+
 import {
   Body,
   Controller,

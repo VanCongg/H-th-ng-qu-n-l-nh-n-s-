@@ -1,3 +1,5 @@
+// Dữ liệu HR / admin sửa hồ sơ nhân viên.
+
 import {
   IsDateString,
   IsEmail,

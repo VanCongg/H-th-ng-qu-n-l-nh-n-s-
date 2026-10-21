@@ -1,3 +1,5 @@
+// Hàm thuần dựng bảng công tháng từ dữ liệu check-in / check-out thô.
+
 import { AttendanceRecordType, AttendanceShift } from "@prisma/client";
 import {
   defaultSystemSettings,
@@ -71,6 +73,7 @@ const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
 /** First and last calendar day of a month, as UTC date-only values. */
+// Ngày đầu và ngày cuối của một tháng.
 export function monthRange(year: number, month: number) {
   return {
     start: new Date(Date.UTC(year, month - 1, 1)),
@@ -82,6 +85,7 @@ export function monthRange(year: number, month: number) {
  * Shift windows from settings. A window whose end is not after its start is
  * misconfigured and falls back to the default hours for that shift.
  */
+// Khung giờ các ca (sáng, chiều) từ cấu hình hệ thống.
 export function resolveShiftWindows(
   settings: Pick<
     SystemSettings,
@@ -139,6 +143,12 @@ export function resolveShiftWindows(
  *   worked on it is overtime, as on a weekend. `holidays` holds UTC-midnight
  *   timestamps (HolidaysService.dateSet).
  */
+// Tóm tắt tiếng Việt:
+// - có mặt ở ca nào thì được phần công của ca đó;
+// - đi muộn / về sớm đo theo giờ ca, dưới ngưỡng cho phép thì bỏ qua;
+// - tăng ca = làm sau ca cuối ngày làm việc, hoặc làm vào ngày nghỉ; dưới mức tối thiểu thì không tính;
+// - check-in mà quên check-out vẫn tính có mặt nhưng bị báo trong missingCheckOuts;
+// - nghỉ phép có lương bù phần ngày chưa đi làm; ngày lễ được trả lương và không tính vào công chuẩn.
 export function computeTimesheet(
   year: number,
   month: number,
@@ -281,6 +291,7 @@ export function computeTimesheet(
  * Pairs each check-in with the next check-out on the same work day. Times are
  * minutes after local midnight of the work date.
  */
+// Ghép các bản ghi check-in với check-out tương ứng.
 function pairRecords(
   records: TimesheetAttendanceRecord[],
   workDay: number,

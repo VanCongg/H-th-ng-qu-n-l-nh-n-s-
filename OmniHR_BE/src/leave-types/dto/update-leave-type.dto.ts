@@ -1,3 +1,5 @@
+// Dữ liệu sửa loại nghỉ.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
 
 export class UpdateLeaveTypeDto {

@@ -1,3 +1,6 @@
+// Đọc dữ liệu (nhân viên, đơn nghỉ, ngày lễ, chính sách) rồi tính số dư phép bằng leave-accrual.ts.
+// Web, app và HRGenie đều dùng service này nên con số luôn khớp nhau.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { EmployeeStatus, LeaveRequestStatus, LeaveType, Prisma } from "@prisma/client";
 import { ApiError } from "../common/api-error";
@@ -146,6 +149,7 @@ export class LeaveBalancesService {
    * also sets aside the requests still waiting for a decision. Null when the
    * company has no annual leave type.
    */
+  // Số dư phép năm của một nhân viên tại một ngày cụ thể.
   async annualBalanceOn(employeeId: number, year: number, asOf: Date) {
     const context = await this.context(year);
     if (!context.annualType) {

@@ -1,3 +1,5 @@
+// Dữ liệu tạo nhóm: phòng ban, trưởng nhóm, mã, tên, mô tả, đang hoạt động, danh sách thành viên.
+
 import { Type } from "class-transformer";
 import {
   ArrayUnique,

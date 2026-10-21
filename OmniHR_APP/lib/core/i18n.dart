@@ -1,3 +1,5 @@
+// Đa ngôn ngữ: chuỗi tiếng Việt viết thẳng trong code là bản gốc, tx() trả bản tiếng Anh khi chọn English.
+
 enum AppLanguage { vi, en }
 
 /// Current UI language. Vietnamese strings are the source text written

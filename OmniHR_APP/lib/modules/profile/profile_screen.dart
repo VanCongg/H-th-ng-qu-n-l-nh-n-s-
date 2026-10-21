@@ -1,3 +1,5 @@
+// Màn hình hồ sơ (Tôi): thông tin cá nhân, đổi ảnh đại diện, đổi điện thoại / email, đổi mật khẩu, đăng xuất.
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -73,6 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   /// The server accepts an avatar up to this size (MAX_AVATAR_VALUE_LENGTH).
   static const _maxAvatarBytes = 650 * 1024;
 
+  // Chọn ảnh, kiểm tra định dạng / dung lượng, gửi dạng data URL.
   Future<void> _changeAvatar(Employee employee) async {
     final hasAvatar = (employee.avatarUrl ?? '').isNotEmpty;
     final choice = await showModalBottomSheet<String>(
@@ -419,6 +422,7 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
+// Hộp thoại đổi mật khẩu (kiểm tra luật mật khẩu, rồi nhập mã OTP).
 class ChangePasswordDialog extends StatefulWidget {
   const ChangePasswordDialog({super.key, required this.session});
 
@@ -597,6 +601,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
 /// The employee's own contact details: personal email and phone. Everything
 /// else on the profile is kept by HR and shown read-only.
+// Hộp thoại sửa điện thoại / email (cần mã OTP).
 class PersonalInfoDialog extends StatefulWidget {
   const PersonalInfoDialog({
     super.key,

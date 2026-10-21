@@ -1,3 +1,5 @@
+// Trang hồ sơ của tôi: xem thông tin, đổi ảnh đại diện, đổi điện thoại / email (cần mã OTP), đổi mật khẩu.
+
 import {
   Alert,
   Badge,

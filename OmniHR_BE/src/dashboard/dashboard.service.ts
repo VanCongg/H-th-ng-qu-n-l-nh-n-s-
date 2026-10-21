@@ -1,3 +1,5 @@
+// Số liệu dashboard và đọc / ghi cấu hình hệ thống.
+
 import { Injectable } from "@nestjs/common";
 import {
   AttendanceRecordType,
@@ -22,6 +24,7 @@ export class DashboardService {
     private readonly audit: AuditService
   ) {}
 
+  // Tổng quan toàn công ty: số nhân viên, phòng ban, vị trí, đơn nghỉ chờ duyệt, số người đã check-in hôm nay, audit gần đây.
   async adminDashboard() {
     const today = toDateOnly(new Date());
     const [
@@ -74,6 +77,7 @@ export class DashboardService {
     };
   }
 
+  // Tổng quan team của quản lý: số người, đơn nghỉ chờ duyệt, yêu cầu hủy đơn, check-in hôm nay, đơn nghỉ gần đây.
   async managerDashboard(user: AuthUser) {
     const teamIds = await this.accessControl.teamEmployeeIds(user);
     const today = toDateOnly(new Date());
@@ -162,10 +166,12 @@ export class DashboardService {
     };
   }
 
+  // Cấu hình hệ thống.
   async getSettings() {
     return this.systemSettings.getSettings();
   }
 
+  // Cập nhật cấu hình hệ thống và ghi audit.
   async updateSettings(
     settings: Record<string, unknown>,
     actor: AuthUser,

@@ -1,3 +1,5 @@
+// Module đơn nghỉ phép.
+
 import { Module } from "@nestjs/common";
 import { LeaveBalancesModule } from "../leave-balances/leave-balances.module";
 import { NotificationsModule } from "../notifications/notifications.module";

@@ -1,3 +1,5 @@
+// Hộp thoại quên mật khẩu: gửi mã về email, rồi nhập mã và mật khẩu mới.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

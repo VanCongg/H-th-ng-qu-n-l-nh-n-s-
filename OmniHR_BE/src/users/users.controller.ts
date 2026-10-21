@@ -1,3 +1,5 @@
+// API tài khoản đăng nhập (admin): danh sách, tạo / sửa / xóa, gán / gỡ role, đặt lại mật khẩu.
+
 import {
   Body,
   Controller,
@@ -70,6 +72,7 @@ export class UsersController {
     return this.usersService.softDelete(id, user, context);
   }
 
+  // Gán thêm role cho tài khoản.
   @Permissions("ROLE_ASSIGN")
   @Post(":id/roles")
   assignRole(
@@ -81,6 +84,7 @@ export class UsersController {
     return this.usersService.assignRole(id, dto, user, context);
   }
 
+  // Gỡ role khỏi tài khoản.
   @Permissions("ROLE_ASSIGN")
   @Delete(":id/roles/:roleId")
   removeRole(
@@ -92,6 +96,7 @@ export class UsersController {
     return this.usersService.removeRole(id, roleId, user, context);
   }
 
+  // Admin đặt mật khẩu mới cho tài khoản.
   @Permissions("USER_UPDATE")
   @Post(":id/reset-password")
   resetPassword(

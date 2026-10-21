@@ -1,3 +1,6 @@
+// So sánh mô hình chấm điểm đa tiêu chí (MCDM) đang dùng với hai mô hình học máy (hồi quy logistic)
+// trên cùng dữ liệu và cùng thước đo, để chứng minh lựa chọn MCDM. Chạy: npm run eval:ml-baseline.
+
 /**
  * Compares the weighted multi-criteria model the API ships with against two
  * machine-learned baselines, on the same replayed history and the same metrics.

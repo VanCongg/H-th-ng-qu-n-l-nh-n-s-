@@ -1,3 +1,5 @@
+// Hồ sơ nhân viên tạo / sửa cùng lúc với tài khoản.
+
 import {
   IsDateString,
   IsEnum,

@@ -1,3 +1,5 @@
+# Endpoint kiểm tra service còn sống (dùng cho Docker / giám sát).
+
 from fastapi import APIRouter
 
 router = APIRouter()

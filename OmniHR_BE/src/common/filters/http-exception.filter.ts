@@ -1,3 +1,6 @@
+// Bắt mọi lỗi và trả về cùng một dạng { success: false, message, errorCode }.
+// Lỗi Prisma (trùng khóa duy nhất...) được dịch sang thông báo dễ hiểu.
+
 import {
   ArgumentsHost,
   Catch,
@@ -78,6 +81,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return "REQUEST_ERROR";
   }
 
+  // Dịch lỗi Prisma (vd. P2002 trùng email) thành câu thông báo cho người dùng.
   private prismaMessage(error: Prisma.PrismaClientKnownRequestError): string {
     if (error.code === "P2002") {
       const fields = this.uniqueTargetFields(error.meta?.target);

@@ -1,3 +1,7 @@
+// Tinh chỉnh các hằng số còn lại của thuật toán (tỉ lệ trong điểm thành tích, độ trễ, độ co về mức tham chiếu,
+// năng lực tuần của team) bằng tìm kiếm ngẫu nhiên, đánh giá trên ba lát thời gian: fit / validation / test.
+// Chạy: npm run eval:tune-constants.
+
 /**
  * Fits the constants the weight tuner leaves alone: the mix inside the
  * track-record score, how far back it looks, how strongly a thin record is

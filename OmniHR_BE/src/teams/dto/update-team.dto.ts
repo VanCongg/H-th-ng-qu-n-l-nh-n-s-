@@ -1,3 +1,5 @@
+// Dữ liệu sửa nhóm.
+
 import { PartialType } from "@nestjs/swagger";
 import { CreateTeamDto } from "./create-team.dto";
 

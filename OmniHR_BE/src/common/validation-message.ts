@@ -1,3 +1,5 @@
+// Gom thông báo lỗi validate (kể cả DTO lồng nhau) thành danh sách dễ đọc cho client.
+
 import { BadRequestException } from "@nestjs/common";
 import { ValidationError } from "class-validator";
 

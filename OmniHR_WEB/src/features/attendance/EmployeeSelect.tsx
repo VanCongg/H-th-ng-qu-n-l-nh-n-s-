@@ -1,3 +1,5 @@
+// Ô chọn nhân viên có tìm kiếm, giới hạn theo phạm vi (tất cả / team).
+
 import { Select, type SelectProps } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";

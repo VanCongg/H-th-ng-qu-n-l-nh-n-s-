@@ -1,3 +1,5 @@
+// Passport JWT strategy: giải mã access token rồi nạp người dùng (roles, permissions) gắn vào request.
+
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
@@ -18,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  // Token hợp lệ nhưng tài khoản đã bị khóa / xóa thì vẫn bị từ chối.
   async validate(payload: JwtAccessPayload) {
     const user = await this.authService.hydrateAuthUser(payload.sub);
     if (!user) {

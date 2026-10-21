@@ -1,3 +1,5 @@
+// Store tùy chọn giao diện: ngôn ngữ (vi / en), lưu vào localStorage.
+
 import { create } from "zustand";
 
 export type AppLanguage = "en" | "vi";

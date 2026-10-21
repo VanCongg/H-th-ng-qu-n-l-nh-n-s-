@@ -1,3 +1,7 @@
+// Kiểu dữ liệu API dùng chung, khớp với DTO / response của backend.
+// Đổi hợp đồng API ở backend thì phải sửa ở đây cùng lúc.
+
+// Vỏ chung của mọi response: { success, message, data }.
 export type ApiEnvelope<T> = {
   success: boolean;
   message: string;
@@ -7,6 +11,7 @@ export type ApiEnvelope<T> = {
 
 export type RoleName = "ADMIN" | "MANAGER" | "EMPLOYEE";
 
+// Người dùng đăng nhập kèm roles và permissions (dùng cho PermissionGate).
 export type AuthUser = {
   id: number;
   username: string;
@@ -30,6 +35,7 @@ export type PaginationMeta = {
   limit: number;
 };
 
+// Danh sách có phân trang.
 export type Paginated<T> = {
   items: T[];
   meta: PaginationMeta;
@@ -326,6 +332,7 @@ export type TaskRequiredSkill = {
   importance: TaskSkillImportance;
 };
 
+// Công việc (task nhóm hoặc task con).
 export type Task = {
   id: number;
   /** Where the caller may move this subtask next; empty for team-level tasks. */
@@ -404,6 +411,7 @@ export type EmployeeWorkload = {
   workload: WorkloadSummary;
 };
 
+// Một ứng viên trong gợi ý AI: điểm từng tiêu chí, lý do, cảnh báo.
 export type AiTaskSuggestionItem = {
   id: number;
   suggestionItemId: number;
@@ -439,6 +447,7 @@ export type AiTaskSuggestionItem = {
   selected: boolean;
 };
 
+// Một lần gợi ý AI cho một task.
 export type AiTaskSuggestion = {
   id: number;
   suggestionId: number;

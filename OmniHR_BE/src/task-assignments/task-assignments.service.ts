@@ -1,3 +1,5 @@
+// Đọc lịch sử giao việc trong phạm vi người dùng được xem.
+
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AccessControlService } from "../common/services/access-control.service";

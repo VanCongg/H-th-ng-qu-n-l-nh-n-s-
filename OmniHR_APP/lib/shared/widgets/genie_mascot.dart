@@ -1,3 +1,5 @@
+// Hình linh vật HRGenie (cây đèn, thần đèn), vẽ bằng CustomPainter.
+
 import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';

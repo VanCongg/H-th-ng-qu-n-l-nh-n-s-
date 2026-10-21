@@ -67,13 +67,26 @@ TASK_TITLE_END_MARKERS = (
 
 
 class RuleBasedPlannerService:
+    """Planner dựa trên luật từ khóa, tất định, không cần LLM. Là chế độ mặc
+    định và cũng là đường lùi khi LLM lỗi.
+
+    Câu hỏi được bỏ dấu, viết thường (normalize), rồi đi qua một chuỗi nhánh
+    theo thứ tự ưu tiên; nhánh đầu tiên khớp sẽ trả về kế hoạch.
+    """
+
     def __init__(self, rag_service: RagService | None = None):
         self.rag_service = rag_service or RagService()
 
     def plan(self, request: ChatPlanRequest) -> ChatPlanResponse:
+        # "Tôi muốn xin nghỉ" -> "toi muon xin nghi": so khớp không phụ thuộc dấu.
         text = request.message.strip()
         normalized = normalize(text)
         available = {tool.name for tool in request.availableTools}
+
+        # Thứ tự ưu tiên: 1) yêu cầu bị cấm, 2) hủy đơn, 3) cách nói đời thường,
+        # 4) dữ liệu cá nhân theo tháng, 5) các chủ đề (sinh nhật, ai nghỉ, chấm công,
+        # quản lý, số người, task, phép, xin nghỉ, đổi trạng thái task...),
+        # cuối cùng là câu hỏi chính sách (RAG).
 
         # Before the cancel shortcut: "hủy đơn nghỉ của chị Linh" is a cancel
         # phrase too, and must be refused rather than drafted.
@@ -314,6 +327,9 @@ class RuleBasedPlannerService:
         )
 
     def _policy_plan(self, text: str, normalized: str) -> ChatPlanResponse | None:
+        # Câu hỏi chính sách: tìm đoạn tài liệu khớp nhất bằng RAG và trả nguyên
+        # văn kèm trích dẫn. Không thấy thì thử lại sau khi bỏ phần mở đầu chung
+        # chung, rồi thử thay từ đồng nghĩa, cuối cùng liệt kê mục của tài liệu.
         result = self.rag_service.search(RagSearchRequest(query=text, topK=1))
         if not result.items:
             # "chinh sach nghi phep cua cong ty" is the same question as
@@ -361,6 +377,11 @@ class RuleBasedPlannerService:
         normalized: str,
         available: set[str],
     ) -> ChatPlanResponse:
+        # Xin nghỉ: bóc ngày bắt đầu, số ngày, nửa buổi, ngày kết thúc, loại phép,
+        # lý do từ câu nói. Ví dụ (hôm nay 21/10/2026):
+        # "xin nghỉ 2 ngày từ thứ 5 tuần sau, lý do về quê"
+        # -> ANNUAL_LEAVE, 2026-10-29 đến 2026-10-30, lý do "về quê".
+        # Thiếu ngày thì không gọi tool mà hỏi lại.
         if "create_leave_request_draft" not in available:
             return ChatPlanResponse(
                 type="answer",
@@ -557,6 +578,8 @@ class RuleBasedPlannerService:
         available: set[str],
         reply: str,
     ) -> ChatPlanResponse:
+        # Kế hoạch gọi một tool đọc. Tool không có trong danh sách được phép thì
+        # trả lời "chưa có quyền" thay vì gọi.
         if tool_name not in available:
             return ChatPlanResponse(
                 type="answer",
@@ -580,7 +603,13 @@ class RuleBasedPlannerService:
         )
 
     def _forbidden_plan(self, text: str, normalized: str) -> ChatPlanResponse | None:
-        """Other people's pay or reviews, or editing recorded data."""
+        """Other people's pay or reviews, or editing recorded data.
+
+        Chạy đầu tiên, trả FORBIDDEN_REQUEST (không gọi tool) khi: hỏi token/key;
+        đòi sửa lương, điểm, giờ chấm công, kỹ năng; hỏi lương/đánh giá của người
+        khác ("của anh/chị...", "của" + tên viết hoa); đổi task của người khác;
+        xin nghỉ hoặc hủy đơn hộ người khác.
+        """
         edits = (
             "sua luong", "chinh luong", "doi luong", "tang luong", "giam luong",
             "sua diem", "chinh diem", "doi diem",
@@ -1083,6 +1112,9 @@ class RuleBasedPlannerService:
         available: set[str],
         history: list | None = None,
     ) -> ChatPlanResponse:
+        # Đổi trạng thái task: lấy trạng thái đích ("xong" -> DONE, "đang làm" ->
+        # IN_PROGRESS...) và mã hoặc tên task. Không nhắc tên thì lấy task vừa nói
+        # tới trong lịch sử. Thiếu thông tin thì hỏi lại, không gọi tool.
         if "update_task_status_draft" not in available:
             return ChatPlanResponse(
                 type="answer",
@@ -1236,6 +1268,8 @@ class RuleBasedPlannerService:
         )
 
     def _extract_start_date(self, request: ChatPlanRequest, normalized: str) -> date | None:
+        # Hiểu: "ngày kia", "mai", "hôm nay", "thứ 2..7 / chủ nhật" (kèm "tuần này/tuần sau"),
+        # và "dd/mm[/yyyy]". Tính từ ngày hôm nay NestJS gửi sang.
         today = self._today(request)
         if "ngay kia" in normalized:
             return today + timedelta(days=2)

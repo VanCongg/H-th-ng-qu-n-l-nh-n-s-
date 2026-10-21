@@ -1,3 +1,6 @@
+// Thu gọn dữ liệu ghi vào audit log: chỉ giữ trường của chính bản ghi (bỏ quan hệ lồng nhau),
+// và với thao tác sửa thì chỉ giữ các trường thật sự thay đổi.
+
 /**
  * What an audit row keeps of the values a service hands it.
  *

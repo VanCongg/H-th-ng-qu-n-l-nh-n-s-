@@ -1,3 +1,5 @@
+// API khối lượng công việc của từng nhân viên (số giờ việc còn lại, phần trong tuần tới, task quá hạn).
+
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../common/decorators/current-user.decorator";

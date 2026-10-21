@@ -1,3 +1,6 @@
+// Dữ liệu check-in / check-out từ điện thoại: tọa độ, địa chỉ, độ sai số (mét),
+// có phải vị trí giả (mock) không, và vị trí đã lấy cách đây bao lâu.
+
 import { Type } from "class-transformer";
 import {
   IsBoolean,

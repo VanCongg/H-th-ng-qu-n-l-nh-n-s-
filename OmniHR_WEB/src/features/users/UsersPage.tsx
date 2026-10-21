@@ -1,3 +1,6 @@
+// Trang tài khoản đăng nhập: danh sách có lọc, tạo / sửa tài khoản (kèm hồ sơ nhân viên nếu không phải ADMIN),
+// gán role, xóa, đặt lại mật khẩu.
+
 import {
   ActionIcon,
   Badge,
@@ -492,6 +495,7 @@ export function UsersPage() {
     }
   }
 
+  // Kiểm tra form rồi gửi tạo / sửa tài khoản.
   function save(values: typeof form.values) {
     const position = positionsQuery.data?.find(
       (item) => String(item.id) === values.positionId
@@ -915,6 +919,7 @@ function filterSkillIdsForPosition(
   });
 }
 
+// Tài khoản có cần kèm hồ sơ nhân viên không: đã có hồ sơ, chưa chọn role, hoặc có role khác ADMIN.
 function shouldUseEmployeeProfile(
   roleIds: string[],
   roles: Array<Pick<Role, "id" | "name">>,

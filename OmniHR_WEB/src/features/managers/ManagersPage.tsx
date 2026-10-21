@@ -1,3 +1,5 @@
+// Trang quan hệ quản lý: gán quản lý cho nhân viên và kết thúc quan hệ.
+
 import { ActionIcon, Badge, Button, Group, Modal, Select, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";

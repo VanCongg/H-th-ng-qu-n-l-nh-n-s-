@@ -1,3 +1,5 @@
+// API phòng ban: danh sách, cây phòng ban, tạo / sửa / xóa.
+
 import {
   Body,
   Controller,
@@ -30,6 +32,7 @@ export class DepartmentsController {
     return this.departmentsService.findAll(search);
   }
 
+  // Cây phòng ban (phòng cha - phòng con).
   @Permissions("DEPARTMENT_READ")
   @Get("tree")
   tree() {

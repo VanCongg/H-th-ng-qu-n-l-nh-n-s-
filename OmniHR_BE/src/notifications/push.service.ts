@@ -1,3 +1,6 @@
+// Gửi push notification qua Firebase Cloud Messaging. Không cấu hình Firebase thì bỏ qua,
+// thông báo vẫn có trong danh sách trên app. Token không còn dùng được thì tự xóa.
+
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Notification } from "@prisma/client";
@@ -28,6 +31,7 @@ export class PushService {
     private readonly config: ConfigService
   ) {}
 
+  // Lưu token thiết bị (một token chỉ thuộc người đăng ký gần nhất).
   async registerDevice(userId: number, token: string, platform: string, language: PushLanguage) {
     // A token belongs to one app install; whoever signed in on it last owns it.
     return this.prisma.pushDevice.upsert({
@@ -38,10 +42,12 @@ export class PushService {
     });
   }
 
+  // Ngừng gửi push tới thiết bị (vd. khi đăng xuất).
   async removeDevice(userId: number, token: string) {
     await this.prisma.pushDevice.deleteMany({ where: { userId, token } });
   }
 
+  // Gửi push tới mọi thiết bị của người nhận, nội dung theo ngôn ngữ từng thiết bị.
   async send(notification: Notification) {
     const app = this.firebase();
     if (!app) {

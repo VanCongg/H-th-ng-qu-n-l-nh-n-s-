@@ -1,3 +1,6 @@
+// Điểm khởi động API NestJS: bật helmet (header bảo mật), CORS theo CORS_ORIGIN,
+// pipe làm sạch + kiểm tra dữ liệu đầu vào, Swagger tại /docs (chỉ ngoài production).
+
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
@@ -13,12 +16,14 @@ async function bootstrap() {
   const nodeEnv = config.get<string>("NODE_ENV") ?? "development";
   const corsOrigin = config.get<string>("CORS_ORIGIN") ?? "http://localhost:5173";
 
+  // Header bảo mật HTTP mặc định (chống clickjacking, sniffing...).
   app.use(helmet());
   app.enableCors({
     origin: corsOrigin.split(",").map((origin) => origin.trim()),
     credentials: true
   });
 
+  // SanitizeInputPipe làm sạch chuỗi; ValidationPipe bỏ trường lạ và báo lỗi theo DTO.
   app.useGlobalPipes(
     new SanitizeInputPipe(),
     new ValidationPipe({
@@ -29,6 +34,7 @@ async function bootstrap() {
     })
   );
 
+  // Swagger chỉ bật khi không phải production.
   if (nodeEnv !== "production") {
     const swaggerConfig = new DocumentBuilder()
       .setTitle("OmniHR CoreHR API")

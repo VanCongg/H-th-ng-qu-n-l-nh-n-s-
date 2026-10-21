@@ -1,3 +1,6 @@
+// Khung giao diện chung: thanh bên (menu lọc theo quyền), thanh trên (chuông thông báo, đổi ngôn ngữ,
+// sáng / tối, tài khoản), và vùng nội dung hiển thị trang con.
+
 import {
   ActionIcon,
   AppShell,
@@ -70,6 +73,8 @@ export function ShellLayout({ mode, navItems }: ShellLayoutProps) {
   const { t, tx } = useTranslation();
   const selectedScheme = colorScheme === "dark" ? "dark" : "light";
 
+  // Đăng xuất: gọi API (lỗi chỉ báo nhẹ), luôn xóa phiên ở trình duyệt và về /login.
+  // WebSocket thông báo tự ngắt khi không còn access token.
   async function handleLogout() {
     try {
       await authApi.logout();

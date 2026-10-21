@@ -1,3 +1,5 @@
+// Các luật nhỏ của công ty mô phỏng, tách riêng để unit test được.
+
 /**
  * Small rules of the simulated company, kept apart from simulate-day.ts so they
  * can be unit tested without booting the API the simulator acts through.
@@ -15,6 +17,7 @@ export const FALLBACK_OFFICE = { latitude: 21.0227, longitude: 105.8466 };
  * therefore clamped to today, so no dataset can end up containing attendance,
  * tasks or leave for a date that has not happened yet.
  */
+// Kẹp --until về hôm nay: dữ liệu không bao giờ chứa ngày chưa xảy ra.
 export function clampToToday(until: Date, today: Date) {
   return until > today ? today : until;
 }

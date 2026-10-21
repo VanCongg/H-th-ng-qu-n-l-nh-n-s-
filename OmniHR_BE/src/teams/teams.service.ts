@@ -1,3 +1,6 @@
+// Nghiệp vụ nhóm. Nhóm thuộc một phòng ban, thành viên phải cùng phòng; mỗi nhóm có một trưởng nhóm.
+// Trưởng phòng (hoặc admin) quản lý các nhóm trong phòng mình.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   EmployeeStatus,
@@ -40,6 +43,7 @@ export class TeamsService {
     private readonly audit: AuditService
   ) {}
 
+  // Danh sách nhóm trong phạm vi người dùng được xem.
   async findAll(query: TeamQueryDto, actor: AuthUser) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const where: Prisma.TeamWhereInput = this.scopedTeamWhere(actor, {
@@ -81,6 +85,7 @@ export class TeamsService {
     return team;
   }
 
+  // Tạo nhóm cùng thành viên và trưởng nhóm; ghi audit.
   async create(dto: CreateTeamDto, actor: AuthUser, context?: RequestContext) {
     await this.ensureDepartment(dto.departmentId);
     await this.ensureCanManageDepartment(actor, dto.departmentId);
@@ -113,6 +118,7 @@ export class TeamsService {
     return team;
   }
 
+  // Sửa nhóm, đồng bộ lại thành viên và trưởng nhóm; ghi audit.
   async update(id: number, dto: UpdateTeamDto, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     const departmentId = dto.departmentId ?? oldValue.departmentId;
@@ -165,6 +171,7 @@ export class TeamsService {
     return team;
   }
 
+  // Xóa mềm nhóm.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     await this.ensureCanManageDepartment(actor, oldValue.departmentId);
@@ -208,6 +215,7 @@ export class TeamsService {
     return team;
   }
 
+  // Thêm thành viên (phải cùng phòng ban).
   async addMember(
     teamId: number,
     dto: AddTeamMemberDto,
@@ -243,6 +251,7 @@ export class TeamsService {
     return result;
   }
 
+  // Đổi vai trò thành viên; đặt trưởng nhóm mới thì trưởng nhóm cũ thành thành viên.
   async updateMember(
     teamId: number,
     memberId: number,
@@ -286,6 +295,7 @@ export class TeamsService {
     return result;
   }
 
+  // Bỏ thành viên khỏi nhóm.
   async removeMember(
     teamId: number,
     memberId: number,
@@ -329,6 +339,7 @@ export class TeamsService {
     return Array.from(new Set([...(memberIds ?? []), ...(leadId ? [leadId] : [])]));
   }
 
+  // Điều kiện lọc nhóm theo phạm vi quyền.
   private scopedTeamWhere(actor: AuthUser, base: Prisma.TeamWhereInput): Prisma.TeamWhereInput {
     if (actor.roles.includes("ADMIN")) {
       return base;
@@ -352,6 +363,7 @@ export class TeamsService {
     };
   }
 
+  // Chỉ admin hoặc trưởng phòng mới quản lý nhóm của phòng đó.
   private async ensureCanManageDepartment(actor: AuthUser, departmentId: number) {
     if (actor.roles.includes("ADMIN")) {
       return;
@@ -380,6 +392,7 @@ export class TeamsService {
     }
   }
 
+  // Mọi thành viên phải thuộc phòng ban của nhóm.
   private async ensureEmployeesInDepartment(employeeIds: number[], departmentId: number) {
     if (!employeeIds.length) {
       return;
@@ -402,6 +415,7 @@ export class TeamsService {
     }
   }
 
+  // Đồng bộ danh sách thành viên theo dữ liệu mới (thêm người mới, bỏ người không còn).
   private async syncMembers(
     tx: Prisma.TransactionClient,
     teamId: number,
@@ -492,6 +506,7 @@ export class TeamsService {
     });
   }
 
+  // Đặt trưởng nhóm.
   private async setTeamLead(
     tx: Prisma.TransactionClient,
     teamId: number,

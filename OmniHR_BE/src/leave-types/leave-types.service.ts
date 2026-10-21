@@ -1,3 +1,5 @@
+// CRUD loại nghỉ phép, mọi thay đổi đều ghi audit.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../common/services/audit.service";
@@ -13,6 +15,7 @@ export class LeaveTypesService {
     private readonly audit: AuditService
   ) {}
 
+  // Các loại nghỉ đang hoạt động.
   findAll() {
     return this.prisma.leaveType.findMany({
       orderBy: { code: "asc" }
@@ -79,6 +82,7 @@ export class LeaveTypesService {
     return leaveType;
   }
 
+  // "Xóa" loại nghỉ = ngừng dùng (isActive = false), không xóa hẳn vì các đơn cũ vẫn tham chiếu tới.
   async remove(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id);
     const leaveType = await this.prisma.leaveType.update({

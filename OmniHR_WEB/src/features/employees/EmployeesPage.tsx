@@ -1,3 +1,5 @@
+// Trang nhân viên: danh sách có lọc, tạo / sửa hồ sơ (kèm kỹ năng), xóa, đặt lại mật khẩu, khóa / mở tài khoản.
+
 import {
   ActionIcon,
   Badge,
@@ -128,6 +130,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     }
   });
 
+  // Lưu hồ sơ (tạo hoặc sửa), rồi đồng bộ kỹ năng đã chọn.
   const saveMutation = useMutation({
     mutationFn: async (values: typeof form.values) => {
       const payload = normalizeEmployeePayload(values);
@@ -209,6 +212,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Đặt lại mật khẩu về mặc định.
   const resetMutation = useMutation({
     mutationFn: employeesApi.resetPassword,
     onSuccess: (result) => {
@@ -217,6 +221,7 @@ export function EmployeesPage({ scope }: EmployeesPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Khóa / mở khóa tài khoản đăng nhập.
   const userStatusMutation = useMutation({
     mutationFn: (values: { id: number; active: boolean }) =>
       values.active

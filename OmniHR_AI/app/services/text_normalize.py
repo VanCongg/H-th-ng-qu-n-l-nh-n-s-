@@ -1,3 +1,5 @@
+# Chuẩn hóa văn bản tiếng Việt: viết thường, bỏ dấu, gộp khoảng trắng ("Xin Nghỉ" -> "xin nghi").
+
 import re
 import unicodedata
 

@@ -1,3 +1,5 @@
+// Prisma client dùng chung, tự kết nối khi khởi động và ngắt khi tắt app.
+
 import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
 

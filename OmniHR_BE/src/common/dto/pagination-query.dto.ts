@@ -1,3 +1,5 @@
+// Tham số danh sách dùng chung: page (từ 1), limit (1-100, mặc định 20), search (từ khóa).
+
 import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { Type } from "class-transformer";
 

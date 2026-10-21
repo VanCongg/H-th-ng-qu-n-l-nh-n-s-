@@ -1,3 +1,5 @@
+// Dữ liệu sửa role.
+
 import { IsArray, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdateRoleDto {

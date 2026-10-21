@@ -1,3 +1,5 @@
+// Màn hình chấm công: nút check-in / check-out bằng GPS, lịch tháng đánh dấu ngày đã chấm, chi tiết từng ngày.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -145,6 +147,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   /// either the user is within the configured radius, the policy couldn't
   /// be determined (server still validates authoritatively), or the user
   /// explicitly chose to continue anyway.
+  // Báo trước nếu đang ở ngoài bán kính văn phòng (backend vẫn kiểm tra lại).
   Future<bool> _confirmWithinRadius(
     Map<String, Object?> locationPayload,
   ) async {
@@ -201,6 +204,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     });
   }
 
+  // Check-in / check-out: lấy vị trí, kiểm tra bán kính, gửi lên backend.
   Future<void> _record(String action, List<AttendanceRecord> records) async {
     if (_submitting) return;
     final isCheckIn = action == 'check-in';
@@ -458,6 +462,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 }
 
+// Lịch tháng: đánh dấu ngày có chấm công.
 class MonthAttendanceCalendar extends StatelessWidget {
   const MonthAttendanceCalendar({
     super.key,
@@ -655,6 +660,7 @@ class _AttendanceDayCell extends StatelessWidget {
   }
 }
 
+// Các lần chấm công của một ngày.
 class DayAttendanceDetails extends StatelessWidget {
   const DayAttendanceDetails({
     super.key,

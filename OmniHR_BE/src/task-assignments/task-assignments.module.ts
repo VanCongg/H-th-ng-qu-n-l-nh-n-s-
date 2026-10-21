@@ -1,3 +1,5 @@
+// Module lịch sử giao việc.
+
 import { Module } from "@nestjs/common";
 import { AccessControlService } from "../common/services/access-control.service";
 import { PrismaModule } from "../prisma/prisma.module";

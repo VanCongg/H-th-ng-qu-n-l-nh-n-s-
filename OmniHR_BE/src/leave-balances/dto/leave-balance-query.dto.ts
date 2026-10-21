@@ -1,3 +1,5 @@
+// Bộ lọc số dư phép: năm, tháng, trạng thái (còn / sắp hết / hết), cách sắp xếp.
+
 import { Type } from "class-transformer";
 import { IsIn, IsInt, IsOptional, Max, Min } from "class-validator";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";

@@ -1,3 +1,5 @@
+// Tiêu đề trang dùng chung: tên, mô tả, các nút hành động.
+
 import { Group, Stack, Text, Title } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useTranslation } from "../../i18n";

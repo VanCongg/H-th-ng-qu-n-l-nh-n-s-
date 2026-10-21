@@ -1,3 +1,5 @@
+// Lấy dữ liệu chấm công, đơn nghỉ, ngày lễ, cấu hình rồi dựng bảng công tháng bằng timesheet.ts.
+
 import { Injectable } from "@nestjs/common";
 import { LeaveRequestStatus, Prisma } from "@prisma/client";
 import { employeeSearchWhere } from "../common/prisma-where";
@@ -31,6 +33,7 @@ export class TimesheetService {
     private readonly holidays: HolidaysService
   ) {}
 
+  // Bảng công tháng của nhiều nhân viên (phân trang).
   async list(query: TimesheetQueryDto) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const where = employeeSearchWhere(query.search, query.departmentId);

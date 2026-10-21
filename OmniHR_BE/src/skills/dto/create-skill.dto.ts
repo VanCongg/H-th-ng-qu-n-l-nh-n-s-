@@ -1,3 +1,5 @@
+// Dữ liệu tạo kỹ năng: mã, tên, nhóm, mô tả, đang dùng, các vị trí phù hợp.
+
 import { Type } from "class-transformer";
 import {
   IsArray,

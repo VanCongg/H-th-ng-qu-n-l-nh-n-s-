@@ -1,3 +1,7 @@
+// Trung tâm phân quyền theo dữ liệu (ai được xem / sửa / duyệt cái gì).
+// Guard chỉ kiểm tra permission chung; service này kiểm tra quan hệ cụ thể:
+// quản lý trực tiếp, trưởng nhóm, trưởng phòng, cấp dưới, thành viên dự án...
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { EmployeeStatus, TeamMemberRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -17,6 +21,7 @@ export class AccessControlService {
    * themself. Used to tell them about a new leave request and to answer "who
    * is my manager".
    */
+  // Quản lý trực tiếp và trưởng phòng của một nhân viên (dùng để báo đơn nghỉ, trả lời "quản lý của tôi là ai").
   async managersOf(employeeId: number) {
     const today = toDateOnly(new Date());
     const person = { id: true, fullName: true, userId: true, position: { select: { name: true } } } as const;
@@ -60,14 +65,17 @@ export class AccessControlService {
     };
   }
 
+  // Có role ADMIN hay không.
   isAdmin(user: AuthUser) {
     return user.roles.includes("ADMIN");
   }
 
+  // Có role quản lý hay không.
   isManager(user: AuthUser) {
     return user.roles.includes("MANAGER");
   }
 
+  // Được xem hồ sơ nhân viên này không (bản thân, cấp dưới, hoặc quyền xem tất cả).
   async ensureCanReadEmployee(user: AuthUser, employeeId: number) {
     if (this.isAdmin(user)) {
       return;
@@ -88,6 +96,7 @@ export class AccessControlService {
     );
   }
 
+  // Được duyệt đơn nghỉ của nhân viên này không. Không ai tự duyệt đơn của chính mình.
   async ensureCanManageLeave(user: AuthUser, employeeId: number) {
     // Before the admin shortcut: nobody approves their own leave, an admin
     // with an employee record included - another admin or their manager does.
@@ -112,6 +121,7 @@ export class AccessControlService {
     }
   }
 
+  // Được đánh giá / nhận xét nhân viên này không.
   async ensureCanReviewEmployee(user: AuthUser, employeeId: number) {
     if (this.isAdmin(user)) {
       return;
@@ -134,6 +144,8 @@ export class AccessControlService {
     }
   }
 
+  // Danh sách cấp dưới: người được gán quản lý thủ công + thành viên các nhóm mình làm trưởng
+  // + toàn bộ nhân viên các phòng mình làm trưởng phòng.
   async teamEmployeeIds(user: AuthUser): Promise<number[]> {
     if (!user.employeeId) {
       return [];
@@ -209,6 +221,7 @@ export class AccessControlService {
     return Array.from(new Set([...manualIds, ...ledTeamIds, ...departmentIds]));
   }
 
+  // Các nhóm người dùng quản lý (làm trưởng nhóm, hoặc thuộc phòng mình làm trưởng phòng).
   async managedTeamIds(user: AuthUser): Promise<number[]> {
     if (!user.employeeId) {
       return [];
@@ -272,6 +285,7 @@ export class AccessControlService {
     return Boolean(task.teamId && (await this.isTeamLead(user, task.teamId)));
   }
 
+  // Có phải trưởng phòng của phòng ban này không.
   async isDepartmentHead(user: AuthUser, departmentId: number): Promise<boolean> {
     if (!user.employeeId) {
       return false;
@@ -288,6 +302,7 @@ export class AccessControlService {
     return Boolean(department);
   }
 
+  // Có phải trưởng nhóm của nhóm này không.
   async isTeamLead(user: AuthUser, teamId: number): Promise<boolean> {
     if (!user.employeeId) {
       return false;
@@ -315,6 +330,7 @@ export class AccessControlService {
     return Boolean(team);
   }
 
+  // Nhân viên này có phải cấp dưới của người dùng không.
   async isSubordinate(user: AuthUser, employeeId: number): Promise<boolean> {
     if (!user.employeeId) {
       return false;
@@ -324,6 +340,7 @@ export class AccessControlService {
     return teamIds.includes(employeeId);
   }
 
+  // Được xem dự án không (thành viên, quản lý dự án, cấp trên, hoặc quyền xem tất cả).
   async ensureCanReadProject(user: AuthUser, projectId: number) {
     if (this.isAdmin(user)) {
       return;
@@ -378,6 +395,7 @@ export class AccessControlService {
     throw new ApiError(HttpStatus.FORBIDDEN, "Project scope denied", "PROJECT_SCOPE_DENIED");
   }
 
+  // Được xem task không; trả về task nếu được.
   async ensureCanReadTask(user: AuthUser, taskId: number) {
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, deletedAt: null },
@@ -426,6 +444,7 @@ export class AccessControlService {
     throw new ApiError(HttpStatus.FORBIDDEN, "Task scope denied", "TASK_ASSIGNMENT_DENIED");
   }
 
+  // Được sửa thông tin task không (người tạo, trưởng nhóm, trưởng phòng, admin).
   async ensureCanUpdateTask(user: AuthUser, taskId: number) {
     const task = await this.ensureCanReadTask(user, taskId);
     if (this.isAdmin(user)) {
@@ -443,6 +462,7 @@ export class AccessControlService {
     throw new ApiError(HttpStatus.FORBIDDEN, "Task update denied", "TASK_ASSIGNMENT_DENIED");
   }
 
+  // Được đổi trạng thái task không (người được giao, hoặc người duyệt).
   async ensureCanUpdateTaskStatus(user: AuthUser, taskId: number) {
     const task = await this.ensureCanReadTask(user, taskId);
     if (this.isAdmin(user) || task.assigneeId === user.employeeId) {
@@ -460,6 +480,7 @@ export class AccessControlService {
     throw new ApiError(HttpStatus.FORBIDDEN, "Task status update denied", "TASK_ASSIGNMENT_DENIED");
   }
 
+  // Được giao việc cho nhân viên này không (phải nằm trong phạm vi mình quản lý).
   async ensureCanAssignToEmployee(user: AuthUser, employeeId: number) {
     const employee = await this.prisma.employee.findFirst({
       where: currentEmployeeWhere({ id: employeeId, status: EmployeeStatus.ACTIVE }),
@@ -488,6 +509,7 @@ export class AccessControlService {
     );
   }
 
+  // Được giao task này cho nhân viên này không.
   async ensureCanAssignTask(user: AuthUser, taskId: number, employeeId: number) {
     const task = await this.ensureCanUpdateTask(user, taskId);
     if (!task.parentTaskId) {
@@ -500,6 +522,7 @@ export class AccessControlService {
     await this.ensureCanAssignToEmployee(user, employeeId);
   }
 
+  // Những nhân viên có thể được đề xuất giao task (dùng cho AI gợi ý người làm).
   async candidateEmployeeIdsForTask(user: AuthUser): Promise<number[]> {
     if (this.isAdmin(user)) {
       const employees = await this.prisma.employee.findMany({
@@ -532,6 +555,7 @@ export class AccessControlService {
     return [];
   }
 
+  // Được yêu cầu AI gợi ý người làm cho task này không.
   async ensureCanGenerateTaskSuggestion(user: AuthUser, taskId: number) {
     if (!this.isAdmin(user) && !this.isManager(user)) {
       throw new ApiError(HttpStatus.FORBIDDEN, "AI suggestion denied", "TASK_ASSIGNMENT_DENIED");
@@ -539,10 +563,12 @@ export class AccessControlService {
     await this.ensureCanReadTask(user, taskId);
   }
 
+  // Được xem kỹ năng của nhân viên này không.
   async ensureCanReadEmployeeSkill(user: AuthUser, employeeId: number) {
     await this.ensureCanReadEmployee(user, employeeId);
   }
 
+  // Được sửa kỹ năng của nhân viên này không.
   async ensureCanUpdateEmployeeSkill(user: AuthUser, employeeId: number) {
     if (this.isAdmin(user)) {
       return;

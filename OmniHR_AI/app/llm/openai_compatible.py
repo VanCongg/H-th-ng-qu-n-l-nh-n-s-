@@ -1,3 +1,7 @@
+# Client LLM cho mọi API kiểu OpenAI (POST /chat/completions, yêu cầu trả JSON).
+# Có thử lại khi gặp lỗi tạm thời (quá tải, giới hạn tốc độ) và một tổng thời gian tối đa cho mọi lần thử,
+# để còn thời gian cho planner rule-based trả lời nếu LLM chậm.
+
 import time
 from typing import Any
 
@@ -13,6 +17,7 @@ BACKOFF_CAP_SECONDS = 4.0
 MIN_ATTEMPT_SECONDS = 2.0
 
 
+# Lỗi tạm thời, đáng thử lại (429, 5xx, timeout).
 class RetryableLlmError(LlmClientError):
     """A transient failure; complete_json retries these with backoff."""
 
@@ -26,6 +31,7 @@ class OpenAICompatibleLlmClient:
         self.settings = settings
         self.base_url = (settings.llm_base_url or "https://api.openai.com/v1").rstrip("/")
 
+    # Gọi LLM, thử lại có giãn cách khi lỗi tạm thời, dừng khi hết tổng thời gian cho phép.
     def complete_json(self, messages: list[dict[str, str]]) -> str:
         attempts = max(1, self.settings.llm_max_retries + 1)
         # One budget for every attempt: a slow provider must not use up the
@@ -51,6 +57,7 @@ class OpenAICompatibleLlmClient:
 
         raise LlmClientError("LLM request failed")
 
+    # Một lần gọi HTTP tới /chat/completions.
     def _request(self, messages: list[dict[str, str]], timeout: float | None = None) -> str:
         import httpx
 

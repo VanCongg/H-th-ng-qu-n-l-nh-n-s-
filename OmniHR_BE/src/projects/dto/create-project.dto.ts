@@ -1,3 +1,5 @@
+// Dữ liệu tạo dự án: mã, tên, mô tả, trạng thái, ngày bắt đầu / kết thúc.
+
 import {
   IsDateString,
   IsEnum,

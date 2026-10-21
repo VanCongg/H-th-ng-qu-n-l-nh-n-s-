@@ -1,3 +1,5 @@
+// API quan hệ quản lý gán thủ công (ai là quản lý trực tiếp của ai, từ ngày nào đến ngày nào).
+
 import {
   Body,
   Controller,
@@ -28,18 +30,21 @@ export class EmployeeManagersController {
     return this.employeeManagersService.findAll();
   }
 
+  // Các quản lý của một nhân viên.
   @Permissions("MANAGER_READ")
   @Get("employee/:employeeId")
   findByEmployee(@Param("employeeId", ParseIntPipe) employeeId: number) {
     return this.employeeManagersService.findByEmployee(employeeId);
   }
 
+  // Các cấp dưới của một quản lý.
   @Permissions("MANAGER_READ")
   @Get("manager/:managerId/subordinates")
   findSubordinates(@Param("managerId", ParseIntPipe) managerId: number) {
     return this.employeeManagersService.findSubordinates(managerId);
   }
 
+  // Gán quản lý cho nhân viên.
   @Permissions("MANAGER_ASSIGN")
   @Post()
   assign(
@@ -50,6 +55,7 @@ export class EmployeeManagersController {
     return this.employeeManagersService.assign(dto, user, context);
   }
 
+  // Kết thúc quan hệ quản lý (đặt ngày kết thúc).
   @Permissions("MANAGER_REMOVE")
   @Patch(":id/end")
   end(

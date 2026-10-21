@@ -1,3 +1,9 @@
+// Nghiệp vụ chấm công.
+// - Check-in / check-out phải ở trong bán kính văn phòng; vị trí phải thật (không mock),
+//   mới (không phải tọa độ cũ lưu sẵn) và đủ chính xác.
+// - Mỗi lần chấm công khóa theo nhân viên (advisory lock của PostgreSQL) để bấm hai lần không tạo hai bản ghi.
+// - Lần chấm công thường không ghi audit (bản ghi đã đủ thông tin); admin tạo / sửa thì có ghi audit.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   AttendanceRecord,
@@ -69,6 +75,7 @@ export class AttendanceService {
     private readonly holidays: HolidaysService
   ) {}
 
+  // Tọa độ văn phòng, bán kính, độ chính xác tối thiểu: app dùng để báo trước có chấm được không.
   async getLocationPolicy() {
     const settings = await this.systemSettings.getSettings();
     // Last year to next year: enough for the calendar to page around today.
@@ -139,6 +146,7 @@ export class AttendanceService {
     return record;
   }
 
+  // Check-out: kiểm tra vị trí, phải có check-in trước đó trong ngày, ghi giờ ra và ca tương ứng.
   async checkOut(
     user: AuthUser,
     dto: AttendanceActionDto,
@@ -186,15 +194,18 @@ export class AttendanceService {
     return record;
   }
 
+  // Tất cả bản ghi chấm công (theo bộ lọc).
   async findAll(query: AttendanceQueryDto) {
     return this.paginatedList(this.buildWhere(query), query);
   }
 
+  // Bản ghi chấm công của chính mình.
   async findSelf(user: AuthUser, query: AttendanceQueryDto) {
     const employeeId = this.requireEmployee(user);
     return this.paginatedList({ ...this.buildWhere(query), employeeId }, query);
   }
 
+  // Bản ghi chấm công của cấp dưới.
   async findTeam(user: AuthUser, query: AttendanceQueryDto) {
     const teamIds = await this.accessControl.teamEmployeeIds(user);
     const scopedIds = query.employeeId
@@ -211,11 +222,13 @@ export class AttendanceService {
     );
   }
 
+  // Bản ghi chấm công của một nhân viên (kiểm tra quyền xem).
   async findByEmployee(employeeId: number, user: AuthUser, query: AttendanceQueryDto) {
     await this.accessControl.ensureCanReadEmployee(user, employeeId);
     return this.paginatedList({ ...this.buildWhere(query), employeeId }, query);
   }
 
+  // Admin thêm bản ghi chấm công bù, có ghi audit.
   async adminCreate(
     dto: AdminCreateAttendanceDto,
     actor: AuthUser,
@@ -268,6 +281,7 @@ export class AttendanceService {
     return record;
   }
 
+  // Admin sửa bản ghi chấm công, ghi audit trước / sau.
   async adminUpdate(
     id: number,
     dto: AdminUpdateAttendanceDto,
@@ -379,6 +393,7 @@ export class AttendanceService {
    * two near-simultaneous punches (double tap, network retry) cannot both
    * pass the duplicate check before either record is written.
    */
+  // Khóa theo nhân viên đến hết transaction: hai lần bấm gần như cùng lúc không thể cùng qua bước kiểm tra trùng.
   private async lockEmployeeAttendance(
     tx: Prisma.TransactionClient,
     employeeId: number
@@ -386,6 +401,7 @@ export class AttendanceService {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ATTENDANCE_LOCK_NAMESPACE}::int, ${employeeId}::int)`;
   }
 
+  // Kiểm tra thứ tự hợp lệ: không check-in hai lần liên tiếp, không check-out khi chưa check-in.
   private async ensureValidAttendanceAction(
     tx: Prisma.TransactionClient,
     employeeId: number,
@@ -497,6 +513,7 @@ export class AttendanceService {
     };
   }
 
+  // Xác định ca (sáng / chiều) của lần check-in theo giờ.
   private resolveCheckInShift(recordedAt: Date, settings: SystemSettings) {
     const localMinutes = this.localMinutes(recordedAt, settings.timezoneOffsetMinutes);
     const earlyWindow = settings.attendanceEarlyCheckInMinutes;
@@ -519,6 +536,7 @@ export class AttendanceService {
     return resolveShiftWindows(settings);
   }
 
+  // Tính khoảng cách tới văn phòng; ngoài bán kính thì từ chối.
   private resolveLocation(
     dto: AttendanceActionDto,
     settings: SystemSettings
@@ -587,6 +605,7 @@ export class AttendanceService {
    * report the value, so it stops the common tricks - a mock-location app, a
    * fix cached at the office yesterday - not a determined forger of requests.
    */
+  // Vị trí phải đáng tin: không đến từ app giả vị trí, không quá cũ, độ sai số không quá lớn.
   private ensureTrustworthyFix(dto: AttendanceActionDto, radiusMeters: number) {
     if (dto.isMocked) {
       throw new ApiError(
@@ -615,6 +634,7 @@ export class AttendanceService {
     }
   }
 
+  // Ngày làm việc của một thời điểm, theo múi giờ công ty.
   private workDateFor(recordedAt: Date, timezoneOffsetMinutes: number) {
     const local = new Date(recordedAt.getTime() + timezoneOffsetMinutes * 60_000);
     return new Date(
@@ -627,6 +647,7 @@ export class AttendanceService {
     return local.getUTCHours() * 60 + local.getUTCMinutes();
   }
 
+  // Khoảng cách giữa hai tọa độ theo công thức Haversine (mét).
   private distanceMeters(
     latitudeA: number,
     longitudeA: number,

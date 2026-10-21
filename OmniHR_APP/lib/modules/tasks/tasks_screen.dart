@@ -1,3 +1,5 @@
+// Màn hình công việc của tôi theo tháng: lọc (tất cả / đang mở / quá hạn / xong), xem chi tiết, đổi trạng thái.
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
@@ -94,12 +96,14 @@ class _TasksScreenState extends State<TasksScreen> {
         false;
   }
 
+  // Chỉ đổi được trạng thái task con (task nhóm tự tính từ task con).
   bool _canUpdateTask(TaskItem task) {
     return _canUpdateStatus && task.parentTaskId != null;
   }
 
   /// A subtask whose next steps belong to the team lead: approved, cancelled,
   /// or otherwise out of the assignee's hands.
+  // Task mà bước tiếp theo thuộc về người duyệt (không còn trạng thái nào người làm được chuyển).
   bool _awaitsReviewer(TaskItem task) {
     final allowed = task.allowedStatuses;
     return allowed != null && allowed.isEmpty;
@@ -118,6 +122,7 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
+  // Đổi trạng thái task qua PATCH /tasks/:id/status.
   Future<void> _updateStatus(TaskItem task, String status) async {
     if (!_canUpdateStatus) {
       showAppSnack(

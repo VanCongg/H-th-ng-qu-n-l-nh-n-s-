@@ -1,3 +1,7 @@
+// Nghiệp vụ đơn nghỉ phép. Vòng đời: PENDING -> APPROVED / REJECTED / CANCELLED.
+// Đơn đã duyệt mà nhân viên muốn rút thì thành "yêu cầu hủy" chờ quản lý quyết định.
+// Số ngày nghỉ luôn tính bằng calculateLeaveDays (bỏ cuối tuần, ngày lễ). App, web và HRGenie đều đi qua service này.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { LeaveHalf, LeaveRequestStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -33,6 +37,7 @@ const leaveInclude = {
  * Requests with at least one leave day in the month, so a leave that spans
  * 30/9-2/10 shows up under both September and October.
  */
+// Điều kiện lọc đơn có ít nhất một ngày nghỉ rơi vào tháng (đơn 30/9-2/10 hiện ở cả tháng 9 và 10).
 export function leaveMonthWhere(year: number, month: number): Prisma.LeaveRequestWhereInput {
   return {
     startDate: { lte: new Date(Date.UTC(year, month, 0)) },
@@ -52,6 +57,8 @@ export class LeaveRequestsService {
     private readonly holidays: HolidaysService
   ) {}
 
+  // Tạo đơn: tính số ngày công, kiểm tra không trùng đơn khác và đủ phép năm,
+  // lưu đơn PENDING, ghi audit và gửi thông báo cho quản lý trực tiếp + trưởng phòng.
   async create(
     dto: CreateLeaveRequestDto,
     user: AuthUser,
@@ -141,15 +148,18 @@ export class LeaveRequestsService {
     return leaveRequest;
   }
 
+  // Tất cả đơn nghỉ (theo bộ lọc).
   async findAll(query: LeaveRequestQueryDto) {
     return this.paginatedList(this.buildWhere(query), query);
   }
 
+  // Đơn nghỉ của chính người dùng.
   async findSelf(user: AuthUser, query: LeaveRequestQueryDto) {
     const employeeId = this.requireEmployee(user);
     return this.paginatedList({ ...this.buildWhere(query), employeeId }, query);
   }
 
+  // Đơn nghỉ của các cấp dưới.
   async findTeam(user: AuthUser, query: LeaveRequestQueryDto) {
     const teamIds = await this.accessControl.teamEmployeeIds(user);
     const scopedIds = query.employeeId
@@ -164,6 +174,7 @@ export class LeaveRequestsService {
     );
   }
 
+  // Một đơn nghỉ; chỉ người có quyền xem nhân viên đó mới xem được.
   async findOne(id: number, user: AuthUser) {
     const leaveRequest = await this.prisma.leaveRequest.findUnique({
       where: { id },
@@ -181,6 +192,8 @@ export class LeaveRequestsService {
     return leaveRequest;
   }
 
+  // Duyệt đơn: chỉ đơn PENDING, không ai tự duyệt đơn của mình, kiểm tra lại số dư phép,
+  // đổi trạng thái APPROVED, ghi audit và báo cho nhân viên.
   async approve(id: number, user: AuthUser, context?: RequestContext) {
     const leaveRequest = await this.findPendingForDecision(id, user);
     // Checked again at approval: other requests may have been approved since
@@ -228,6 +241,7 @@ export class LeaveRequestsService {
     return updated;
   }
 
+  // Từ chối đơn kèm lý do, ghi audit và báo cho nhân viên.
   async reject(
     id: number,
     dto: RejectLeaveRequestDto,
@@ -277,6 +291,7 @@ export class LeaveRequestsService {
    * Only leave that has not started can be withdrawn; a leave under way is
    * settled with the manager directly.
    */
+  // Nhân viên hủy đơn: đơn PENDING thì hủy luôn; đơn APPROVED chưa tới ngày nghỉ thì gửi yêu cầu hủy cho quản lý.
   async cancel(id: number, user: AuthUser, context?: RequestContext, reason?: string) {
     const leaveRequest = await this.prisma.leaveRequest.findUnique({
       where: { id },
@@ -363,6 +378,7 @@ export class LeaveRequestsService {
   }
 
   /** A manager keeps the leave: the request is cleared and the leave stands. */
+  // Quản lý giữ lại đơn: xóa yêu cầu hủy, đơn vẫn được duyệt.
   async rejectCancellation(
     id: number,
     dto: RejectLeaveRequestDto,
@@ -398,6 +414,7 @@ export class LeaveRequestsService {
     return updated;
   }
 
+  // Ghi nhận yêu cầu hủy một đơn đã duyệt và báo cho người duyệt.
   private async requestCancellation(
     leaveRequest: Prisma.LeaveRequestGetPayload<{ include: typeof leaveInclude }>,
     user: AuthUser,
@@ -490,6 +507,7 @@ export class LeaveRequestsService {
     }
   }
 
+  // Lấy đơn đang có yêu cầu hủy và kiểm tra người dùng có quyền quyết định không.
   private async findCancellationForDecision(id: number, user: AuthUser) {
     const leaveRequest = await this.prisma.leaveRequest.findUnique({
       where: { id },
@@ -513,6 +531,7 @@ export class LeaveRequestsService {
     return leaveRequest;
   }
 
+  // Lấy đơn đang chờ duyệt và kiểm tra người dùng có quyền duyệt không.
   private async findPendingForDecision(id: number, user: AuthUser) {
     const leaveRequest = await this.prisma.leaveRequest.findUnique({
       where: { id },
@@ -581,6 +600,8 @@ export class LeaveRequestsService {
    * A request over New Year is checked against each year's own balance.
    * Other leave types (sick, unpaid) have no balance to run out of.
    */
+  // Phép năm không được vượt số ngày đã tích lũy. Lúc nộp so với availableDays (đã trừ đơn đang chờ),
+  // lúc duyệt so với remainingDays. Loại nghỉ khác (ốm, không lương) không có số dư.
   async ensureAnnualBalance(
     employeeId: number,
     leaveTypeCode: string,
@@ -626,6 +647,8 @@ export class LeaveRequestsService {
    * share a date - they are two halves, not a clash. Public so HRGenie refuses
    * a clash before the employee confirms.
    */
+  // Mỗi ngày chỉ một đơn nghỉ; riêng nửa buổi sáng và nửa buổi chiều được cùng ngày.
+  // Để public để HRGenie báo trùng ngay lúc tạo nháp.
   async ensureNoOverlap(
     employeeId: number,
     startDate: Date,

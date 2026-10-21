@@ -1,3 +1,5 @@
+// Hộp thoại xác nhận dùng chung (vd. trước khi xóa), có nút nguy hiểm màu đỏ.
+
 import { modals } from "@mantine/modals";
 import { Stack, Text } from "@mantine/core";
 import { getCurrentLanguage, translateText } from "../../i18n";

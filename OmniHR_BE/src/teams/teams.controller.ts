@@ -1,3 +1,5 @@
+// API nhóm (team): danh sách, chi tiết, tạo / sửa / xóa, thêm / sửa / bỏ thành viên.
+
 import {
   Body,
   Controller,
@@ -70,6 +72,7 @@ export class TeamsController {
     return this.teamsService.softDelete(id, user, context);
   }
 
+  // Thêm thành viên vào nhóm.
   @Permissions("TEAM_UPDATE")
   @Post(":id/members")
   addMember(
@@ -81,6 +84,7 @@ export class TeamsController {
     return this.teamsService.addMember(id, dto, user, context);
   }
 
+  // Đổi vai trò thành viên (thành viên / trưởng nhóm).
   @Permissions("TEAM_UPDATE")
   @Patch(":id/members/:memberId")
   updateMember(
@@ -93,6 +97,7 @@ export class TeamsController {
     return this.teamsService.updateMember(id, memberId, dto, user, context);
   }
 
+  // Bỏ thành viên khỏi nhóm.
   @Permissions("TEAM_UPDATE")
   @Delete(":id/members/:memberId")
   removeMember(

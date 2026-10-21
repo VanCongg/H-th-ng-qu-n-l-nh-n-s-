@@ -1,3 +1,5 @@
+// Module hồ sơ nhân viên.
+
 import { Module } from "@nestjs/common";
 import { EmployeesController } from "./employees.controller";
 import { EmployeesService } from "./employees.service";

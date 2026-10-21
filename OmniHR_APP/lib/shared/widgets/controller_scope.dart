@@ -1,3 +1,5 @@
+// Giữ và tự dispose các controller (TextEditingController...) theo vòng đời widget.
+
 import 'package:flutter/widgets.dart';
 
 /// Ties text controllers to the lifetime of the subtree that uses them.

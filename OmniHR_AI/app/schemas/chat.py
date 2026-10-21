@@ -1,8 +1,11 @@
+# Hợp đồng dữ liệu giữa NestJS và AI service cho /internal/chat/plan.
+
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 
+# Thông tin người hỏi: id, roles, permissions, phòng ban, vị trí.
 class UserContext(BaseModel):
     userId: int
     employeeId: int | None = None
@@ -12,6 +15,7 @@ class UserContext(BaseModel):
     positionId: int | None = None
 
 
+# Một tool người dùng được phép dùng.
 class ToolDefinition(BaseModel):
     name: str
     description: str = ""
@@ -24,11 +28,13 @@ class ToolDefinition(BaseModel):
         return value
 
 
+# Một tin nhắn trong lịch sử (đã ẩn dữ liệu nhạy cảm ở NestJS).
 class HistoryMessage(BaseModel):
     role: Literal["user", "assistant", "tool", "system"]
     content: str
 
 
+# Yêu cầu lập kế hoạch: tin nhắn, ngày hôm nay, người hỏi, tool được phép, lịch sử.
 class ChatPlanRequest(BaseModel):
     conversationId: str | None = None
     message: str
@@ -49,17 +55,20 @@ class ChatPlanRequest(BaseModel):
         return self
 
 
+# Một lời gọi tool đề xuất.
 class ToolCall(BaseModel):
     id: str
     toolName: str
     arguments: dict[str, Any] = Field(default_factory=dict)
 
 
+# Thông tin xác nhận cho thao tác ghi.
 class Confirmation(BaseModel):
     title: str | None = None
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+# Kế hoạch trả về NestJS: type / intent / reply / toolCalls / needConfirmation (cố định mọi chế độ).
 class ChatPlanResponse(BaseModel):
     type: Literal["answer", "tool_plan", "confirmation_required"]
     intent: str | None = None

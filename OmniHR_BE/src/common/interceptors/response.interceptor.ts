@@ -1,3 +1,6 @@
+// Bọc mọi kết quả thành công thành { success: true, message, data }.
+// Payload đã có sẵn success/message thì giữ nguyên.
+
 import {
   CallHandler,
   ExecutionContext,

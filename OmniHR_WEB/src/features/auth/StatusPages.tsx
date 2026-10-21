@@ -1,3 +1,5 @@
+// Các trang trạng thái: không có quyền (403) và trang báo nhân viên thường dùng app mobile.
+
 import { Button, Center, Paper, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { ArrowLeft, LogOut, ShieldAlert, Smartphone } from "lucide-react";
@@ -8,6 +10,7 @@ import { authApi } from "../../api/endpoints";
 import { useTranslation } from "../../i18n";
 import { useAuthStore } from "../../store/auth";
 
+// Trang báo không có quyền truy cập.
 export function ForbiddenPage() {
   const { tx } = useTranslation();
   const navigate = useNavigate();
@@ -32,6 +35,7 @@ export function ForbiddenPage() {
   );
 }
 
+// Nhân viên thường không có khu web: hướng dẫn dùng app mobile, chỉ có nút đăng xuất.
 export function MobileNoticePage() {
   const { t, tx } = useTranslation();
   const navigate = useNavigate();

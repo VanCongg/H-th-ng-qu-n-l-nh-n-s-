@@ -1,3 +1,5 @@
+# Endpoint nội bộ POST /internal/rag/search: tìm đoạn tài liệu chính sách khớp câu hỏi (dùng để debug / đánh giá).
+
 from fastapi import APIRouter, Depends
 
 from app.core.security import verify_internal_token

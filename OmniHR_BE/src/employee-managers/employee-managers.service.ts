@@ -1,3 +1,6 @@
+// Nghiệp vụ quan hệ quản lý thủ công. Mỗi nhân viên chỉ có một quản lý trực tiếp đang hiệu lực,
+// và không được tạo vòng lặp (A quản lý B, B lại quản lý A).
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ManagerType } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -61,6 +64,7 @@ export class EmployeeManagersService {
     });
   }
 
+  // Gán quản lý: kiểm tra không trùng, không vòng lặp, chưa có quản lý trực tiếp; ghi audit.
   async assign(dto: AssignManagerDto, actor: AuthUser, context?: RequestContext) {
     if (dto.employeeId === dto.managerId) {
       throw new ApiError(
@@ -102,6 +106,7 @@ export class EmployeeManagersService {
     return relation;
   }
 
+  // Kết thúc quan hệ quản lý; ghi audit.
   async end(id: number, dto: EndManagerDto, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id);
     if (!oldValue.isActive) {
@@ -191,6 +196,7 @@ export class EmployeeManagersService {
     }
   }
 
+  // Nhân viên chưa có quản lý trực tiếp nào đang hiệu lực.
   private async ensureNoActiveDirectManager(employeeId: number) {
     const existing = await this.prisma.employeeManager.findFirst({
       where: {
@@ -209,6 +215,7 @@ export class EmployeeManagersService {
     }
   }
 
+  // Chặn vòng lặp quản lý.
   private async ensureNoManagerCycle(employeeId: number, managerId: number) {
     const today = toDateOnly(new Date());
     const visited = new Set<number>();

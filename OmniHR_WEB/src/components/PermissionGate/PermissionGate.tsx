@@ -1,3 +1,6 @@
+// Ẩn / hiện phần giao diện theo role hoặc permission (giống RolesGuard / PermissionsGuard ở backend).
+// Chỉ để giao diện gọn; quyền thật vẫn do backend kiểm tra.
+
 import type { ReactNode } from "react";
 import { useAuthStore } from "../../store/auth";
 import type { RoleName } from "../../api/types";

@@ -1,3 +1,5 @@
+// Khối hiển thị khi danh sách trống.
+
 import { Button, Stack, Text, ThemeIcon, Title } from "@mantine/core";
 import { Inbox } from "lucide-react";
 import type { ReactNode } from "react";

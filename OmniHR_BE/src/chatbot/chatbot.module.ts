@@ -1,3 +1,5 @@
+// Module chatbot HRGenie: dùng lại service của chấm công, đơn nghỉ, số dư phép, task để chạy tool.
+
 import { Module } from "@nestjs/common";
 import { AttendanceModule } from "../attendance/attendance.module";
 import { LeaveBalancesModule } from "../leave-balances/leave-balances.module";

@@ -1,3 +1,5 @@
+// Guard kiểm tra role: người dùng cần có ít nhất một role khai báo trong @Roles().
+
 import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ApiError } from "../api-error";

@@ -1,3 +1,6 @@
+// Trang cấu hình hệ thống: giờ ca, tuần làm việc, vị trí và bán kính chấm công, ngưỡng đi muộn / tăng ca,
+// thời gian giữ audit log, quy tắc phép năm, trọng số AI gợi ý giao việc.
+
 import {
   Alert,
   Button,
@@ -351,6 +354,7 @@ export function SystemSettingsPage() {
   );
 }
 
+// Chuyển cấu hình từ backend sang giá trị form (thiếu thì dùng mặc định).
 function settingsToFormValues(settings: Record<string, unknown>): SettingsFormValues {
   return {
     companyName: stringValue(settings.companyName, initialValues.companyName),

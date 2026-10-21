@@ -1,3 +1,5 @@
+// Hộp thoại quên mật khẩu: gửi mã về email, rồi nhập mã + mật khẩu mới.
+
 import { Alert, Button, Group, Modal, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation } from "@tanstack/react-query";

@@ -1,3 +1,5 @@
+// Logo OmniHR (SVG).
+
 import { useId } from "react";
 
 type BrandLogoProps = {

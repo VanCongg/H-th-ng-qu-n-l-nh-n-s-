@@ -1,3 +1,6 @@
+// Store thông báo: kết nối WebSocket (socket.io) bằng access token để nhận thông báo thời gian thực,
+// giữ danh sách và số chưa đọc, đánh dấu đã đọc.
+
 import { create } from "zustand";
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL } from "../api/axios";

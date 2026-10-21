@@ -1,3 +1,5 @@
+// Trang dashboard admin: thẻ số liệu tổng quan toàn công ty và audit log gần đây.
+
 import { Badge, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, BadgeCheck, Building2, ClipboardList, Users } from "lucide-react";

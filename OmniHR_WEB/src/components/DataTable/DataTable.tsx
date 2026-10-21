@@ -1,3 +1,5 @@
+// Bảng dữ liệu dùng chung: cột cấu hình được, phân trang phía server hoặc phía client, trạng thái rỗng / đang tải.
+
 import {
   Alert,
   Box,

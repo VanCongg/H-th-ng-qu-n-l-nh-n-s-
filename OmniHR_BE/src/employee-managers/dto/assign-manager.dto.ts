@@ -1,3 +1,5 @@
+// Dữ liệu gán quản lý: nhân viên, quản lý, loại quản lý, ngày bắt đầu.
+
 import { IsDateString, IsEnum, IsInt, IsOptional } from "class-validator";
 import { ManagerType } from "@prisma/client";
 

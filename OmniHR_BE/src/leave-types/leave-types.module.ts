@@ -1,3 +1,5 @@
+// Module loại nghỉ phép.
+
 import { Module } from "@nestjs/common";
 import { LeaveTypesController } from "./leave-types.controller";
 import { LeaveTypesService } from "./leave-types.service";

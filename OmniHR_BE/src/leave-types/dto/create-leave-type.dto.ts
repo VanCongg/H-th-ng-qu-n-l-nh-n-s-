@@ -1,3 +1,5 @@
+// Dữ liệu tạo loại nghỉ: mã, tên, số ngày mỗi năm, có hưởng lương không, đang dùng không.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from "class-validator";
 
 export class CreateLeaveTypeDto {

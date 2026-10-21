@@ -1,3 +1,5 @@
+// Phần ngày lễ trên trang Chính sách: danh sách theo năm, thêm / sửa / xóa.
+
 import { ActionIcon, Button, Group, Modal, Paper, Select, Stack, Text, TextInput, Title, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";

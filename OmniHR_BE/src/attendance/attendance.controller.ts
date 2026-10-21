@@ -1,3 +1,6 @@
+// API chấm công: check-in / check-out bằng GPS, xem lịch sử, bảng công tháng,
+// và admin tạo / sửa bản ghi chấm công.
+
 import {
   Body,
   Controller,
@@ -32,12 +35,14 @@ export class AttendanceController {
     private readonly timesheetService: TimesheetService
   ) {}
 
+  // Vị trí văn phòng và bán kính cho phép chấm công.
   @Permissions("ATTENDANCE_CHECK_IN")
   @Get("location-policy")
   getLocationPolicy() {
     return this.attendanceService.getLocationPolicy();
   }
 
+  // Nhân viên check-in (kèm tọa độ GPS).
   @Permissions("ATTENDANCE_CHECK_IN")
   @Post("check-in")
   checkIn(
@@ -48,6 +53,7 @@ export class AttendanceController {
     return this.attendanceService.checkIn(user, dto, context);
   }
 
+  // Nhân viên check-out (kèm tọa độ GPS).
   @Permissions("ATTENDANCE_CHECK_OUT")
   @Post("check-out")
   checkOut(
@@ -58,30 +64,35 @@ export class AttendanceController {
     return this.attendanceService.checkOut(user, dto, context);
   }
 
+  // Toàn bộ bản ghi chấm công (HR / admin).
   @Permissions("ATTENDANCE_READ_ALL")
   @Get()
   findAll(@Query() query: AttendanceQueryDto) {
     return this.attendanceService.findAll(query);
   }
 
+  // Bảng công tháng: ngày công, đi muộn, về sớm, tăng ca, nghỉ phép.
   @Permissions("ATTENDANCE_READ_ALL")
   @Get("timesheets")
   findTimesheets(@Query() query: TimesheetQueryDto) {
     return this.timesheetService.list(query);
   }
 
+  // Lịch sử chấm công của chính mình.
   @Permissions("ATTENDANCE_READ_SELF")
   @Get("self")
   findSelf(@CurrentUser() user: AuthUser, @Query() query: AttendanceQueryDto) {
     return this.attendanceService.findSelf(user, query);
   }
 
+  // Lịch sử chấm công của cấp dưới.
   @Permissions("ATTENDANCE_READ_TEAM")
   @Get("team")
   findTeam(@CurrentUser() user: AuthUser, @Query() query: AttendanceQueryDto) {
     return this.attendanceService.findTeam(user, query);
   }
 
+  // Lịch sử chấm công của một nhân viên (kiểm tra quyền xem).
   @Permissions("ATTENDANCE_READ_ALL", "ATTENDANCE_READ_TEAM", "ATTENDANCE_READ_SELF")
   @Get("employee/:employeeId")
   findByEmployee(
@@ -92,6 +103,7 @@ export class AttendanceController {
     return this.attendanceService.findByEmployee(employeeId, user, query);
   }
 
+  // Admin tạo bản ghi chấm công thủ công (có ghi audit).
   @Permissions("ATTENDANCE_ADJUST")
   @Post("admin")
   adminCreate(
@@ -102,6 +114,7 @@ export class AttendanceController {
     return this.attendanceService.adminCreate(dto, user, context);
   }
 
+  // Admin sửa bản ghi chấm công (có ghi audit).
   @Permissions("ATTENDANCE_ADJUST")
   @Patch(":id")
   adminUpdate(

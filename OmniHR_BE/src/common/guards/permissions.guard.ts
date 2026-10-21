@@ -1,3 +1,6 @@
+// Guard kiểm tra permission: người dùng cần có ít nhất một permission khai báo trong @Permissions().
+// Permission lấy từ UserRole -> RolePermission -> Permission, không chỉ dựa vào tên role.
+
 import { CanActivate, ExecutionContext, HttpStatus, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ApiError } from "../api-error";

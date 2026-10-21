@@ -1,3 +1,5 @@
+// Dữ liệu từ chối đơn nghỉ: lý do.
+
 import { IsString, MaxLength } from "class-validator";
 
 export class RejectLeaveRequestDto {

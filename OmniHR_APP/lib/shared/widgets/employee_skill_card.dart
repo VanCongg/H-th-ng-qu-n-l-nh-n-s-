@@ -1,3 +1,5 @@
+// Thẻ hiển thị một kỹ năng của nhân viên.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

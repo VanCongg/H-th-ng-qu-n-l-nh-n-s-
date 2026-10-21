@@ -1,3 +1,6 @@
+// Trang audit log: lọc theo nhóm hành động, người làm, loại bản ghi, khoảng ngày (mặc định 7 ngày gần nhất),
+// ẩn các hành động thường ngày; xem giá trị trước / sau của từng thay đổi.
+
 import {
   ActionIcon,
   Badge,
@@ -98,6 +101,7 @@ function compactAuditPayload(value: unknown) {
   return compact.length > 150 ? `${compact.slice(0, 150)}...` : compact;
 }
 
+// Xem nhanh giá trị trước / sau của một dòng audit.
 function AuditPayloadPreview({ log }: { log: AuditLog }) {
   const value = log.newValue ?? log.oldValue;
   const preview = compactAuditPayload(value);

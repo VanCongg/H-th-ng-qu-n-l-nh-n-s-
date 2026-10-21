@@ -1,3 +1,5 @@
+// Lỗi nghiệp vụ chuẩn của API: mã HTTP + thông báo + mã lỗi (code) để client xử lý.
+
 import { HttpException, HttpStatus } from "@nestjs/common";
 
 export class ApiError extends HttpException {

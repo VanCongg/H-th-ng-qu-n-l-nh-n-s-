@@ -1,3 +1,5 @@
+// Dữ liệu admin tạo / sửa bản ghi chấm công: nhân viên, ngày công, loại (vào / ra), thời điểm, ghi chú lý do.
+
 import {
   IsDateString,
   IsEnum,

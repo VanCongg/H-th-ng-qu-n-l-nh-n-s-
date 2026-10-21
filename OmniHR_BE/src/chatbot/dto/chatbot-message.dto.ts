@@ -1,3 +1,5 @@
+// Tin nhắn gửi HRGenie: id hội thoại (bỏ trống = hội thoại mới) và nội dung (1-1000 ký tự).
+
 import { Type } from "class-transformer";
 import {
   IsInt,

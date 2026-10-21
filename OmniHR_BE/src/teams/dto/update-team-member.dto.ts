@@ -1,3 +1,5 @@
+// Dữ liệu đổi vai trò thành viên nhóm.
+
 import { IsBoolean, IsEnum, IsOptional } from "class-validator";
 import { TeamMemberRole } from "@prisma/client";
 

@@ -1,3 +1,6 @@
+// Nghiệp vụ kỹ năng nhân viên: trình độ, số năm kinh nghiệm, lần dùng gần nhất.
+// Đây là dữ liệu đầu vào cho tiêu chí "kỹ năng" của AI gợi ý giao việc.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { ApiError } from "../common/api-error";
@@ -23,6 +26,7 @@ export class EmployeeSkillsService {
     private readonly accessControl: AccessControlService
   ) {}
 
+  // Kỹ năng của một nhân viên (kiểm tra quyền xem).
   async findByEmployee(employeeId: number, user: AuthUser) {
     await this.accessControl.ensureCanReadEmployeeSkill(user, employeeId);
     await this.ensureEmployee(employeeId);
@@ -153,6 +157,7 @@ export class EmployeeSkillsService {
     return employee;
   }
 
+  // Nhân viên phải có vị trí, và kỹ năng phải đang dùng, thuộc vị trí của nhân viên.
   private async ensureSkillForEmployee(skillId: number, employeeId: number) {
     const employee = await this.ensureEmployee(employeeId);
     if (!employee.positionId) {
@@ -182,6 +187,7 @@ export class EmployeeSkillsService {
 
   // (employeeId, skillId) is unique in the database; without this check a repeated
   // save answers with a raw constraint violation instead of a usable message.
+  // Một kỹ năng chỉ ghi nhận một lần cho mỗi nhân viên.
   private async ensureSkillNotAssigned(employeeId: number, skillId: number) {
     const existing = await this.prisma.employeeSkill.findFirst({
       where: { employeeId, skillId },
@@ -196,6 +202,7 @@ export class EmployeeSkillsService {
     }
   }
 
+  // Ngày dùng gần nhất không được ở tương lai.
   private ensureLastUsedAt(lastUsedAt?: string) {
     if (lastUsedAt && toDateOnly(lastUsedAt) > toDateOnly(new Date())) {
       throw new ApiError(

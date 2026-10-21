@@ -1,3 +1,5 @@
+// API danh mục kỹ năng: danh sách, tạo / sửa / xóa.
+
 import {
   Body,
   Controller,

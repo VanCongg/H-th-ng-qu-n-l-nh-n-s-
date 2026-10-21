@@ -1,3 +1,5 @@
+// Nội dung bên trong access token và refresh token (sub = id người dùng).
+
 export type JwtAccessPayload = {
   sub: number;
   username: string;

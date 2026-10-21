@@ -1,3 +1,5 @@
+// API gợi ý người làm task bằng AI (chấm điểm đa tiêu chí).
+
 import {
   Body,
   Controller,
@@ -24,6 +26,7 @@ import { SelectAiTaskSuggestionDto } from "./dto/select-ai-task-suggestion.dto";
 export class AiTaskSuggestionsController {
   constructor(private readonly suggestionsService: AiTaskSuggestionsService) {}
 
+  // Tạo gợi ý mới cho một task: chấm điểm và xếp hạng các ứng viên.
   @Permissions("AI_TASK_SUGGEST")
   @Post("tasks/:taskId/ai-suggestions")
   generate(
@@ -35,6 +38,7 @@ export class AiTaskSuggestionsController {
     return this.suggestionsService.generate(taskId, dto, user, context);
   }
 
+  // Các lần gợi ý của một task.
   @Permissions("AI_TASK_SUGGEST", "AI_TASK_SELECT", "TASK_ASSIGNMENT_READ")
   @Get("tasks/:taskId/ai-suggestions")
   findByTask(
@@ -44,18 +48,21 @@ export class AiTaskSuggestionsController {
     return this.suggestionsService.findByTask(taskId, user);
   }
 
+  // Danh sách gợi ý trong phạm vi người dùng được xem.
   @Permissions("AI_TASK_SUGGEST", "AI_TASK_SELECT", "TASK_ASSIGNMENT_READ")
   @Get("ai-task-suggestions")
   findAll(@Query() query: AiTaskSuggestionQueryDto, @CurrentUser() user: AuthUser) {
     return this.suggestionsService.findAll(query, user);
   }
 
+  // Chi tiết một lần gợi ý, kèm điểm từng ứng viên.
   @Permissions("AI_TASK_SUGGEST", "AI_TASK_SELECT", "TASK_ASSIGNMENT_READ")
   @Get("ai-task-suggestions/:id")
   findOne(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.suggestionsService.findOne(id, user);
   }
 
+  // Chọn một ứng viên trong gợi ý -> giao task cho người đó.
   @Permissions("AI_TASK_SELECT")
   @Post("ai-task-suggestions/:id/select")
   select(
@@ -67,6 +74,7 @@ export class AiTaskSuggestionsController {
     return this.suggestionsService.select(id, dto, user, context);
   }
 
+  // Hủy gợi ý (không chọn ai).
   @Permissions("AI_TASK_SELECT")
   @Post("ai-task-suggestions/:id/cancel")
   cancel(

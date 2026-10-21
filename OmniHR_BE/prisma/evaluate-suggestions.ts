@@ -1,3 +1,7 @@
+// Đánh giá offline AI gợi ý giao việc trên lịch sử mô phỏng: với mỗi lần giao task, dựng lại tình trạng
+// của từng người TẠI THỜI ĐIỂM đó, chấm điểm bằng đúng hàm API dùng, rồi so thứ hạng với năng lực ẩn
+// và kết quả thực tế của task. Chỉ đọc. Chạy: npm run eval:suggestions (trên DB mô phỏng, không phải production).
+
 /**
  * Offline evaluation of AI assignee suggestions on simulated history.
  *
@@ -180,6 +184,7 @@ export const DEFAULT_REPLAY_TUNING: ReplayTuning = {
   capacityHours: WORKLOAD_CAPACITY_HOURS_PER_WEEK
 };
 
+// Mỗi lần giao task thành một "quyết định": danh sách ứng viên kèm tín hiệu và kết quả.
 export function buildDecisions(
   data: Data,
   from: Date,
@@ -258,6 +263,7 @@ export function parseFrom(args: string[]) {
 // Data
 // ---------------------------------------------------------------------------
 
+// Đọc một lần mọi dữ liệu cần thiết (task, kỹ năng, đơn nghỉ, lịch sử giao việc).
 export async function loadData() {
   const [stateRow, employees, members, tasks, assignments, leaves, reworkNotes, holidayRows] =
     await Promise.all([
@@ -413,6 +419,7 @@ type TaskRow = NonNullable<ReturnType<Data["tasks"]["get"]>>;
 // Replaying one candidate at assignment time
 // ---------------------------------------------------------------------------
 
+// Dựng tín hiệu của một ứng viên tại thời điểm giao việc.
 function buildCandidate(
   data: Data,
   task: TaskRow,
@@ -588,6 +595,7 @@ function historyAt(data: Data, employeeId: number, at: Date, lagDays: number) {
   return rawHistoryScore(usable, DEFAULT_HISTORY_TUNING.onTimeShare);
 }
 
+// Kết quả thực tế: đúng hạn hay trễ, mất bao nhiêu giờ.
 function outcomeOf(data: Data, task: TaskRow, evalEnd: Date): Outcome {
   const reworks = data.reworks.get(task.id) ?? 0;
   if (task.status === TaskStatus.DONE && task.completedAt) {
@@ -610,6 +618,7 @@ function outcomeOf(data: Data, task: TaskRow, evalEnd: Date): Outcome {
 // Report
 // ---------------------------------------------------------------------------
 
+// Báo cáo: tương quan thứ hạng với năng lực ẩn, tỉ lệ chọn đúng người giỏi nhất...
 function buildReport(decisions: Decision[], from: Date, evalEnd: Date) {
   const lines: string[] = [];
   const resolved = decisions.filter((decision) => decision.outcome.resolved);
@@ -727,6 +736,7 @@ function rank(candidates: Candidate[], variant: Variant) {
     .sort((left, right) => compareCandidates(left, right) || left.employeeId - right.employeeId);
 }
 
+// Hệ số tương quan hạng Spearman.
 export function spearman(xs: number[], ys: number[]) {
   const rx = ranks(xs);
   const ry = ranks(ys);

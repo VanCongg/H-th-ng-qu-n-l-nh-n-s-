@@ -1,3 +1,5 @@
+// API role (vai trò) và permission gắn với role (admin).
+
 import {
   Body,
   Controller,
@@ -67,6 +69,7 @@ export class RolesController {
     return this.rolesService.remove(id, user, context);
   }
 
+  // Gắn permission vào role.
   @Permissions("PERMISSION_ASSIGN")
   @Post(":id/permissions")
   assignPermission(
@@ -78,6 +81,7 @@ export class RolesController {
     return this.rolesService.assignPermission(id, dto, user, context);
   }
 
+  // Gỡ permission khỏi role.
   @Permissions("PERMISSION_ASSIGN")
   @Delete(":id/permissions/:permissionId")
   removePermission(

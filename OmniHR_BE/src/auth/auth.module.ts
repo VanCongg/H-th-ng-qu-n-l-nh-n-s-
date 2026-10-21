@@ -1,3 +1,5 @@
+// Module xác thực: JWT (access + refresh), Passport strategy và các API /auth.
+
 import { NotificationsModule } from "../notifications/notifications.module";
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";

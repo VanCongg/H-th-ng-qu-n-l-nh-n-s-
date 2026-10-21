@@ -1,3 +1,5 @@
+// Tên vị trí kèm cấp bậc ở dòng phụ.
+
 import { Stack, Text } from "@mantine/core";
 import { formatCareerLevel } from "../../api/format";
 import type { Employee } from "../../api/types";

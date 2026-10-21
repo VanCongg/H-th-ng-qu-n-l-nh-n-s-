@@ -1,3 +1,6 @@
+// Nghiệp vụ dự án. Dự án thuộc một phòng ban; trưởng phòng (hoặc admin) quản lý dự án của phòng mình.
+// Ngày của dự án phải bao trọn ngày các task nhóm bên trong.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ProjectStatus, TaskStatus, Prisma } from "@prisma/client";
 import { ApiError } from "../common/api-error";
@@ -36,6 +39,7 @@ export class ProjectsService {
     private readonly accessControl: AccessControlService
   ) {}
 
+  // Danh sách dự án người dùng được xem.
   async findAll(query: ProjectQueryDto, user: AuthUser) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const where = await this.buildWhere(query, user);
@@ -53,6 +57,7 @@ export class ProjectsService {
     return { items, meta: { total, page, limit } };
   }
 
+  // Chi tiết dự án (kiểm tra quyền xem).
   async findOne(id: number, user: AuthUser) {
     await this.accessControl.ensureCanReadProject(user, id);
     const project = await this.prisma.project.findFirst({
@@ -65,6 +70,7 @@ export class ProjectsService {
     return project;
   }
 
+  // Tạo dự án trong phòng người dùng quản lý; mã dự án không trùng; ghi audit.
   async create(dto: CreateProjectDto, actor: AuthUser, context?: RequestContext) {
     const scope = await this.resolveManagedDepartment(actor);
     this.ensureDateRange(dto.startDate, dto.endDate);
@@ -97,6 +103,7 @@ export class ProjectsService {
     return project;
   }
 
+  // Sửa dự án; đổi ngày thì các task nhóm phải vẫn nằm trong khoảng mới; ghi audit.
   async update(
     id: number,
     dto: UpdateProjectDto,
@@ -146,6 +153,7 @@ export class ProjectsService {
     return project;
   }
 
+  // Xóa mềm dự án; không xóa được khi còn task đang mở.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     await this.ensureCanManageProject(actor, oldValue.departmentId);
@@ -224,6 +232,7 @@ export class ProjectsService {
     };
   }
 
+  // Phòng ban mà người dùng làm trưởng (dự án mới sẽ thuộc phòng này).
   private async resolveManagedDepartment(actor: AuthUser) {
     if (!actor.employeeId) {
       throw new ApiError(
@@ -252,6 +261,7 @@ export class ProjectsService {
     return { departmentId: department.id, managerId: department.managerId };
   }
 
+  // Chỉ admin hoặc trưởng phòng của dự án mới được sửa / xóa.
   private async ensureCanManageProject(actor: AuthUser, departmentId: number) {
     if (this.accessControl.isAdmin(actor)) {
       return;
@@ -281,6 +291,7 @@ export class ProjectsService {
     }
   }
 
+  // Dự án còn task chưa xong / chưa hủy thì không cho thao tác.
   private async ensureNoOpenTasks(projectId: number, message: string) {
     const openTasks = await this.prisma.task.count({
       where: { projectId, deletedAt: null, status: { in: OPEN_TASK_STATUSES } }

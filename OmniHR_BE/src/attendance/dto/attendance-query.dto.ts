@@ -1,3 +1,5 @@
+// Bộ lọc lịch sử chấm công: nhân viên, phòng ban, khoảng ngày, loại (vào / ra).
+
 import { Type } from "class-transformer";
 import { IsDateString, IsEnum, IsInt, IsOptional } from "class-validator";
 import { AttendanceRecordType } from "@prisma/client";

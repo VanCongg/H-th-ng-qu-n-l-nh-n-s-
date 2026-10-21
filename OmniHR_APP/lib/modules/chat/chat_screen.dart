@@ -1,3 +1,6 @@
+// Màn hình chat HRGenie: gửi tin nhắn tới POST /chatbot/message, hiện câu trả lời,
+// và thẻ Xác nhận / Hủy khi backend trả về bản nháp (pendingAction).
+
 import 'package:flutter/material.dart';
 
 import '../../core/api_service.dart';
@@ -59,6 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
     await _sendText(text);
   }
 
+  // Gửi tin nhắn (kèm conversationId từ tin thứ hai), nhận câu trả lời và bản nháp nếu có.
   Future<void> _sendText(String text) async {
     if (text.isEmpty || _sending) return;
 
@@ -110,6 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Xác nhận bản nháp: POST /chatbot/actions/:id/confirm - lúc này backend mới ghi dữ liệu.
   Future<void> _confirm(PendingChatAction action) async {
     if (_actionBusy) return;
     setState(() => _actionBusy = true);
@@ -138,6 +143,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // Hủy bản nháp: POST /chatbot/actions/:id/cancel.
   Future<void> _cancel(PendingChatAction action) async {
     if (_actionBusy) return;
     setState(() => _actionBusy = true);
@@ -279,6 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
+// Các câu hỏi gợi ý bấm nhanh.
 class _QuickReplies extends StatelessWidget {
   const _QuickReplies({required this.enabled, required this.onSelected});
 

@@ -1,3 +1,5 @@
+// API loại nghỉ phép (phép năm, ốm, không lương, cưới, tang, thai sản...): xem cho mọi người, sửa cho admin / HR.
+
 import {
   Body,
   Controller,

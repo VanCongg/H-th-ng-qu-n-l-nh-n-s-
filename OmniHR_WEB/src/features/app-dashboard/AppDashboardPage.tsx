@@ -1,3 +1,5 @@
+// Trang dashboard quản lý: số liệu team, đơn nghỉ chờ duyệt, yêu cầu hủy đơn, check-in hôm nay, cấp dưới.
+
 import { Badge, Group, Paper, ScrollArea, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, CalendarX, ClipboardList, Users } from "lucide-react";

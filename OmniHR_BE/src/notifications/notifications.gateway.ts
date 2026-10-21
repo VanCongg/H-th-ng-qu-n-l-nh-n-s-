@@ -1,3 +1,6 @@
+// WebSocket (socket.io) đẩy thông báo thời gian thực lên web / app.
+// Kết nối phải gửi access token; hợp lệ thì vào phòng riêng "user:<id>", không thì bị ngắt.
+
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -44,6 +47,7 @@ export class NotificationsGateway implements OnGatewayConnection {
     }
   }
 
+  // Gửi thông báo tới mọi kết nối của một người dùng.
   emitToUser(userId: number, notification: unknown) {
     this.server.to(`user:${userId}`).emit("notification", notification);
   }

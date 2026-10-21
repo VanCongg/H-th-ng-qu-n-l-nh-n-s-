@@ -1,3 +1,7 @@
+// Cấu hình hệ thống (một dòng duy nhất trong DB): giờ ca làm, tuần làm việc, vị trí và bán kính chấm công,
+// ngưỡng đi muộn, thời gian giữ audit log, quy tắc phép năm, trọng số AI gợi ý giao việc...
+// Đọc qua Redis cache vì gần như request nào cũng cần.
+
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { DEFAULT_SCORE_WEIGHTS } from "../../ai-task-suggestions/suggestion-scoring";
@@ -50,6 +54,7 @@ export type SystemSettings = {
   afternoonShiftEnd: string;
 };
 
+// Giá trị mặc định khi chưa có cấu hình trong DB.
 export const defaultSystemSettings: SystemSettings = {
   workWeek: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
   leaveCalculation: "WEEKDAYS_ONLY",
@@ -90,6 +95,7 @@ export class SystemSettingsService {
    * attendance, leave and the chatbot hit this on nearly every request, for a row that
    * only the settings screen ever changes.
    */
+  // Đọc cấu hình (cache-aside: có trong Redis thì dùng, không thì đọc DB rồi lưu cache).
   async getSettings(): Promise<SystemSettings> {
     return this.cache.wrap(
       cacheKeys.systemSettings(),
@@ -104,6 +110,7 @@ export class SystemSettingsService {
     );
   }
 
+  // Cập nhật cấu hình: gộp với cấu hình hiện tại, chuẩn hóa, lưu DB và xóa cache.
   async updateSettings(settings: Record<string, unknown>): Promise<SystemSettings> {
     const current = await this.getSettings();
     const next = normalizeSystemSettings({ ...current, ...settings });
@@ -125,6 +132,7 @@ export class SystemSettingsService {
   }
 }
 
+// Chuẩn hóa mọi trường về đúng kiểu và khoảng hợp lệ; giá trị sai thì dùng mặc định.
 function normalizeSystemSettings(value: unknown): SystemSettings {
   const raw = isRecord(value) ? value : {};
 

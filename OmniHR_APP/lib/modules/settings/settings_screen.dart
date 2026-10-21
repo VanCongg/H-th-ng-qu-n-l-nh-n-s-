@@ -1,3 +1,5 @@
+// Màn hình cài đặt hiển thị: giao diện sáng / tối và ngôn ngữ (Tiếng Việt / English).
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

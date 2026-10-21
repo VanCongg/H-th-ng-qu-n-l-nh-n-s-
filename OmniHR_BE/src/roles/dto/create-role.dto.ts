@@ -1,3 +1,5 @@
+// Dữ liệu tạo role: tên, mô tả, danh sách permission.
+
 import { IsArray, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CreateRoleDto {

@@ -1,3 +1,5 @@
+// Màn hình duyệt (cho quản lý): đơn nghỉ chờ duyệt, yêu cầu hủy đơn, task chờ duyệt kết quả.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';
@@ -16,6 +18,7 @@ bool canReviewOnMobile(AuthUser? user) {
           permissions.contains('TASK_READ_TEAM'));
 }
 
+// Dữ liệu màn hình duyệt: đơn nghỉ, yêu cầu hủy, task chờ duyệt.
 class ApprovalsBundle {
   ApprovalsBundle({
     required this.leaveRequests,
@@ -123,6 +126,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
+  // Duyệt / từ chối đơn nghỉ.
   Future<void> _decideLeave(
     LeaveRequest request, {
     required bool approve,
@@ -148,6 +152,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     );
   }
 
+  // Đồng ý / từ chối yêu cầu hủy đơn đã duyệt.
   Future<void> _decideCancellation(
     LeaveRequest request, {
     required bool approve,
@@ -175,6 +180,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     );
   }
 
+  // Chấp nhận task (DONE) hoặc trả lại để làm tiếp (IN_PROGRESS).
   Future<void> _decideTask(TaskItem task, {required bool accept}) async {
     await _act(
       'task-${task.id}',

@@ -1,3 +1,6 @@
+// Hàm tiện ích dùng chung: đọc JSON an toàn (textOf, intOf, dateOf...), định dạng ngày giờ,
+// ngày làm việc, màu / biểu tượng / nhãn trạng thái, dịch thông báo sang tiếng Việt, snackbar.
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -101,6 +104,7 @@ String cleanBaseUrl(String value) {
   return value.trim().replaceAll(RegExp(r'/+$'), '');
 }
 
+// Các hàm *Of: đọc giá trị JSON về đúng kiểu, sai kiểu thì dùng giá trị mặc định.
 String textOf(dynamic value, [String fallback = '']) {
   if (value == null) return fallback;
   final text = value.toString();
@@ -166,6 +170,7 @@ bool sameDate(DateTime a, DateTime b) {
 /// `calculateLeaveDays`. Employees cannot read system settings, so the form
 /// assumes the default work week for its client-side hints; the server stays
 /// authoritative.
+// Ngày làm việc (thứ 2 - thứ 6).
 bool isWorkingDay(DateTime value) {
   return value.weekday >= DateTime.monday && value.weekday <= DateTime.friday;
 }
@@ -181,6 +186,7 @@ DateTime nextWorkingDay(DateTime value) {
 
 /// Number of working days in the inclusive range, matching the backend's
 /// `calculateLeaveDays`.
+// Số ngày làm việc giữa hai ngày (ước tính trên app; số chính xác do backend tính, có ngày lễ).
 int workingDaysBetween(DateTime start, DateTime end) {
   var current = DateTime(start.year, start.month, start.day);
   final last = DateTime(end.year, end.month, end.day);
@@ -274,6 +280,7 @@ Color notificationColor(String type) {
 ///
 /// TASK_STATUS_CHANGED covers two events told apart by the stored title:
 /// "Task returned for rework" (the default here) and "Task status updated".
+// Tiêu đề thông báo tiếng Việt theo loại (server lưu tiếng Anh).
 String notificationTitle(String type, String fallback) {
   switch (type.toUpperCase()) {
     case 'LEAVE_REQUESTED':
@@ -382,6 +389,7 @@ String _messageDate(String raw) {
 /// The notification body in the app's language, rebuilt from the English
 /// sentence the server stored. Like [notificationTitle] this works on every
 /// row already in the database, which a new column could not have done.
+// Dịch nội dung thông báo sang tiếng Việt theo mẫu câu cố định; không khớp mẫu thì giữ nguyên.
 String notificationMessage(String type, String message) {
   switch (type.toUpperCase()) {
     case 'TASK_ASSIGNED':
@@ -531,6 +539,7 @@ Color priorityColor(String priority) {
   }
 }
 
+// Nhãn tiếng Việt cho trạng thái (PENDING -> Chờ duyệt...).
 String friendlyStatus(String status) {
   switch (status.toUpperCase()) {
     case 'TODO':
@@ -584,6 +593,7 @@ String friendlyRecordType(String value) {
   }
 }
 
+// Hiện snackbar thông báo (lỗi thì màu đỏ).
 void showAppSnack(BuildContext context, String message, {bool error = false}) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(

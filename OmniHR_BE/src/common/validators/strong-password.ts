@@ -1,3 +1,5 @@
+// @IsStrongPassword(): mật khẩu phải có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.
+
 import { Matches, ValidationOptions } from "class-validator";
 
 const STRONG_PASSWORD_REGEX =

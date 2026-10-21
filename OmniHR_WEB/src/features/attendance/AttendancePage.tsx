@@ -1,3 +1,6 @@
+// Trang chấm công: lịch sử theo phạm vi (tất cả / team / bản thân), check-in / check-out bằng vị trí trình duyệt,
+// admin thêm / sửa bản ghi.
+
 import {
   ActionIcon,
   Badge,
@@ -33,6 +36,7 @@ type AttendancePageProps = {
   scope: "all" | "team";
 };
 
+// Lấy tọa độ GPS của trình duyệt (kèm độ chính xác) để gửi lên khi chấm công.
 function getBrowserAttendanceLocation() {
   if (!navigator.geolocation) {
     return Promise.resolve({});
@@ -102,6 +106,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
     }
   });
 
+  // Check-in.
   const checkInMutation = useMutation({
     mutationFn: async () => attendanceApi.checkIn(await getBrowserAttendanceLocation()),
     onSuccess: () => {
@@ -110,6 +115,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Check-out.
   const checkOutMutation = useMutation({
     mutationFn: async () => attendanceApi.checkOut(await getBrowserAttendanceLocation()),
     onSuccess: () => {
@@ -118,6 +124,7 @@ export function AttendancePage({ scope }: AttendancePageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Admin thêm bản ghi chấm công thủ công.
   const adminCreateMutation = useMutation({
     mutationFn: (values: typeof form.values) =>
       attendanceApi.adminCreate({

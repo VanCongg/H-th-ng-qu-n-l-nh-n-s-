@@ -1,3 +1,6 @@
+// Kết nối Redis dùng chung cho rate limit và cache. Redis là tùy chọn:
+// không cấu hình REDIS_HOST hoặc không kết nối được thì isReady() = false và mọi nơi tự chuyển về cách dự phòng.
+
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Redis } from "ioredis";

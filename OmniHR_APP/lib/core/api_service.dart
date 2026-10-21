@@ -1,3 +1,7 @@
+// HTTP client gọi backend NestJS (app chỉ gọi NestJS, không gọi AI service).
+// - Gắn access token; gặp 401 thì làm mới token một lần rồi gửi lại request.
+// - Bỏ vỏ { success, message, data } và đổi lỗi backend thành câu tiếng Việt dễ hiểu.
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -6,12 +10,14 @@ import 'package:http/http.dart' as http;
 import 'i18n.dart';
 import 'utils.dart';
 
+// Phần của phiên đăng nhập mà ApiService cần: địa chỉ backend, token, hàm làm mới token.
 abstract class ApiClientSession {
   String get baseUrl;
   String? get accessToken;
   Future<bool> refreshAccessToken();
 }
 
+// Lỗi API kèm mã HTTP và mã lỗi của backend.
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode, this.errorCode});
 
@@ -73,6 +79,7 @@ final _notEnoughLeave = RegExp(
   r'^not enough annual leave: ([\d.]+) day\(s\) left for (\d+), this request needs ([\d.]+)$',
 );
 
+// Đổi thông báo / mã lỗi của backend thành câu tiếng Việt cho người dùng.
 String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
   final normalized = message.trim().toLowerCase();
 
@@ -309,6 +316,7 @@ String friendlyBackendMessage(String message, {String? code, int? statusCode}) {
   return message;
 }
 
+// Kiểm tra response: lỗi thì ném ApiException, thành công thì trả phần data.
 dynamic unwrapResponse(http.Response response) {
   dynamic decoded;
   if (response.body.isNotEmpty) {
@@ -349,6 +357,7 @@ dynamic unwrapResponse(http.Response response) {
   );
 }
 
+// Client HTTP: get / post / patch / delete đều đi qua request().
 class ApiService {
   ApiService(this.session);
 
@@ -369,6 +378,7 @@ class ApiService {
     );
   }
 
+  // Gửi request (timeout 45 giây); gặp 401 thì làm mới token và thử lại đúng một lần.
   Future<dynamic> request(
     String method,
     String path, {

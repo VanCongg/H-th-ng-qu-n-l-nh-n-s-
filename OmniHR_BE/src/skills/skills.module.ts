@@ -1,3 +1,5 @@
+// Module danh mục kỹ năng.
+
 import { Module } from "@nestjs/common";
 import { AuditService } from "../common/services/audit.service";
 import { PrismaModule } from "../prisma/prisma.module";

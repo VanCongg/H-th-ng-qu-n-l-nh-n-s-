@@ -1,3 +1,5 @@
+// Màn hình chính: tổng quan hôm nay (chấm công, phép, task), lối tắt tới các chức năng, và ô hỏi HRGenie.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';
@@ -52,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _future = _load();
   }
 
+  // Tải dữ liệu màn hình chính: hồ sơ, 5 đơn nghỉ và 5 task gần nhất, số việc chờ duyệt (nếu là quản lý).
   Future<DashboardBundle> _load() async {
     Employee? employee = widget.session.employee;
     try {
@@ -231,6 +234,7 @@ class _EmployeeOverview extends StatelessWidget {
   }
 }
 
+// Lối tắt tới các chức năng; nút Duyệt hiện số việc đang chờ (chỉ với quản lý).
 class _QuickActions extends StatelessWidget {
   const _QuickActions({
     required this.session,

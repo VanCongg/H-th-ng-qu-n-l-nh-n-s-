@@ -1,3 +1,6 @@
+// Quản lý ngày lễ / ngày nghỉ bù. Mọi phép tính ngày công (số ngày nghỉ phép, công chuẩn tháng,
+// số ngày làm task) đều loại trừ các ngày này.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Holiday, Prisma } from "@prisma/client";
 import { ApiError } from "../api-error";

@@ -1,3 +1,5 @@
+// Khung chứa dùng chung: huy hiệu biểu tượng, panel, panel có hành động.
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';

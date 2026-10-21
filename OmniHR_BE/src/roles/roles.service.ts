@@ -1,3 +1,6 @@
+// Nghiệp vụ role. Đổi permission của một role thì xóa cache của MỌI người đang giữ role đó,
+// để quyền mới có hiệu lực ngay ở request kế tiếp.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
@@ -155,6 +158,7 @@ export class RolesService {
     return role;
   }
 
+  // Gắn permission vào role, ghi audit, xóa cache người giữ role.
   async assignPermission(
     roleId: number,
     dto: AssignPermissionDto,
@@ -195,6 +199,7 @@ export class RolesService {
     return this.findOne(roleId);
   }
 
+  // Gỡ permission khỏi role, ghi audit, xóa cache người giữ role.
   async removePermission(
     roleId: number,
     permissionId: number,
@@ -236,6 +241,7 @@ export class RolesService {
    * A role's permission set is copied into every holder's cached AuthUser, so
    * changing it has to evict all of them - not just the role itself.
    */
+  // Xóa cache người dùng của mọi tài khoản đang có role này.
   private async invalidateRoleHolders(roleId: number) {
     const holderIds = await this.roleHolderIds(roleId);
     await this.cache.del(holderIds.map(cacheKeys.authUser));
@@ -249,6 +255,7 @@ export class RolesService {
     return holders.map((holder) => holder.userId);
   }
 
+  // Không cho tạo role HR_MANAGER (chưa hỗ trợ ở giai đoạn 1).
   private ensureAllowedRoleName(name: string) {
     if (name.trim().toUpperCase() === "HR_MANAGER") {
       throw new ApiError(

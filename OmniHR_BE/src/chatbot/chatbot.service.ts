@@ -16,8 +16,13 @@ import {
   ToolExecutionResult,
 } from "./types/chatbot.types";
 
+// Câu trả lời dự phòng khi AI service lỗi/timeout: app vẫn nhận 200, không bị lỗi 500.
 const AI_FALLBACK_REPLY =
   "HRGenie hiện chưa phản hồi được. Bạn vui lòng thử lại sau hoặc thao tác trực tiếp trên app.";
+// Danh sách tool trả về dữ liệu cá nhân / dữ liệu của người khác. Câu trả lời
+// của các tool này được đánh dấu sensitive và bị ẩn khỏi lịch sử gửi sang AI.
+// Tool task/dự án cố ý không nằm đây để câu nối tiếp "task đó xong rồi" vẫn
+// tìm được tên task trong lịch sử.
 // Results the user may see but the external LLM must not: they are stored
 // flagged as sensitive and left out of the history sent to the planner.
 // Personal records and anything about other people. Task and project tools
@@ -39,6 +44,9 @@ export const SENSITIVE_TOOLS = new Set<string>([
   "get_team_task_summary",
   "get_department_headcount",
 ]);
+// Rate limit dạng cửa sổ trượt trên Redis (sorted set theo thời gian), chạy
+// bằng Lua để "dọn - đếm - thêm" là một bước nguyên tử: hai tin nhắn gửi cùng
+// lúc không thể cùng lọt qua khi đã đủ hạn mức.
 // Same sliding window as the in-process fallback below, but shared by every
 // API instance. Trimming, counting and adding have to be one atomic step or
 // two concurrent messages can both slip past a full bucket.
@@ -58,6 +66,10 @@ redis.call('PEXPIRE', key, windowMs)
 return 1
 `;
 
+/**
+ * Bộ điều phối của HRGenie. Nguyên tắc: AI chỉ đề xuất kế hoạch; kiểm tra
+ * quyền, lấy dữ liệu, viết câu trả lời và ghi dữ liệu đều do NestJS làm.
+ */
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
@@ -73,16 +85,27 @@ export class ChatbotService {
     private readonly redis: RedisService,
   ) {}
 
+  /**
+   * Xử lý một tin nhắn từ app, theo thứ tự:
+   * 1. Kiểm tra tin nhắn (không rỗng, không quá dài) và rate limit.
+   * 2. Lấy/tạo hội thoại, lưu tin USER.
+   * 3. Liệt kê tool người dùng được phép dùng, gửi cùng tin nhắn sang AI.
+   * 4. AI trả kế hoạch; có toolCalls thì chạy từng tool (tools service kiểm tra lại quyền).
+   * 5. Viết câu trả lời từ dữ liệu thật; tool ghi thì trả bản nháp chờ xác nhận.
+   * 6. AI lỗi thì trả câu dự phòng, không ném lỗi ra app.
+   */
   async sendMessage(
     dto: ChatbotMessageDto,
     user: AuthUser,
     context?: RequestContext,
   ): Promise<ChatbotReply> {
+    // Bước 1: kiểm tra đầu vào.
     const text = dto.message.trim();
     this.assertNonEmptyMessage(text);
     this.assertMessageLength(text);
     await this.assertRateLimit(user.id);
 
+    // Bước 2: hội thoại + lưu tin nhắn của người dùng.
     const conversation = await this.history.getOrCreateConversation(
       user.id,
       dto.conversationId,
@@ -94,6 +117,7 @@ export class ChatbotService {
       text,
     );
 
+    // Bước 3: chỉ những tool người dùng có quyền mới được gửi cho AI.
     const availableTools = this.tools.availableTools(user);
     let reply = AI_FALLBACK_REPLY;
     let pendingAction: PendingActionView | undefined;
@@ -106,6 +130,8 @@ export class ChatbotService {
       );
       this.logPlan(conversation.id, user.id, plan, Date.now() - startedAt);
 
+      // Bước 4: chạy các tool AI đề xuất. Mỗi kết quả lưu thành tin TOOL,
+      // kèm cờ sensitive nếu là dữ liệu cá nhân.
       if (plan.toolCalls.length) {
         toolResults = [];
         for (const toolCall of plan.toolCalls) {
@@ -127,6 +153,9 @@ export class ChatbotService {
             }),
           );
         }
+        // Bước 5: có bản nháp thì trả tóm tắt bản nháp; không thì NestJS tự
+        // viết câu trả lời bằng template từ dữ liệu thật (câu reply của AI bị
+        // bỏ qua, nên AI không thể bịa số liệu).
         pendingAction = toolResults.find(
           (result) => result.pendingAction,
         )?.pendingAction;
@@ -134,6 +163,8 @@ export class ChatbotService {
           ? this.pendingActionReply(pendingAction)
           : this.renderToolReply(toolResults, plan.reply);
       } else {
+        // Không gọi tool (chào hỏi, hỏi lại, từ chối, trả lời chính sách từ RAG):
+        // dùng câu reply của AI.
         reply = plan.reply || AI_FALLBACK_REPLY;
       }
 
@@ -154,6 +185,7 @@ export class ChatbotService {
         }),
       );
     } catch (error) {
+      // Bước 6: AI service sập/timeout/trả dữ liệu sai -> câu dự phòng.
       this.logger.warn(
         `Chatbot planner failed conversationId=${conversation.id} userId=${user.id}: ${this.errorMessage(error)}`,
       );
@@ -181,6 +213,7 @@ export class ChatbotService {
     return this.history.listMessages(user.id, conversationId);
   }
 
+  /** Xác nhận bản nháp (logic nằm ở tools service), rồi lưu câu kết quả vào hội thoại. */
   async confirmAction(
     actionId: number,
     user: AuthUser,
@@ -200,6 +233,7 @@ export class ChatbotService {
     };
   }
 
+  /** Hủy bản nháp, rồi lưu câu kết quả vào hội thoại. */
   async cancelAction(
     actionId: number,
     dto: ChatbotCancelActionDto,
@@ -225,6 +259,11 @@ export class ChatbotService {
     };
   }
 
+  /**
+   * Dữ liệu gửi sang AI: tin nhắn, ngày hôm nay theo múi giờ công ty (để AI đổi
+   * "mai", "thứ 6 tuần sau" ra ngày cụ thể), thông tin quyền của người dùng,
+   * danh sách tool được phép và lịch sử gần nhất (đã ẩn dữ liệu nhạy cảm).
+   */
   private async planPayload(
     conversationId: number,
     message: string,
@@ -311,6 +350,10 @@ export class ChatbotService {
     );
   }
 
+  /**
+   * Viết câu trả lời từ kết quả tool: tool lỗi thì dịch mã lỗi sang tiếng Việt;
+   * thành công thì chọn template theo tên tool đầu tiên.
+   */
   private renderToolReply(results: ToolExecutionResult[], fallback: string) {
     const failed = results.find((result) => !result.success);
     if (failed) {
@@ -380,6 +423,7 @@ export class ChatbotService {
     return labels[key] ?? (key || "-");
   }
 
+  /** Câu tóm tắt bản nháp (đơn nghỉ / hủy đơn / đổi trạng thái task) kèm lời mời xác nhận. */
   private pendingActionReply(action: PendingActionView) {
     const summary = action.summary;
     if (action.type === ChatbotActionType.UPDATE_TASK_STATUS) {
@@ -422,6 +466,8 @@ export class ChatbotService {
       "Bạn xác nhận nộp đơn này nhé?",
     ].join("\n");
   }
+
+  // Các hàm *Reply bên dưới: mỗi hàm biến dữ liệu của một tool thành câu tiếng Việt.
 
   private profileReply(data: unknown) {
     const profile = this.record(data);
@@ -842,6 +888,11 @@ export class ChatbotService {
     );
   }
 
+  /**
+   * Mặc định 20 tin / 60 giây cho mỗi người. Đếm trên Redis để nhiều instance
+   * API dùng chung một bộ đếm; Redis không trả lời được thì đếm trong bộ nhớ
+   * của tiến trình, để sự cố cache không chặn chat.
+   */
   private async assertRateLimit(userId: number) {
     const ttlSeconds = this.envInt("CHATBOT_RATE_LIMIT_TTL_SECONDS", 60, 1, 3600);
     const limit = this.envInt(
@@ -924,6 +975,7 @@ export class ChatbotService {
     );
   }
 
+  // Ghi log mỗi lượt: intent, tool, độ tin cậy, có dùng fallback không, độ trễ.
   private logPlan(
     conversationId: number,
     userId: number,

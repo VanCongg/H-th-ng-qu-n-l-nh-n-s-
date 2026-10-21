@@ -1,3 +1,5 @@
+// Hộp thoại loại nghỉ: danh sách, tạo / sửa, ngừng dùng.
+
 import {
   ActionIcon,
   Button,

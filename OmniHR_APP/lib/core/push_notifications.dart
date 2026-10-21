@@ -1,3 +1,6 @@
+// Push notification (Firebase Cloud Messaging): xin quyền, đăng ký token thiết bị với backend,
+// hiện thông báo khi app đang mở, mở đúng màn hình khi bấm vào thông báo.
+
 import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -54,6 +57,7 @@ class PushNotifications {
 
   /// Asks for permission once and registers this phone for the signed-in user.
   /// Safe to call again; it re-sends the token (and the current language).
+  // Xin quyền và gửi token thiết bị (kèm ngôn ngữ) lên backend cho người đang đăng nhập.
   Future<void> register(AppSession session) async {
     if (!supported || _unavailable) return;
     _session = session;
@@ -86,6 +90,7 @@ class PushNotifications {
 
   /// Stops push to this phone for the current user; call before signing out,
   /// while the session can still reach the API.
+  // Gỡ token khỏi backend trước khi đăng xuất để không nhận push của tài khoản cũ.
   Future<void> unregister(AppSession session) async {
     final token = _token;
     _token = null;

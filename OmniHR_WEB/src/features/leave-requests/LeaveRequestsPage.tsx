@@ -1,3 +1,5 @@
+// Trang đơn nghỉ: danh sách theo phạm vi, tạo đơn, duyệt / từ chối, hủy, và xử lý yêu cầu hủy đơn đã duyệt.
+
 import {
   ActionIcon,
   Badge,
@@ -74,6 +76,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
   const singleDay = Boolean(form.values.startDate) && form.values.startDate === form.values.endDate;
   const rejectForm = useForm({ initialValues: { rejectionReason: "" } });
 
+  // Tạo đơn nghỉ.
   const createMutation = useMutation({
     mutationFn: ({ halfDay, ...values }: typeof form.values) =>
       leaveRequestsApi.create({
@@ -88,6 +91,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Duyệt đơn.
   const approveMutation = useMutation({
     mutationFn: leaveRequestsApi.approve,
     onSuccess: () => {
@@ -96,6 +100,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Từ chối đơn (kèm lý do).
   const rejectMutation = useMutation({
     mutationFn: (values: { id: number; reason: string; kind: "leave" | "cancel" }) =>
       values.kind === "cancel"
@@ -111,6 +116,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Đồng ý yêu cầu hủy đơn đã duyệt.
   const approveCancellationMutation = useMutation({
     mutationFn: leaveRequestsApi.approveCancellation,
     onSuccess: () => {
@@ -119,6 +125,7 @@ export function LeaveRequestsPage({ scope }: LeaveRequestsPageProps) {
     },
     onError: (error) => notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
+  // Hủy đơn.
   const cancelMutation = useMutation({
     mutationFn: (id: number) => leaveRequestsApi.cancel(id),
     onSuccess: () => {

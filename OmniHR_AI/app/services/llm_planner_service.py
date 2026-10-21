@@ -24,6 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 class LlmPlannerService:
+    """Planner dùng LLM (Gemini/OpenAI-compatible).
+
+    Luồng: gửi system prompt + tin nhắn + tool được phép + lịch sử + đoạn chính
+    sách tìm bằng RAG -> LLM trả JSON -> kiểm tra schema và an toàn
+    (validate_planner_response) -> đổi sang response cho NestJS.
+    Bất kỳ bước nào lỗi (timeout, JSON hỏng, sai schema, gọi tool không được
+    phép, confidence thấp) thì chuyển sang planner rule-based (fallbackUsed=True).
+    """
+
     def __init__(
         self,
         client: LlmClient | None = None,
@@ -51,6 +60,8 @@ class LlmPlannerService:
     def plan(self, request: ChatPlanRequest) -> ChatPlanResponse:
         started_at = time.perf_counter()
         try:
+            # 1. Gọi LLM, 2. parse JSON, 3. kiểm tra schema, 4. kiểm tra tool/an toàn,
+            # 5. kiểm tra ngưỡng confidence. Sai ở đâu cũng nhảy xuống except.
             client = self.client or build_llm_client()
             raw_output = client.complete_json(self._messages(request))
             planner_response = PlannerResponse.model_validate(
@@ -126,6 +137,8 @@ class LlmPlannerService:
         ]
 
     def _policy_context(self, message: str) -> list[dict[str, str]]:
+        """Đoạn tài liệu chính sách (RAG, top-3) đưa vào prompt để LLM trả lời
+        dựa trên văn bản thật thay vì tự bịa."""
         result = self.rag_service.search(RagSearchRequest(query=message, topK=3))
         if result.items:
             return [

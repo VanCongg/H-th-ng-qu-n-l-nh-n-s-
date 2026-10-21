@@ -1,3 +1,7 @@
+# Điểm khởi động AI service (FastAPI): gắn các router health, chat (lập kế hoạch),
+# explain (viết lý do gợi ý giao việc) và rag (tìm tài liệu chính sách).
+# Service này chỉ dành cho NestJS gọi nội bộ, không bao giờ ghi dữ liệu.
+
 from fastapi import FastAPI
 
 from app.api.chat import router as chat_router

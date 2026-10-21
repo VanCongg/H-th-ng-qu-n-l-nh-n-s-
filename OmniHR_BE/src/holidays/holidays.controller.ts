@@ -1,3 +1,5 @@
+// API ngày lễ: mọi người xem được (lịch trên app đánh dấu các ngày này), chỉ admin / HR sửa.
+
 import {
   Body,
   Controller,
@@ -29,6 +31,7 @@ export class HolidaysController {
     return this.holidays.list(query.year);
   }
 
+  // Thêm ngày lễ.
   @Permissions("SYSTEM_SETTING_UPDATE")
   @Post()
   create(
@@ -39,6 +42,7 @@ export class HolidaysController {
     return this.holidays.create(dto, user, context);
   }
 
+  // Sửa ngày lễ.
   @Permissions("SYSTEM_SETTING_UPDATE")
   @Patch(":id")
   update(
@@ -50,6 +54,7 @@ export class HolidaysController {
     return this.holidays.update(id, dto, user, context);
   }
 
+  // Xóa ngày lễ.
   @Permissions("SYSTEM_SETTING_UPDATE")
   @Delete(":id")
   remove(

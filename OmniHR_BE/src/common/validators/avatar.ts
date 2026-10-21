@@ -1,3 +1,5 @@
+// @IsSafeAvatar(): ảnh đại diện phải là URL http(s) hoặc data URL ảnh png/jpeg/webp/gif (base64), tối đa ~950KB.
+
 import { ValidateBy, ValidationOptions } from "class-validator";
 
 export const MAX_AVATAR_VALUE_LENGTH = 950000;

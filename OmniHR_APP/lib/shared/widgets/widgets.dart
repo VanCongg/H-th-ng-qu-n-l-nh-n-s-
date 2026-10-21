@@ -1,3 +1,5 @@
+// Barrel export các widget dùng chung; thêm widget mới thì export ở đây.
+
 export 'brand_backdrop.dart';
 export 'genie_mascot.dart';
 export 'logo_mark.dart';

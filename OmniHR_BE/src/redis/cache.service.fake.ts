@@ -1,3 +1,5 @@
+// Bản giả của CacheService trong bộ nhớ, dùng cho unit test.
+
 import { CacheService } from "./cache.service";
 
 /**

@@ -1,3 +1,6 @@
+// Khung màn hình chính: thanh trên (chuông thông báo, ảnh đại diện), nội dung dashboard,
+// và bong bóng HRGenie kéo thả được để mở chat.
+
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -73,6 +76,7 @@ class HomeShell extends StatelessWidget {
   }
 }
 
+// Chuông thông báo kèm số chưa đọc.
 class _NotificationBellButton extends StatefulWidget {
   const _NotificationBellButton({required this.session});
 
@@ -222,6 +226,7 @@ class _ProfileAvatarButton extends StatelessWidget {
   }
 }
 
+// Bong bóng HRGenie: kéo thả, tự dính vào cạnh màn hình, bấm để mở chat.
 class _DraggableHrGenieBubble extends StatefulWidget {
   const _DraggableHrGenieBubble({
     required this.session,

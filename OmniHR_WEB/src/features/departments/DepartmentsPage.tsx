@@ -1,3 +1,5 @@
+// Trang phòng ban: danh sách, tạo / sửa / xóa, chọn phòng cha và trưởng phòng.
+
 import { ActionIcon, Button, Group, Modal, Select, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";

@@ -1,3 +1,6 @@
+// Phiên đăng nhập và tùy chọn của app (ChangeNotifier): token lưu trong secure storage, người dùng, hồ sơ,
+// theme, ngôn ngữ, trạng thái onboarding. Cung cấp các thao tác đăng nhập / đăng xuất / đổi mật khẩu / sửa hồ sơ.
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -12,6 +15,7 @@ import 'i18n.dart';
 import 'push_notifications.dart';
 import 'utils.dart';
 
+// Đổi trạng thái thì notifyListeners() để giao diện vẽ lại.
 class AppSession extends ChangeNotifier implements ApiClientSession {
   AppSession({bool bootstrapping = true, bool onboardingCompleted = false})
     : _bootstrapping = bootstrapping,
@@ -63,6 +67,8 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   bool get genieHidden => _genieHidden;
   AppLanguage get language => _language;
 
+  // Khởi động: đọc tùy chọn và token đã lưu, nạp lại người dùng.
+  // Chỉ token bị từ chối mới kết thúc phiên; server tạm lỗi hay mất mạng thì vẫn giữ đăng nhập.
   Future<void> bootstrap() async {
     _prefs = await SharedPreferences.getInstance();
     if (_prefs?.containsKey(_legacyBaseUrlKey) ?? false) {
@@ -185,6 +191,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     return unwrapResponse(response);
   }
 
+  // Đăng nhập, lưu token vào secure storage, nạp hồ sơ nhân viên.
   Future<void> login({
     required String usernameOrEmail,
     required String password,
@@ -210,11 +217,13 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
 
   /// Emails a reset code to the account behind [identifier]. The server
   /// answers the same whether or not the account exists.
+  // Yêu cầu gửi mã đặt lại mật khẩu về email.
   Future<void> forgotPassword(String identifier) async {
     await _postPublic('/auth/forgot-password', {'identifier': identifier});
   }
 
   /// Sets a new password with the emailed code; the person then signs in.
+  // Đặt mật khẩu mới bằng mã email.
   Future<void> resetPassword({
     required String identifier,
     required String otpCode,
@@ -248,6 +257,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     return employee;
   }
 
+  // Làm mới access token; nhiều request cùng lúc chỉ chạy một lần làm mới.
   @override
   Future<bool> refreshAccessToken() {
     // Screens load several endpoints at once, so an expired access token makes
@@ -304,6 +314,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     }
   }
 
+  // Đăng xuất: gỡ push, gọi API, rồi xóa phiên trên máy.
   Future<void> logout() async {
     await PushNotifications.instance.unregister(this);
     try {
@@ -317,6 +328,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   /// Changes the password. The server signs every other device out and
   /// hands this one a fresh pair of tokens; keeping them is what keeps this
   /// phone signed in - the old refresh token no longer works.
+  // Đổi mật khẩu (cần mã OTP gửi qua email).
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -358,6 +370,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
 
   /// Changes the email or the phone - one at a time - with the code emailed
   /// for that change. A new email is also the new login email.
+  // Đổi số điện thoại / email (cần mã OTP).
   Future<void> updateContact({
     String? email,
     String? phone,
@@ -373,6 +386,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
   }
 
   /// Sets or clears (null) the signed-in employee's picture.
+  // Đổi ảnh đại diện.
   Future<void> updateAvatar(String? avatarUrl) async {
     final data = await api.patch(
       '/employees/me',
@@ -382,6 +396,7 @@ class AppSession extends ChangeNotifier implements ApiClientSession {
     notifyListeners();
   }
 
+  // Xóa token và dữ liệu phiên trên máy.
   Future<void> logoutLocal({bool notify = true}) async {
     _accessToken = null;
     refreshToken = null;

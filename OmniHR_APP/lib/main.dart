@@ -1,3 +1,6 @@
+// Điểm khởi động app mobile cho nhân viên: tạo phiên (AppSession), chạy OmniHrApp,
+// rồi đọc lại phiên đã lưu ở nền (bootstrap).
+
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';

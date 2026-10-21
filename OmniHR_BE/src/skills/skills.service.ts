@@ -1,3 +1,6 @@
+// Nghiệp vụ danh mục kỹ năng. Mỗi kỹ năng gắn với các vị trí phù hợp (vd. React -> Frontend Developer);
+// nhân viên chỉ được ghi nhận kỹ năng thuộc vị trí của mình.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { ApiError } from "../common/api-error";
@@ -159,6 +162,7 @@ export class SkillsService {
     return skill;
   }
 
+  // Các vị trí gắn với kỹ năng phải tồn tại.
   private async ensurePositions(positionIds?: number[]) {
     if (!positionIds?.length) {
       return;

@@ -1,3 +1,6 @@
+// Bộ lọc danh sách task: task cha, dự án, phòng ban, team, người được giao, trạng thái, độ ưu tiên,
+// khoảng ngày, có lấy task không có ngày / đang mở không, gom theo task nhóm, bộ lọc nhanh.
+
 import { Transform, Type } from "class-transformer";
 import {
   IsBoolean,

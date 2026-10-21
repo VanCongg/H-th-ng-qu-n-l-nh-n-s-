@@ -1,3 +1,5 @@
+// Dịch tiêu đề / nội dung thông báo (server lưu tiếng Anh) sang tiếng Việt lúc hiển thị.
+
 import type { AppLanguage } from "../../store/preferences";
 
 /**

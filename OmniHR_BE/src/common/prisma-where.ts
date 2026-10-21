@@ -1,3 +1,5 @@
+// Các điều kiện Prisma dùng chung: chỉ lấy người dùng / nhân viên còn hiệu lực (chưa xóa, chưa nghỉ việc).
+
 import { Prisma } from "@prisma/client";
 
 function andWhere<T>(...filters: Array<T | undefined>): T {

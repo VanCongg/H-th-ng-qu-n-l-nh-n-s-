@@ -1,3 +1,5 @@
+// Biến môi trường cho API mô phỏng (phải nạp trước khi import bất kỳ thứ gì từ src/).
+
 import "dotenv/config";
 
 /**

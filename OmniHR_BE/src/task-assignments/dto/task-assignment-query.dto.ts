@@ -1,3 +1,5 @@
+// Bộ lọc lịch sử giao việc: task, người được giao, loại giao (tay / gợi ý AI).
+
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional } from "class-validator";
 import { TaskAssignmentType } from "@prisma/client";

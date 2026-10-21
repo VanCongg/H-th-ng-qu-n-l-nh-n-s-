@@ -1,3 +1,5 @@
+// Hiệu ứng thu nhỏ nhẹ khi nhấn.
+
 import 'package:flutter/material.dart';
 
 /// Wraps [child] with a tactile "press" micro-interaction: scales down

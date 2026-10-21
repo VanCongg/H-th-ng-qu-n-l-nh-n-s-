@@ -1,3 +1,5 @@
+// Trang danh mục kỹ năng: tạo / sửa / xóa, gắn với các vị trí phù hợp.
+
 import {
   ActionIcon,
   Badge,

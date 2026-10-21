@@ -1,3 +1,5 @@
+// Bong bóng tin nhắn trong khung chat HRGenie.
+
 import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';

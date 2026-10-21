@@ -1,3 +1,5 @@
+// Ảnh đại diện nhân viên; không có ảnh thì hiện chữ cái đầu của tên.
+
 import { Avatar } from "@mantine/core";
 type EmployeeAvatarProps = {
   employee?: {

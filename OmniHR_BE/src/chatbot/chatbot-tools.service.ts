@@ -52,6 +52,18 @@ const WEEKDAY_INDEX: Record<string, number> = {
   SATURDAY: 6,
 };
 
+/**
+ * Nơi chạy các "tool" của HRGenie: 20 tool đọc dữ liệu và 3 tool ghi
+ * (tạo đơn nghỉ, hủy đơn nghỉ, đổi trạng thái task).
+ *
+ * Bốn lớp bảo vệ quyền:
+ * 1. availableTools(): chỉ liệt kê tool người dùng có permission -> AI chỉ biết các tool này.
+ * 2. executeTool(): kiểm tra lại tên tool, AI gọi tool ngoài danh sách thì bị từ chối.
+ * 3. Mỗi tool tự giới hạn phạm vi dữ liệu (readableEmployeeIds: ALL / TEAM / SELF),
+ *    và các tool get_my_* luôn dùng employeeId lấy từ token, không lấy từ AI.
+ * 4. Tool ghi chỉ tạo bản nháp (ChatbotPendingAction); dữ liệu thật chỉ được ghi
+ *    khi người dùng xác nhận, qua đúng service nghiệp vụ mà web/app dùng.
+ */
 @Injectable()
 export class ChatbotToolsService {
   constructor(
@@ -66,7 +78,13 @@ export class ChatbotToolsService {
     private readonly holidays: HolidaysService,
   ) {}
 
+  /**
+   * Danh sách tool người dùng được phép dùng, dựa trên permission (không dựa
+   * trên tên role). Tool "của tôi" còn cần tài khoản gắn với hồ sơ nhân viên.
+   * Danh sách này được gửi cho AI và dùng lại trong executeTool để kiểm tra.
+   */
   availableTools(user: AuthUser): ChatbotToolDefinition[] {
+    // Hai tool chung, ai cũng dùng được.
     const tools: ChatbotToolDefinition[] = [
       {
         name: "get_attendance_policy",
@@ -240,12 +258,18 @@ export class ChatbotToolsService {
     return tools;
   }
 
+  /**
+   * Chạy một tool AI đề xuất. Lỗi nghiệp vụ (hết phép, trùng đơn...) không ném
+   * ra ngoài mà trả về success=false kèm errorCode, để ChatbotService dịch
+   * thành câu tiếng Việt; lỗi được ghi audit CHATBOT_TOOL_CALL_FAILED.
+   */
   async executeTool(
     conversationId: number,
     call: AiToolCall,
     user: AuthUser,
     context?: RequestContext,
   ): Promise<ToolExecutionResult> {
+    // Kiểm tra lại quyền: không tin danh sách tool AI gửi về.
     const allowed = new Set(this.availableTools(user).map((tool) => tool.name));
     if (!allowed.has(call.toolName)) {
       return {
@@ -398,6 +422,16 @@ export class ChatbotToolsService {
     }
   }
 
+  /**
+   * Xác nhận bản nháp, qua các bước:
+   * 1. Bản nháp phải thuộc về người dùng (người khác đoán id cũng nhận 404).
+   * 2. Còn PENDING và còn hạn (quá hạn -> EXPIRED).
+   * 3. Người dùng vẫn còn permission tương ứng (có thể vừa bị admin gỡ quyền).
+   * 4. "Chiếm" bản nháp bằng updateMany where status=PENDING: bấm xác nhận
+   *    hai lần thì lần sau nhận count=0 và bị từ chối -> không tạo đơn trùng.
+   * 5. Chạy service nghiệp vụ thật, đổi trạng thái EXECUTED (lỗi thì FAILED),
+   *    mỗi bước đều ghi audit log.
+   */
   async confirmAction(
     actionId: number,
     user: AuthUser,
@@ -409,6 +443,7 @@ export class ChatbotToolsService {
     let claimedAction = false;
 
     try {
+      // Bước 4: chuyển PENDING -> CONFIRMED một cách nguyên tử.
       const claimed = await this.prisma.chatbotPendingAction.updateMany({
         where: {
           id: action.id,
@@ -437,6 +472,7 @@ export class ChatbotToolsService {
         context,
       });
 
+      // Bước 5: lúc này mới ghi dữ liệu nghiệp vụ thật.
       const execution = await this.executeConfirmedAction(action, user, context);
       const updated = await this.prisma.chatbotPendingAction.update({
         where: { id: action.id },
@@ -484,6 +520,7 @@ export class ChatbotToolsService {
     }
   }
 
+  /** Hủy bản nháp: chỉ đổi trạng thái sang CANCELLED, không đụng dữ liệu nghiệp vụ. */
   async cancelAction(
     actionId: number,
     user: AuthUser,
@@ -530,6 +567,11 @@ export class ChatbotToolsService {
       data: { actionId: action.id, status: ChatbotActionStatus.CANCELLED },
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // Các tool đọc dữ liệu. Mỗi hàm trả về dữ liệu thô; câu trả lời tiếng Việt
+  // do ChatbotService viết.
+  // ---------------------------------------------------------------------------
 
   private async getMyProfile(user: AuthUser) {
     const employeeId = this.requireEmployee(user);
@@ -606,6 +648,7 @@ export class ChatbotToolsService {
     };
   }
 
+  /** Số dư phép theo năm. Phép năm dùng chung cách tính với màn hình web/app (leaveBalances.forSelf). */
   private async getMyLeaveBalance(
     user: AuthUser,
     args: Record<string, unknown>,
@@ -761,6 +804,7 @@ export class ChatbotToolsService {
     };
   }
 
+  /** Ai nghỉ trong một ngày; danh sách nhân viên bị giới hạn theo quyền LEAVE_READ_*. */
   private async getWhoIsOnLeaveToday(
     user: AuthUser,
     args: Record<string, unknown>,
@@ -914,6 +958,15 @@ export class ChatbotToolsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Các tool ghi: chỉ tạo bản nháp (ChatbotPendingAction, hạn 30 phút).
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Tạo nháp đơn nghỉ. Kiểm tra mọi thứ ngay lúc này (loại phép, ngày hợp lệ,
+   * số ngày công theo lịch làm việc + ngày lễ, trùng đơn, đủ phép), để người
+   * dùng biết lỗi trước khi bấm xác nhận. Chưa tạo đơn nghỉ thật.
+   */
   private async createLeaveRequestDraft(
     conversationId: number,
     user: AuthUser,
@@ -1023,6 +1076,11 @@ export class ChatbotToolsService {
     };
   }
 
+  /**
+   * Tạo nháp đổi trạng thái task. Chỉ tìm trong task được giao cho chính người
+   * dùng; task nhóm (không có task cha) thì không đổi được vì trạng thái của
+   * nó tính từ các task con.
+   */
   private async updateTaskStatusDraft(
     conversationId: number,
     user: AuthUser,
@@ -1089,6 +1147,8 @@ export class ChatbotToolsService {
    * for review, and every refusal is explained here rather than surfacing as
    * an error only once the user has confirmed.
    */
+  // Nhân viên nói "xong" (DONE) thì chuyển thành IN_REVIEW (gửi quản lý duyệt):
+  // HRGenie không bao giờ duyệt hoàn thành thay quản lý.
   private assigneeTaskStatus(
     task: { title: string; status: TaskStatus },
     requested: TaskStatus,
@@ -1134,6 +1194,8 @@ export class ChatbotToolsService {
    * An employee names a task the way they remember it, so a keyword has to be
    * enough - but only when it points at exactly one of their own tasks.
    */
+  // Tìm task theo mã hoặc theo một phần tên; phải khớp đúng 1 task mới đi tiếp
+  // (0 task -> không tìm thấy, 2 task -> hỏi lại cho rõ).
   private async resolveOwnTask(
     employeeId: number,
     taskId: number | undefined,
@@ -1200,6 +1262,11 @@ export class ChatbotToolsService {
     return status;
   }
 
+  /**
+   * Tạo nháp hủy đơn nghỉ của chính mình. Đơn đang chờ duyệt thì hủy luôn khi
+   * xác nhận; đơn đã duyệt mà chưa tới ngày nghỉ thì thành yêu cầu hủy gửi quản
+   * lý. Tìm thấy nhiều đơn thì hỏi lại ngày hoặc mã đơn.
+   */
   private async cancelMyPendingLeaveRequestDraft(
     conversationId: number,
     user: AuthUser,
@@ -1819,6 +1886,11 @@ export class ChatbotToolsService {
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // Xác nhận / thực thi bản nháp.
+  // ---------------------------------------------------------------------------
+
+  // Tìm bản nháp theo id VÀ userId: không lấy được bản nháp của người khác.
   private async loadOwnedAction(actionId: number, userId: number) {
     const action = await this.prisma.chatbotPendingAction.findFirst({
       where: { id: actionId, userId },
@@ -1833,6 +1905,7 @@ export class ChatbotToolsService {
     return action;
   }
 
+  // Bản nháp phải còn PENDING và còn hạn; quá hạn thì đổi sang EXPIRED và ghi audit.
   private async ensurePending(action: {
     id: number;
     status: ChatbotActionStatus;
@@ -1868,6 +1941,11 @@ export class ChatbotToolsService {
     }
   }
 
+  /**
+   * Thực thi bản nháp đã xác nhận bằng chính service nghiệp vụ mà web/app dùng
+   * (LeaveRequestsService, TasksService), nên mọi kiểm tra, thông báo cho quản
+   * lý và audit log đều giống hệt khi người dùng tự bấm nút.
+   */
   private async executeConfirmedAction(
     action: { id: number; actionType: ChatbotActionType; payload: unknown },
     user: AuthUser,
@@ -2121,6 +2199,7 @@ export class ChatbotToolsService {
     return user.employeeId;
   }
 
+  // Kiểm tra lại permission lúc xác nhận (quyền có thể đã bị gỡ sau khi tạo nháp).
   private ensureActionPermission(actionType: ChatbotActionType, user: AuthUser) {
     if (actionType === ChatbotActionType.SUBMIT_LEAVE_REQUEST) {
       this.requirePermission(user, "LEAVE_CREATE");
@@ -2147,6 +2226,13 @@ export class ChatbotToolsService {
     );
   }
 
+  /**
+   * Danh sách nhân viên người dùng được xem, theo quyền chứ không theo yêu cầu:
+   * - quyền ALL (hoặc admin): toàn công ty, hoặc thu hẹp theo scope my_team / my_department;
+   * - quyền TEAM: thành viên nhóm mình (trưởng phòng hỏi my_department thì cả phòng);
+   *   xin scope "company" thì bị FORBIDDEN;
+   * - quyền SELF: chỉ chính mình.
+   */
   private async readableEmployeeIds(
     user: AuthUser,
     args: Record<string, unknown>,

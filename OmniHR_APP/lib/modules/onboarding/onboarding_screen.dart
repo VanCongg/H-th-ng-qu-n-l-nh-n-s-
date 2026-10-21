@@ -1,3 +1,5 @@
+// Onboarding chạy một lần trước khi đăng nhập: màn hình chào -> hướng dẫn sử dụng -> xin quyền vị trí.
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

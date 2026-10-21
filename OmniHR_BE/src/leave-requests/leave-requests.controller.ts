@@ -1,3 +1,6 @@
+// API đơn nghỉ phép: nhân viên tạo / xem / hủy đơn của mình; quản lý xem đơn của team,
+// duyệt / từ chối đơn và duyệt / từ chối yêu cầu hủy đơn đã duyệt.
+
 import {
   Body,
   Controller,
@@ -24,6 +27,7 @@ import { LeaveRequestsService } from "./leave-requests.service";
 export class LeaveRequestsController {
   constructor(private readonly leaveRequestsService: LeaveRequestsService) {}
 
+  // Nhân viên tạo đơn nghỉ.
   @Permissions("LEAVE_CREATE")
   @Post()
   create(
@@ -34,30 +38,35 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.create(dto, user, context);
   }
 
+  // Toàn bộ đơn nghỉ (HR / admin).
   @Permissions("LEAVE_READ_ALL")
   @Get()
   findAll(@Query() query: LeaveRequestQueryDto) {
     return this.leaveRequestsService.findAll(query);
   }
 
+  // Đơn nghỉ của chính mình.
   @Permissions("LEAVE_READ_SELF")
   @Get("self")
   findSelf(@CurrentUser() user: AuthUser, @Query() query: LeaveRequestQueryDto) {
     return this.leaveRequestsService.findSelf(user, query);
   }
 
+  // Đơn nghỉ của cấp dưới.
   @Permissions("LEAVE_READ_TEAM")
   @Get("team")
   findTeam(@CurrentUser() user: AuthUser, @Query() query: LeaveRequestQueryDto) {
     return this.leaveRequestsService.findTeam(user, query);
   }
 
+  // Chi tiết một đơn (kiểm tra quyền xem).
   @Permissions("LEAVE_READ_ALL", "LEAVE_READ_TEAM", "LEAVE_READ_SELF")
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.leaveRequestsService.findOne(id, user);
   }
 
+  // Quản lý duyệt đơn.
   @Permissions("LEAVE_APPROVE")
   @Post(":id/approve")
   approve(
@@ -68,6 +77,7 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.approve(id, user, context);
   }
 
+  // Quản lý từ chối đơn.
   @Permissions("LEAVE_REJECT")
   @Post(":id/reject")
   reject(
@@ -91,6 +101,7 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.cancel(id, user, context, dto.reason);
   }
 
+  // Quản lý đồng ý yêu cầu hủy đơn đã duyệt -> đơn bị hủy, trả lại ngày phép.
   @Permissions("LEAVE_APPROVE")
   @Post(":id/cancel-request/approve")
   approveCancellation(
@@ -101,6 +112,7 @@ export class LeaveRequestsController {
     return this.leaveRequestsService.approveCancellation(id, user, context);
   }
 
+  // Quản lý từ chối yêu cầu hủy -> đơn vẫn giữ nguyên.
   @Permissions("LEAVE_REJECT")
   @Post(":id/cancel-request/reject")
   rejectCancellation(

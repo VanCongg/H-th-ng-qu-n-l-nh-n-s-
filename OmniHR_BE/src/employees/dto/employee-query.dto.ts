@@ -1,3 +1,5 @@
+// Bộ lọc danh sách nhân viên.
+
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional } from "class-validator";
 import { CareerLevel, EmployeeStatus } from "@prisma/client";

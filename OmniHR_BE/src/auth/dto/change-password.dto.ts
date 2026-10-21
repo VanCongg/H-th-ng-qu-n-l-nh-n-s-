@@ -1,3 +1,5 @@
+// Dữ liệu đổi mật khẩu: mật khẩu hiện tại, mật khẩu mới (phải mạnh), mã OTP.
+
 import { IsOptional, IsString, Length, MaxLength, MinLength } from "class-validator";
 import { IsStrongPassword } from "../../common/validators/strong-password";
 

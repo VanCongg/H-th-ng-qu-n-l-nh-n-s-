@@ -1,3 +1,5 @@
+// Widget chấm công: thẻ trạng thái hôm nay, nút tròn check-in / check-out, dải giờ vào / ra.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';

@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class ToolPlannerService:
+    """Chọn planner theo AI_PLANNER_MODE:
+    - rule_based (mặc định): luật từ khóa, tất định, không cần LLM;
+    - llm / hybrid: gọi LLM, lỗi hoặc kết quả không hợp lệ thì quay về rule_based.
+    Dù chế độ nào, dạng response trả cho NestJS vẫn giống nhau."""
+
     def __init__(
         self,
         rule_based: RuleBasedPlannerService | None = None,

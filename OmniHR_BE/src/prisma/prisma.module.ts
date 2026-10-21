@@ -1,3 +1,5 @@
+// Module global cung cấp Prisma và các service dùng chung: audit, phân quyền, cấu hình hệ thống, ngày lễ.
+
 import { Global, Module } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { AuditService } from "../common/services/audit.service";

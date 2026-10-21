@@ -1,3 +1,5 @@
+// Dữ liệu sửa kỹ năng.
+
 import { PartialType } from "@nestjs/swagger";
 import { CreateSkillDto } from "./create-skill.dto";
 

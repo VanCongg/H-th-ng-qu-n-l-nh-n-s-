@@ -1,3 +1,5 @@
+// Dữ liệu thêm kỹ năng cho nhân viên: kỹ năng, số năm kinh nghiệm, trình độ, lần dùng gần nhất, ghi chú.
+
 import { Type } from "class-transformer";
 import {
   IsDateString,

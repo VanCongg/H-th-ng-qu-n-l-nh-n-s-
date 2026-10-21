@@ -1,3 +1,6 @@
+// Đồng hồ mô phỏng: thay `new Date()` / `Date.now()` để trả về thời điểm đang phát lại,
+// nhờ đó service của API ghi đúng ngày giờ trong quá khứ.
+
 /**
  * The simulated "now". The simulator acts through the API's own services, and
  * those stamp everything with `new Date()` - check-in times, approvals, the
@@ -32,6 +35,7 @@ class SimulatedDate extends RealDate {
 
 let installed = false;
 
+// Bật đồng hồ mô phỏng.
 export function installClock() {
   if (!installed) {
     globalThis.Date = SimulatedDate as unknown as DateConstructor;
@@ -39,6 +43,7 @@ export function installClock() {
   }
 }
 
+// Trả lại đồng hồ thật.
 export function uninstallClock() {
   if (installed) {
     globalThis.Date = RealDate;
@@ -48,6 +53,7 @@ export function uninstallClock() {
 }
 
 /** Moves the clock to `instant`; `null` lets it run with the wall clock again. */
+// Đặt thời điểm hiện tại của mô phỏng.
 export function setNow(instant: Date | number | null) {
   current = instant === null ? null : typeof instant === "number" ? instant : instant.getTime();
 }

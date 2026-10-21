@@ -1,3 +1,6 @@
+// Làm sạch mọi chuỗi đầu vào (kể cả trong mảng/object lồng nhau): cắt khoảng trắng,
+// xóa thẻ <script> và "javascript:" để giảm nguy cơ XSS.
+
 import { ArgumentMetadata, Injectable, PipeTransform } from "@nestjs/common";
 
 @Injectable()

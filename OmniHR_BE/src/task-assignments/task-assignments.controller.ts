@@ -1,3 +1,5 @@
+// API lịch sử giao việc (ai giao task nào cho ai, giao tay hay theo gợi ý AI).
+
 import { Controller, Get, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../common/decorators/current-user.decorator";

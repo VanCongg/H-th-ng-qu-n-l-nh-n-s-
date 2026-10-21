@@ -1,3 +1,5 @@
+// Đọc danh sách permission (permission được tạo sẵn bằng seed, không tạo qua API).
+
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 

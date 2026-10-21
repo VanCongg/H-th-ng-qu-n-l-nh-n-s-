@@ -1,3 +1,5 @@
+// Bộ lọc danh sách dự án.
+
 import { Type } from "class-transformer";
 import { IsEnum, IsInt, IsOptional } from "class-validator";
 import { ProjectStatus } from "@prisma/client";

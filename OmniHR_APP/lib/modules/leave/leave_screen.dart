@@ -1,3 +1,5 @@
+// Màn hình nghỉ phép: số dư phép, danh sách đơn của mình, tạo đơn mới, hủy đơn.
+
 import 'package:flutter/material.dart';
 
 import '../../core/i18n.dart';
@@ -7,6 +9,7 @@ import '../../models/omni_models.dart';
 import '../../shared/widgets/widgets.dart';
 
 /// Annual leave balance from the backend, which accrues it per full month worked.
+// Số dư phép năm đọc từ /leave-balances/self.
 class AnnualLeaveBalance {
   AnnualLeaveBalance({
     required this.accruedDays,
@@ -105,6 +108,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
   /// A pending request is withdrawn at once; an approved one can only be
   /// asked for, and stays approved until the manager agrees.
+  // Hủy đơn: đơn chờ duyệt thì hủy luôn, đơn đã duyệt thì gửi yêu cầu hủy cho quản lý.
   Future<void> _cancel(LeaveRequest request) async {
     final approved = request.status == 'APPROVED';
     final period = {
@@ -150,6 +154,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
 
   /// Pending: withdraw it. Approved and not started, with no request yet:
   /// ask to withdraw it. Leave under way is settled with the manager.
+  // Hủy được khi đơn đang chờ duyệt, hoặc đã duyệt mà chưa tới ngày nghỉ và chưa gửi yêu cầu hủy.
   bool _canCancel(LeaveRequest request) {
     if (request.status == 'PENDING') return true;
     if (request.status != 'APPROVED' || request.cancelRequested) return false;
@@ -159,6 +164,7 @@ class _LeaveScreenState extends State<LeaveScreen> {
         start.isAfter(DateTime(now.year, now.month, now.day));
   }
 
+  // Form tạo đơn nghỉ: loại nghỉ, ngày, nửa buổi, lý do.
   Future<void> _openCreateSheet(LeaveBundle bundle) async {
     if (bundle.types.isEmpty) {
       showAppSnack(context, tx('Chưa có loại nghỉ khả dụng.'), error: true);

@@ -1,3 +1,6 @@
+// Store phiên đăng nhập (Zustand): accessToken, refreshToken, user, lưu vào localStorage.
+// Cung cấp hasRole / hasPermission cho PermissionGate và các guard.
+
 import { create } from "zustand";
 import type { AuthUser, LoginResponse, RoleName } from "../api/types";
 
@@ -18,6 +21,7 @@ type AuthState = {
   hasPermission: (permissions: string | string[]) => boolean;
 };
 
+// Đăng nhập lưu token + user; đăng xuất xóa hết; hydrate đọc lại từ localStorage khi tải trang.
 export const authStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,

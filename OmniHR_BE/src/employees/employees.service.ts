@@ -1,3 +1,7 @@
+// Nghiệp vụ hồ sơ nhân viên. Mỗi nhân viên gắn với một tài khoản (User);
+// email cá nhân của nhân viên cũng là email đăng nhập, đổi thì phải đổi cả hai.
+// Vị trí là quản lý thì tài khoản tự có thêm role MANAGER.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CareerLevel, EmployeeStatus, Position, Prisma, VerificationPurpose } from "@prisma/client";
@@ -48,6 +52,7 @@ export class EmployeesService {
     private readonly verification: VerificationService
   ) {}
 
+  // Danh sách nhân viên theo bộ lọc.
   async findAll(query: EmployeeQueryDto) {
     const { skip, take, page, limit } = pagination(query.page, query.limit);
     const where = this.buildWhere(query);
@@ -68,6 +73,7 @@ export class EmployeesService {
     };
   }
 
+  // Danh sách cấp dưới.
   async findTeam(user: AuthUser, query: EmployeeQueryDto) {
     const teamIds = await this.accessControl.teamEmployeeIds(user);
     const { skip, take, page, limit } = pagination(query.page, query.limit);
@@ -93,6 +99,7 @@ export class EmployeesService {
     };
   }
 
+  // Một nhân viên (kiểm tra quyền xem nếu có user).
   async findOne(id: number, user?: AuthUser) {
     if (user) {
       await this.accessControl.ensureCanReadEmployee(user, id);
@@ -113,6 +120,7 @@ export class EmployeesService {
     return this.safeEmployee(employee);
   }
 
+  // Hồ sơ của chính người đang đăng nhập.
   async myProfile(user: AuthUser) {
     if (!user.employeeId) {
       throw new ApiError(
@@ -125,6 +133,8 @@ export class EmployeesService {
     return this.findOne(user.employeeId, user);
   }
 
+  // Tạo nhân viên: kiểm tra email chưa dùng, phòng ban / vị trí hợp lệ; trong một transaction
+  // tạo tài khoản (mật khẩu mặc định = ngày sinh, bắt buộc đổi) với role theo vị trí, rồi tạo hồ sơ; ghi audit.
   async create(
     dto: CreateEmployeeDto,
     actor: AuthUser,
@@ -213,6 +223,8 @@ export class EmployeesService {
     };
   }
 
+  // HR / admin sửa hồ sơ; đổi email thì đổi luôn email tài khoản; đổi vị trí thì cập nhật role MANAGER;
+  // xóa cache người dùng khi role / trạng thái thay đổi; ghi audit.
   async update(
     id: number,
     dto: UpdateEmployeeDto,
@@ -328,6 +340,8 @@ export class EmployeesService {
    * VerificationService) - one of the two per request. The email is also the
    * account's login email, so the two move together.
    */
+  // Nhân viên tự sửa hồ sơ. Đổi số điện thoại / email phải có mã OTP hợp lệ;
+  // đổi email thì gửi thông báo về địa chỉ cũ.
   async updateSelf(
     user: AuthUser,
     dto: UpdateSelfEmployeeDto,
@@ -403,6 +417,7 @@ export class EmployeesService {
     return this.safeEmployee(employee);
   }
 
+  // Xóa mềm nhân viên và vô hiệu tài khoản đi kèm; ghi audit.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.prisma.employee.findFirst({
       where: { id, deletedAt: null },
@@ -468,6 +483,8 @@ export class EmployeesService {
     return this.safeEmployee(employee);
   }
 
+  // Đặt lại mật khẩu về ngày sinh (dd/mm/yyyy), bắt buộc đổi mật khẩu,
+  // thu hồi mọi phiên đăng nhập và xóa cache người dùng.
   async resetPassword(id: number, actor: AuthUser, context?: RequestContext) {
     const employee = await this.prisma.employee.findFirst({
       where: currentEmployeeWhere({ id }),
@@ -512,6 +529,7 @@ export class EmployeesService {
     };
   }
 
+  // Khóa / mở khóa tài khoản của nhân viên; khóa thì thu hồi phiên đăng nhập.
   async setUserActive(
     id: number,
     isActive: boolean,
@@ -577,6 +595,7 @@ export class EmployeesService {
     };
   }
 
+  // Email chưa được tài khoản / nhân viên khác dùng.
   private async ensureEmailAvailable(
     personalEmail: string,
     employeeId?: number,
@@ -606,6 +625,7 @@ export class EmployeesService {
     }
   }
 
+  // Phòng ban và vị trí tồn tại, và vị trí thuộc đúng phòng ban.
   private async ensureDepartmentAndPosition(
     departmentId?: number | null,
     positionId?: number | null
@@ -662,6 +682,7 @@ export class EmployeesService {
     return { position };
   }
 
+  // Role mặc định theo vị trí: vị trí quản lý -> EMPLOYEE + MANAGER, còn lại -> EMPLOYEE.
   private async rolesForPosition(position?: Pick<Position, "code" | "name"> | null) {
     const roleNames = isManagerPosition(position)
       ? ["EMPLOYEE", "MANAGER"]
@@ -678,6 +699,7 @@ export class EmployeesService {
     return roles;
   }
 
+  // Thêm / bỏ role MANAGER khi vị trí của nhân viên thay đổi.
   private async syncManagerRoleForPosition(
     tx: Prisma.TransactionClient,
     userId: number,

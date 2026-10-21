@@ -1,3 +1,5 @@
+// Dữ liệu đăng ký / gỡ thiết bị nhận push: token, nền tảng, ngôn ngữ.
+
 import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class RegisterPushDeviceDto {

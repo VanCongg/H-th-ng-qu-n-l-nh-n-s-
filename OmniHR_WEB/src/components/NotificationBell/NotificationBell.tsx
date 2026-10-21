@@ -1,3 +1,5 @@
+// Chuông thông báo trên thanh trên: số chưa đọc, danh sách thông báo, đánh dấu đã đọc.
+
 import { ActionIcon, Badge, Divider, Group, Menu, ScrollArea, Stack, Text, UnstyledButton } from "@mantine/core";
 import { Bell } from "lucide-react";
 import { formatDateTime } from "../../api/format";

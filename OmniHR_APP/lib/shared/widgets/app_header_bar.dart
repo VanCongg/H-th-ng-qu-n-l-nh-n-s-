@@ -1,3 +1,5 @@
+// Thanh tiêu đề trên cùng (tiêu đề, phụ đề, các nút).
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';

@@ -1,3 +1,6 @@
+// Các provider bọc toàn app: TanStack Query (cache dữ liệu API), Mantine (giao diện, theme sáng / tối),
+// thông báo dạng toast và modal.
+
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";

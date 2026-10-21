@@ -1,3 +1,6 @@
+// Luật mật khẩu mạnh giống backend (ít nhất 8 ký tự, có chữ hoa, chữ thường, số, ký tự đặc biệt),
+// kiểm tra ngay trên điện thoại trước khi gửi mã OTP.
+
 /// The rules the backend holds a new password to (`ChangePasswordDto`:
 /// class-validator's IsStrongPassword, plus the checks in AuthService), checked
 /// on the phone first so a weak password is caught before any code is sent.

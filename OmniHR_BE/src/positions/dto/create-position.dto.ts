@@ -1,3 +1,5 @@
+// Dữ liệu tạo vị trí: mã, tên, phòng ban, đang hoạt động.
+
 import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class CreatePositionDto {

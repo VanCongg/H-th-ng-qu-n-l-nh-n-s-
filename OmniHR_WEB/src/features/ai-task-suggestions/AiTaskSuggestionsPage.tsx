@@ -1,3 +1,6 @@
+// Trang AI gợi ý giao việc: chọn task, tạo gợi ý, xem bảng xếp hạng ứng viên (điểm từng tiêu chí,
+// lý do, cảnh báo) và chọn một người để giao task.
+
 import {
   ActionIcon,
   Badge,
@@ -90,6 +93,7 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
     }
   });
 
+  // Tạo gợi ý mới cho task đang chọn.
   const generateMutation = useMutation({
     mutationFn: (values: typeof form.values) =>
       aiTaskSuggestionsApi.generate(Number(values.taskId), {
@@ -106,6 +110,7 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
       notifications.show({ color: "red", message: getApiErrorMessage(error) })
   });
 
+  // Chọn một ứng viên -> backend giao task cho người đó.
   const selectMutation = useMutation({
     mutationFn: (values: { suggestionId: number; suggestionItemId: number }) =>
       aiTaskSuggestionsApi.select(values.suggestionId, {
@@ -374,6 +379,7 @@ export function AiTaskSuggestionsPage({ scope }: AiTaskSuggestionsPageProps) {
  * The scoring reason is a full sentence, so showing it inline squeezed every
  * other column. It stays collapsed behind an icon and opens on demand.
  */
+// Ô hiển thị câu lý do (rút gọn, bấm để xem đủ).
 function ReasonCell({ reason }: { reason?: string | null }) {
   const { tx } = useTranslation();
   const [opened, setOpened] = useState(false);
@@ -413,6 +419,7 @@ function ReasonCell({ reason }: { reason?: string | null }) {
   );
 }
 
+// Màu theo điểm: cao xanh, trung bình vàng, thấp đỏ.
 function scoreColor(score: number) {
   if (score >= 80) {
     return "green";

@@ -1,3 +1,6 @@
+// Đồng bộ kỹ năng của nhân viên theo danh sách chọn trong form: thêm cái thiếu (trình độ BEGINNER),
+// bỏ cái không chọn, giữ nguyên phần còn lại.
+
 import { employeeSkillsApi } from "../../api/endpoints";
 import type { SkillProficiency } from "../../api/types";
 

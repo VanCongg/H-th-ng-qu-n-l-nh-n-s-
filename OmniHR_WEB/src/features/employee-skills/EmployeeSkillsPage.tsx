@@ -1,3 +1,5 @@
+// Trang kỹ năng nhân viên: chọn nhân viên, thêm / sửa / xóa kỹ năng (trình độ, số năm kinh nghiệm, lần dùng gần nhất).
+
 import {
   ActionIcon,
   Badge,

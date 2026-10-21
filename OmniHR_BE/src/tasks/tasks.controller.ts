@@ -1,3 +1,5 @@
+// API công việc (task): danh sách theo phạm vi (tất cả / team / của tôi), tạo, sửa, xóa, giao việc, đổi trạng thái.
+
 import {
   Body,
   Controller,
@@ -27,30 +29,35 @@ import { TasksService } from "./tasks.service";
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
+  // Tất cả task người dùng được xem.
   @Permissions("TASK_READ_ALL")
   @Get()
   findAll(@Query() query: TaskQueryDto, @CurrentUser() user: AuthUser) {
     return this.tasksService.findAll(query, user);
   }
 
+  // Task của team mình quản lý.
   @Permissions("TASK_READ_TEAM")
   @Get("team")
   findTeam(@Query() query: TaskQueryDto, @CurrentUser() user: AuthUser) {
     return this.tasksService.findTeam(query, user);
   }
 
+  // Task được giao cho chính mình.
   @Permissions("TASK_READ_SELF")
   @Get("me")
   findSelf(@Query() query: TaskQueryDto, @CurrentUser() user: AuthUser) {
     return this.tasksService.findSelf(query, user);
   }
 
+  // Chi tiết một task, kèm các trạng thái người dùng được phép chuyển tới.
   @Permissions("TASK_READ_ALL", "TASK_READ_TEAM", "TASK_READ_SELF")
   @Get(":id")
   findOne(@Param("id", ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
     return this.tasksService.getOne(id, user);
   }
 
+  // Tạo task (task nhóm hoặc task con).
   @Permissions("TASK_CREATE")
   @Post()
   create(
@@ -61,6 +68,7 @@ export class TasksController {
     return this.tasksService.create(dto, user, context);
   }
 
+  // Sửa thông tin task.
   @Permissions("TASK_UPDATE")
   @Patch(":id")
   update(
@@ -72,6 +80,7 @@ export class TasksController {
     return this.tasksService.update(id, dto, user, context);
   }
 
+  // Xóa mềm task.
   @Permissions("TASK_DELETE")
   @Delete(":id")
   remove(
@@ -82,6 +91,7 @@ export class TasksController {
     return this.tasksService.softDelete(id, user, context);
   }
 
+  // Giao task cho một nhân viên (giao tay).
   @Permissions("TASK_ASSIGN")
   @Post(":id/assign")
   assign(
@@ -93,6 +103,7 @@ export class TasksController {
     return this.tasksService.assign(id, dto, user, context);
   }
 
+  // Đổi trạng thái task theo luật trong task-status-rules.ts.
   @Permissions("TASK_UPDATE_STATUS")
   @Patch(":id/status")
   updateStatus(

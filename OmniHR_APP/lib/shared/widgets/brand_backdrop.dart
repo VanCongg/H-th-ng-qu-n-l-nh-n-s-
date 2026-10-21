@@ -1,3 +1,5 @@
+// Nền trang trí theo màu thương hiệu.
+
 import 'package:flutter/material.dart';
 
 import '../../core/utils.dart';

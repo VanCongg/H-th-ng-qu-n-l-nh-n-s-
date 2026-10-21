@@ -1,3 +1,7 @@
+// Nghiệp vụ công việc. Task có hai cấp: task nhóm (gắn với dự án / team) và task con (giao cho từng người).
+// Trạng thái của task nhóm không sửa tay mà tự tính từ các task con (syncParentStatus).
+// Mọi thay đổi đều ghi audit và gửi thông báo cho người liên quan.
+
 import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   CareerLevel,
@@ -48,6 +52,7 @@ type TeamTaskSortKey = {
  * one due soonest leading - and a finished project goes to the back. Inside a
  * project, unfinished before finished, then by due date.
  */
+// Sắp xếp task nhóm theo dự án để hiển thị trên trang team.
 export function orderTeamTasksByProject<T extends TeamTaskSortKey>(roots: T[]): T[] {
   const isOpen = (root: T) => OPEN_TASK_STATUSES.includes(root.status as (typeof OPEN_TASK_STATUSES)[number]);
   const time = (date: Date | null) => (date ? date.getTime() : Number.POSITIVE_INFINITY);
@@ -84,6 +89,7 @@ const DUE_SOON_DAYS = 3;
  * is assigned to and works on - so the count on a chip is the number of rows
  * that need a hand, not that plus every team task above them.
  */
+// Bộ lọc nhanh: quá hạn, sắp đến hạn, chờ duyệt, chưa giao.
 export function quickTaskWhere(
   quick: TaskQuickFilter,
   today: Date,
@@ -190,16 +196,19 @@ export class TasksService {
     private readonly notifications: NotificationsService
   ) {}
 
+  // Task trong phạm vi "tất cả" (theo quyền).
   async findAll(query: TaskQueryDto, user: AuthUser) {
     const where = await this.buildWhere(query, user, "all");
     return this.paginatedList(where, query, user, "all");
   }
 
+  // Task trong phạm vi team mình quản lý.
   async findTeam(query: TaskQueryDto, user: AuthUser) {
     const where = await this.buildWhere(query, user, "team");
     return this.paginatedList(where, query, user, "team");
   }
 
+  // Task được giao cho chính mình.
   async findSelf(query: TaskQueryDto, user: AuthUser) {
     if (!user.employeeId) {
       throw new ApiError(HttpStatus.NOT_FOUND, "Employee not found", "EMPLOYEE_NOT_FOUND");
@@ -215,6 +224,7 @@ export class TasksService {
     return withStatuses;
   }
 
+  // Một task, có kiểm tra quyền xem.
   async findOne(id: number, user: AuthUser) {
     await this.accessControl.ensureCanReadTask(user, id);
     const task = await this.prisma.task.findFirst({
@@ -227,6 +237,8 @@ export class TasksService {
     return task;
   }
 
+  // Tạo task: xác định phạm vi (dự án / phòng / team), kiểm tra ngày nằm trong dự án,
+  // kỹ năng yêu cầu hợp lệ, người được giao thuộc team; lưu, ghi audit, báo cho người được giao.
   async create(dto: CreateTaskDto, actor: AuthUser, context?: RequestContext) {
     const scope = await this.resolveCreateTaskScope(dto, actor);
     this.ensureLevelRange(dto.minLevel, dto.maxLevel);
@@ -312,6 +324,7 @@ export class TasksService {
     return task;
   }
 
+  // Sửa task: kiểm tra quyền sửa, task còn mở, ngày hợp lệ; ghi audit trước / sau.
   async update(
     id: number,
     dto: UpdateTaskDto,
@@ -456,6 +469,7 @@ export class TasksService {
     return task;
   }
 
+  // Giao task: kiểm tra quyền giao cho người đó, ghi lịch sử giao việc (giao tay), báo cho người nhận.
   async assign(
     id: number,
     dto: AssignTaskDto,
@@ -512,6 +526,8 @@ export class TasksService {
     return task;
   }
 
+  // Đổi trạng thái: kiểm tra quyền và luật chuyển trạng thái, đặt / xóa ngày hoàn thành,
+  // ghi audit, cập nhật lại trạng thái task nhóm và báo cho người liên quan.
   async updateStatus(
     id: number,
     dto: UpdateTaskStatusDto,
@@ -564,6 +580,7 @@ export class TasksService {
     return task;
   }
 
+  // Xóa mềm (đặt deletedAt), không xóa hẳn khỏi DB.
   async softDelete(id: number, actor: AuthUser, context?: RequestContext) {
     const oldValue = await this.findOne(id, actor);
     await this.accessControl.ensureCanUpdateTask(actor, id);
@@ -660,6 +677,7 @@ export class TasksService {
    * The subtasks come from the caller's scope with no other filter, so a team
    * task never shows a subtask the caller could not list by itself.
    */
+  // Danh sách gom theo task nhóm, mỗi task nhóm kèm các task con.
   private async groupedList(
     where: Prisma.TaskWhereInput,
     query: TaskQueryDto,
@@ -740,6 +758,7 @@ export class TasksService {
    * How many subtasks each quick filter would show, under every other filter
    * currently on - the numbers on the board's chips.
    */
+  // Số lượng cho các bộ lọc nhanh (quá hạn, sắp đến hạn...).
   private async quickSummary(query: TaskQueryDto, user: AuthUser, scope: TaskScope) {
     const where = await this.buildWhere({ ...query, quick: undefined } as TaskQueryDto, user, scope);
     const today = toDateOnly(new Date());
@@ -761,6 +780,7 @@ export class TasksService {
    * client offers only moves the API will accept. Team-level tasks get none;
    * their status follows their subtasks.
    */
+  // Gắn thêm danh sách trạng thái người dùng được phép chuyển tới cho từng task.
   private async withAllowedStatuses<
     T extends Pick<
       TaskWithInclude,
@@ -792,6 +812,7 @@ export class TasksService {
     });
   }
 
+  // Điều kiện lọc task theo phạm vi quyền và bộ lọc người dùng chọn.
   private async buildWhere(query: TaskQueryDto, user: AuthUser, scope: TaskScope) {
     const hasDateRange = Boolean(query.fromDate || query.toDate);
     const dueDateRange = hasDateRange
@@ -896,6 +917,7 @@ export class TasksService {
     };
   }
 
+  // Xác định task mới thuộc dự án / phòng / team nào (task con kế thừa từ task nhóm).
   private async resolveCreateTaskScope(dto: CreateTaskDto, actor: AuthUser) {
     if (dto.parentTaskId) {
       const parentTask = await this.prisma.task.findFirst({
@@ -1019,6 +1041,7 @@ export class TasksService {
     };
   }
 
+  // Chỉ admin, trưởng phòng hoặc trưởng nhóm mới tạo được task con.
   private async ensureCanCreateSubtask(
     actor: AuthUser,
     departmentId: number,
@@ -1070,6 +1093,8 @@ export class TasksService {
     }
   }
 
+  // Trạng thái task nhóm tự tính từ task con: tất cả xong -> DONE; có cái đang làm / chờ duyệt / xong -> IN_PROGRESS;
+  // còn lại TODO. Giờ thực tế = tổng giờ các task con.
   private async syncParentStatus(parentTaskId: number) {
     const children = await this.prisma.task.findMany({
       where: { parentTaskId, deletedAt: null },
@@ -1164,6 +1189,7 @@ export class TasksService {
     }
   }
 
+  // Báo cho người vừa được giao task.
   private async notifyAssigned(task: Pick<TaskWithInclude, "id" | "title" | "assignee">) {
     if (!task.assignee?.userId) {
       return;
@@ -1183,6 +1209,7 @@ export class TasksService {
    * the team lead and whoever assigned the task (the department head when the
    * team has no lead); a reviewer's move goes to the assignee.
    */
+  // Báo khi task đổi trạng thái cho người được giao, trưởng nhóm và người đã giao task (trừ chính người vừa đổi).
   private async notifyStatusChange(before: TaskWithInclude, status: TaskStatus, actor: AuthUser) {
     const recipients = new Set<number>();
     if (before.assignee?.userId) {
@@ -1286,6 +1313,7 @@ export class TasksService {
     );
   }
 
+  // Người được giao phải là thành viên team của task.
   private async ensureAssigneeInTaskTeam(teamId: number | null | undefined, assigneeId: number) {
     if (!teamId) {
       return;
@@ -1309,6 +1337,7 @@ export class TasksService {
     }
   }
 
+  // Các kỹ năng yêu cầu phải tồn tại và không trùng lặp.
   private async ensureRequiredSkills(requiredSkills?: TaskRequiredSkillDto[]) {
     if (!requiredSkills?.length) {
       return;
