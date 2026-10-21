@@ -1,0 +1,39 @@
+{
+  "description": "Policy retrieval set, written on 2026-09-30 before any threshold was chosen. Questions are worded the way an employee would ask, mostly without the policy's own words. 'expected' lists every section that answers the question; an empty list means nothing in the handbook answers it and retrieval must return nothing. Thresholds are chosen on 'dev' only; 'test' is scored once.",
+  "dev": [
+    {"query": "được hỗ trợ gì khi ốm đau", "expected": ["Bảo hiểm", "Các loại nghỉ có lương"]},
+    {"query": "đến công ty muộn 15 phút thì sao", "expected": ["Đi trễ và về sớm bị xử lý thế nào"]},
+    {"query": "một năm tôi có mấy ngày nghỉ phép", "expected": ["Mỗi năm được bao nhiêu ngày phép năm"]},
+    {"query": "phép chưa dùng hết có mất không", "expected": ["Nghỉ phép năm có được cộng dồn sang năm sau không"]},
+    {"query": "làm ở nhà thì cần làm thủ tục gì", "expected": ["Làm việc từ xa cần đăng ký ra sao"]},
+    {"query": "tăng ca có được trả thêm tiền không", "expected": ["Làm thêm giờ được tính ra sao"]},
+    {"query": "sáng quên bấm vào ca thì phải làm gì", "expected": ["Quên chấm công"]},
+    {"query": "sinh con được nghỉ bao lâu", "expected": ["Nghỉ thai sản"]},
+    {"query": "cuối năm có thưởng không", "expected": ["Thưởng lễ Tết"]},
+    {"query": "có được công ty tài trợ đi học khóa ngắn hạn không", "expected": ["Đào tạo và phát triển"]},
+    {"query": "có được gửi tài liệu nội bộ cho người ngoài không", "expected": ["Bảo mật thông tin"]},
+    {"query": "vi phạm nội quy sẽ bị xử lý ra sao", "expected": ["Quy trình xử lý vi phạm"]},
+    {"query": "thời tiết hôm nay thế nào", "expected": []},
+    {"query": "công thức nấu phở bò", "expected": []},
+    {"query": "giá bitcoin hôm nay bao nhiêu", "expected": []},
+    {"query": "gợi ý phim hay để xem cuối tuần", "expected": []}
+  ],
+  "test": [
+    {"query": "bị cảm không đi làm được thì có mất lương không", "expected": ["Các loại nghỉ có lương", "Bảo hiểm"]},
+    {"query": "mấy giờ phải có mặt ở văn phòng", "expected": ["Giờ làm việc và ca làm"]},
+    {"query": "muốn nghỉ thì phải báo trước mấy hôm", "expected": ["Cần nộp đơn xin nghỉ trước bao lâu"]},
+    {"query": "chấm công ở quán cà phê gần công ty có được không", "expected": ["Vị trí khi check-in"]},
+    {"query": "nghỉ mà không hưởng lương có được không", "expected": ["Nghỉ không lương"]},
+    {"query": "phép năm còn dư có chuyển sang năm mới được không", "expected": ["Nghỉ phép năm có được cộng dồn sang năm sau không"]},
+    {"query": "công ty có tổ chức du lịch hay tiệc sinh nhật không", "expected": ["Team building và sinh nhật"]},
+    {"query": "tôi có được nhận làm thêm cho công ty đối thủ không", "expected": ["Xung đột lợi ích"]},
+    {"query": "nhân viên phải cư xử với đồng nghiệp thế nào", "expected": ["Quy tắc ứng xử chung"]},
+    {"query": "về sớm 30 phút có bị trừ công không", "expected": ["Đi trễ và về sớm bị xử lý thế nào"]},
+    {"query": "làm cuối tuần được tính lương thế nào", "expected": ["Làm thêm giờ được tính ra sao"]},
+    {"query": "công ty có đóng bảo hiểm y tế cho nhân viên không", "expected": ["Bảo hiểm"]},
+    {"query": "ai vô địch world cup 2022", "expected": []},
+    {"query": "cách đổi hình nền điện thoại", "expected": []},
+    {"query": "viết giúp tôi một bài thơ về mùa thu", "expected": []},
+    {"query": "tỷ giá đô la hôm nay", "expected": []}
+  ]
+}

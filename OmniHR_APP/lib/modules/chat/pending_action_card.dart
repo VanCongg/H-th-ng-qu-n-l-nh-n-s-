@@ -1,0 +1,207 @@
+import 'package:flutter/material.dart';
+
+import '../../core/i18n.dart';
+import '../../core/utils.dart';
+import '../../models/chat_models.dart';
+
+class PendingActionCard extends StatelessWidget {
+  const PendingActionCard({
+    super.key,
+    required this.action,
+    required this.busy,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  final PendingChatAction action;
+  final bool busy;
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+
+  List<Widget> _taskRows() => _taskRowsOf(action.summary);
+
+  List<Widget> _leaveRows({required bool cancel}) =>
+      _leaveRowsOf(action.summary, cancel: cancel);
+
+  @override
+  Widget build(BuildContext context) {
+    final isCancelLeave = action.type == 'CANCEL_LEAVE_REQUEST';
+    final isTaskStatus = action.type == 'UPDATE_TASK_STATUS';
+    final title = isTaskStatus
+        ? tx('Xác nhận cập nhật công việc')
+        : isCancelLeave
+        ? tx('Xác nhận hủy đơn nghỉ phép')
+        : tx('Nháp đơn nghỉ phép');
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: accentColor.withValues(alpha: 0.26)),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      isTaskStatus
+                          ? Icons.task_alt_rounded
+                          : Icons.fact_check_rounded,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...(isTaskStatus
+                    ? _taskRows()
+                    : _leaveRows(cancel: isCancelLeave)),
+                if (action.expiresAt != null)
+                  _SummaryRow(
+                    label: tx('Hết hạn'),
+                    value: formatDateTime(action.expiresAt),
+                  ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: busy ? null : onCancel,
+                        icon: const Icon(Icons.close_rounded),
+                        label: Text(
+                          isCancelLeave ? tx('Không hủy') : tx('Hủy'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: busy ? null : onConfirm,
+                        icon: busy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.check_rounded),
+                        label: Text(
+                          isCancelLeave ? tx('Xác nhận hủy') : tx('Xác nhận'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What changes on the task: the current status, and the one it moves to.
+List<Widget> _taskRowsOf(Map<String, dynamic> summary) {
+  final note = textOf(summary['note']);
+  return [
+    _SummaryRow(
+      label: tx('Công việc'),
+      value: textOf(summary['taskTitle'], '-'),
+    ),
+    _SummaryRow(label: tx('Dự án'), value: textOf(summary['projectName'], '-')),
+    _SummaryRow(
+      label: tx('Hiện tại'),
+      value: friendlyStatus(textOf(summary['currentStatus'], '-')),
+    ),
+    _SummaryRow(
+      label: tx('Chuyển sang'),
+      value: friendlyStatus(textOf(summary['status'], '-')),
+    ),
+    if (note.isNotEmpty) _SummaryRow(label: tx('Ghi chú'), value: note),
+  ];
+}
+
+List<Widget> _leaveRowsOf(
+  Map<String, dynamic> summary, {
+  required bool cancel,
+}) {
+  return [
+    _SummaryRow(
+      label: cancel ? tx('Đơn hủy') : tx('Loại nghỉ'),
+      value: textOf(
+        summary['leaveType'],
+        textOf(summary['leaveTypeCode'], '-'),
+      ),
+    ),
+    _SummaryRow(label: tx('Từ ngày'), value: formatDate(summary['startDate'])),
+    _SummaryRow(label: tx('Đến ngày'), value: formatDate(summary['endDate'])),
+    _SummaryRow(label: tx('Số ngày'), value: textOf(summary['totalDays'], '-')),
+    _SummaryRow(label: tx('Lý do'), value: textOf(summary['reason'], '-')),
+    _SummaryRow(
+      label: tx('Trạng thái'),
+      value: summary['currentStatus'] == null
+          ? tx('Chờ xác nhận')
+          : friendlyStatus(textOf(summary['currentStatus'])),
+    ),
+  ];
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 78,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: mutedTextColor,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: inkColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

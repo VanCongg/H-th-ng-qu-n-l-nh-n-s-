@@ -1,0 +1,126 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omnihr-api
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-postgres}?schema=public
+      # Shared throttler / chatbot rate-limit counters across api instances.
+      REDIS_HOST: ${DOCKER_REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@corehr.local}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?DEFAULT_ADMIN_PASSWORD is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      AI_SERVICE_URL: ${DOCKER_AI_SERVICE_URL:-http://omnihr-ai:8000}
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_SUGGESTION_EXPLANATIONS: ${AI_SUGGESTION_EXPLANATIONS:-true}
+      AI_SUGGESTION_EXPLAIN_TIMEOUT_MS: ${AI_SUGGESTION_EXPLAIN_TIMEOUT_MS:-8000}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      AUDIT_RETENTION_JOB: ${AUDIT_RETENTION_JOB:-true}
+      CHATBOT_RATE_LIMIT_TTL_SECONDS: ${CHATBOT_RATE_LIMIT_TTL_SECONDS:-60}
+      CHATBOT_RATE_LIMIT_MAX: ${CHATBOT_RATE_LIMIT_MAX:-20}
+      CHATBOT_RATE_LIMIT_PER_MINUTE: ${CHATBOT_RATE_LIMIT_PER_MINUTE:-20}
+      CHATBOT_HISTORY_LIMIT: ${CHATBOT_HISTORY_LIMIT:-12}
+      CHATBOT_MAX_MESSAGE_LENGTH: ${CHATBOT_MAX_MESSAGE_LENGTH:-1000}
+      CHATBOT_PENDING_ACTION_TTL_MINUTES: ${CHATBOT_PENDING_ACTION_TTL_MINUTES:-30}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - omnihr-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: omnihr-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    # Loopback only: reachable from this machine (npm run start:dev), not from the network.
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - omnihr-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: omnihr-redis
+    # Loopback only; Redis runs without a password.
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - omnihr-network
+
+
+  omnihr-ai:
+    build:
+      context: ../OmniHR_AI
+      dockerfile: Dockerfile
+    container_name: omnihr-ai
+    environment:
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN:?AI_INTERNAL_TOKEN is required}
+      AI_PLANNER_MODE: ${AI_PLANNER_MODE:-rule_based}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-rule-based-vi-v1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_TOTAL_BUDGET_SECONDS: ${LLM_TOTAL_BUDGET_SECONDS:-20}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-800}
+      LLM_FALLBACK_TO_RULE_BASED: ${LLM_FALLBACK_TO_RULE_BASED:-true}
+      LLM_CONFIDENCE_THRESHOLD: ${LLM_CONFIDENCE_THRESHOLD:-0.6}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-none}
+      # Blank falls back to the LLM base URL / key inside the service.
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      RAG_MODE: ${RAG_MODE:-hybrid}
+      RAG_EMBEDDING_WEIGHT: ${RAG_EMBEDDING_WEIGHT:-0.6}
+      RAG_MIN_EMBEDDING_SCORE: ${RAG_MIN_EMBEDDING_SCORE:-0.55}
+      RAG_MIN_EMBEDDING_GAP: ${RAG_MIN_EMBEDDING_GAP:-0.10}
+    # Loopback only: clients never call the AI service; the api container reaches it as omnihr-ai:8000.
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - omnihr-network
+
+volumes:
+  postgres-data:
+
+networks:
+  omnihr-network:
+    driver: bridge

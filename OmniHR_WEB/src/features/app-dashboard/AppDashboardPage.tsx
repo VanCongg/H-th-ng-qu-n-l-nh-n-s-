@@ -1,0 +1,100 @@
+import { Badge, Group, Paper, ScrollArea, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
+import { Activity, CalendarX, ClipboardList, Users } from "lucide-react";
+import { dashboardApi } from "../../api/endpoints";
+import {
+  formatDate,
+  formatDepartmentName
+} from "../../api/format";
+import { getApiErrorMessage } from "../../api/axios";
+import { DataTable } from "../../components/DataTable";
+import { PageHeader } from "../../components/PageHeader";
+import { PositionLabel } from "../../components/PositionLabel";
+import { StatCard } from "../../components/StatCard";
+import { useTranslation } from "../../i18n";
+import type { LeaveRequest, Subordinate } from "../../api/types";
+
+export function AppDashboardPage() {
+  const { te, tx } = useTranslation();
+  const query = useQuery({
+    queryKey: ["manager-dashboard"],
+    queryFn: dashboardApi.manager
+  });
+  const data = query.data;
+
+  return (
+    <Stack gap="md">
+      <PageHeader
+        title="Dashboard"
+        description="Team summary, attendance signals, and pending leave requests."
+      />
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+        <StatCard label="Subordinates" value={data?.teamEmployees ?? 0} icon={Users} color="blue" />
+        <StatCard label="Pending Team Leave" value={data?.pendingTeamLeaves ?? 0} icon={ClipboardList} color="yellow" />
+        <StatCard label="Cancellations to decide" value={data?.pendingCancellations ?? 0} icon={CalendarX} color="orange" />
+        <StatCard label="Checked in today" value={data?.teamCheckedInToday ?? 0} icon={Activity} color="teal" />
+      </SimpleGrid>
+
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+        <Paper withBorder radius="md" p="md">
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Title order={3}>{tx("Latest Leave Requests")}</Title>
+              <Badge variant="light">{data?.latestTeamLeaves?.length ?? 0}</Badge>
+            </Group>
+            <DataTable<LeaveRequest>
+              loading={query.isLoading}
+              error={query.error ? getApiErrorMessage(query.error) : null}
+              data={data?.latestTeamLeaves ?? []}
+              emptyTitle="No team leave requests"
+              columns={[
+                { key: "employee", label: "Employee", render: (item) => item.employee.fullName },
+                { key: "type", label: "Type", render: (item) => item.leaveType.name },
+                { key: "dates", label: "Dates", render: (item) => `${formatDate(item.startDate)} - ${formatDate(item.endDate)}` },
+                { key: "status", label: "Status", render: (item) => <Badge color={item.status === "PENDING" ? "yellow" : "green"}>{te(item.status)}</Badge> }
+              ]}
+            />
+          </Stack>
+        </Paper>
+
+        <Paper withBorder radius="md" p="md">
+          <Stack gap="md">
+            <Group justify="space-between">
+              <Title order={3}>{tx("Subordinates")}</Title>
+              <Badge variant="light">{data?.subordinates?.length ?? 0}</Badge>
+            </Group>
+            <ScrollArea.Autosize mah={440}>
+              <DataTable<Subordinate>
+                tableMinWidth={520}
+                loading={query.isLoading}
+                error={query.error ? getApiErrorMessage(query.error) : null}
+                data={data?.subordinates ?? []}
+                emptyTitle="No subordinates"
+                columns={[
+                  { key: "code", label: "Code", render: (item) => item.employeeCode },
+                  {
+                    key: "name",
+                    label: "Name",
+                    render: (item) => (
+                      <Group gap={6} wrap="nowrap">
+                        <Text fw={700}>{item.fullName}</Text>
+                        {item.isTeamLead ? <Badge size="xs" color="violet" variant="light">{tx("Team lead")}</Badge> : null}
+                      </Group>
+                    )
+                  },
+                  {
+                    key: "team",
+                    label: "Team",
+                    render: (item) =>
+                      item.teams.length ? item.teams.map((team) => team.name).join(", ") : formatDepartmentName(item.department, tx)
+                  },
+                  { key: "position", label: "Position", render: (item) => <PositionLabel employee={item} /> }
+                ]}
+              />
+            </ScrollArea.Autosize>
+          </Stack>
+        </Paper>
+      </SimpleGrid>
+    </Stack>
+  );
+}

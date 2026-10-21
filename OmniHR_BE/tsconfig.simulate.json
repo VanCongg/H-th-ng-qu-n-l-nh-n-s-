@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist-simulate",
+    "incremental": false,
+    "emitDeclarationOnly": false,
+    "noEmit": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "prisma/simulate-day.ts",
+    "prisma/simulation-persona.ts",
+    "prisma/simulation/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-simulate",
+    "**/*spec.ts"
+  ]
+}

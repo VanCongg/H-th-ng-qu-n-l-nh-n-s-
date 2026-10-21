@@ -1,0 +1,2 @@
+ALTER TABLE "tasks"
+  ADD COLUMN "technologies" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

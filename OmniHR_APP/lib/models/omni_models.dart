@@ -1,0 +1,629 @@
+import '../core/i18n.dart';
+import '../core/utils.dart';
+
+class LoginResponse {
+  LoginResponse({
+    required this.user,
+    required this.accessToken,
+    required this.refreshToken,
+  });
+
+  final AuthUser user;
+  final String accessToken;
+  final String refreshToken;
+
+  factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    return LoginResponse(
+      user: AuthUser.fromJson(mapOf(json['user'])),
+      accessToken: textOf(json['accessToken']),
+      refreshToken: textOf(json['refreshToken']),
+    );
+  }
+}
+
+class AuthUser {
+  AuthUser({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.roles,
+    required this.permissions,
+    required this.mustChangePassword,
+    this.employeeId,
+  });
+
+  final int id;
+  final String username;
+  final String email;
+  final List<String> roles;
+  final List<String> permissions;
+  final int? employeeId;
+  final bool mustChangePassword;
+
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    return AuthUser(
+      id: intOf(json['id']),
+      username: textOf(json['username']),
+      email: textOf(json['email']),
+      roles: stringListOf(json['roles']),
+      permissions: stringListOf(json['permissions']),
+      employeeId: json['employeeId'] == null ? null : intOf(json['employeeId']),
+      mustChangePassword: json['mustChangePassword'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'username': username,
+      'email': email,
+      'roles': roles,
+      'permissions': permissions,
+      'employeeId': employeeId,
+      'mustChangePassword': mustChangePassword,
+    };
+  }
+}
+
+class Department {
+  Department({required this.id, required this.code, required this.name});
+
+  final int id;
+  final String code;
+  final String name;
+
+  factory Department.fromJson(Map<String, dynamic> json) {
+    return Department(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+    );
+  }
+}
+
+class Position {
+  Position({required this.id, required this.code, required this.name});
+
+  final int id;
+  final String code;
+  final String name;
+
+  factory Position.fromJson(Map<String, dynamic> json) {
+    return Position(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+    );
+  }
+}
+
+class Project {
+  Project({required this.id, required this.code, required this.name});
+
+  final int id;
+  final String code;
+  final String name;
+
+  factory Project.fromJson(Map<String, dynamic> json) {
+    return Project(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+    );
+  }
+}
+
+class Team {
+  Team({required this.id, required this.code, required this.name});
+
+  final int id;
+  final String code;
+  final String name;
+
+  factory Team.fromJson(Map<String, dynamic> json) {
+    return Team(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+    );
+  }
+}
+
+class Employee {
+  Employee({
+    required this.id,
+    required this.employeeCode,
+    required this.fullName,
+    required this.personalEmail,
+    required this.status,
+    this.phone,
+    this.birthDate,
+    this.hireDate,
+    this.department,
+    this.position,
+    this.avatarUrl,
+  });
+
+  final int id;
+  final String employeeCode;
+  final String fullName;
+
+  /// The one email of the person, also the login email of their account.
+  final String personalEmail;
+  final String status;
+  final String? phone;
+  final String? birthDate;
+  final String? hireDate;
+  final Department? department;
+  final Position? position;
+
+  /// A `data:image/...` URL or an http(s) link; null shows the initial.
+  final String? avatarUrl;
+
+  factory Employee.fromJson(Map<String, dynamic> json) {
+    final departmentMap = mapOf(json['department']);
+    final positionMap = mapOf(json['position']);
+    return Employee(
+      id: intOf(json['id']),
+      employeeCode: textOf(json['employeeCode']),
+      fullName: textOf(json['fullName'], tx('Nhân viên')),
+      personalEmail: textOf(json['personalEmail']),
+      phone: json['phone']?.toString(),
+      birthDate: json['birthDate']?.toString(),
+      hireDate: json['hireDate']?.toString(),
+      status: textOf(json['status'], 'ACTIVE'),
+      department: departmentMap.isEmpty
+          ? null
+          : Department.fromJson(departmentMap),
+      position: positionMap.isEmpty ? null : Position.fromJson(positionMap),
+      avatarUrl: json['avatarUrl']?.toString(),
+    );
+  }
+}
+
+class LeaveType {
+  LeaveType({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.annualAllowance,
+  });
+
+  final int id;
+  final String code;
+  final String name;
+  final double? annualAllowance;
+
+  factory LeaveType.fromJson(Map<String, dynamic> json) {
+    return LeaveType(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+      annualAllowance: doubleOf(json['annualAllowance']),
+    );
+  }
+}
+
+class LeaveRequest {
+  LeaveRequest({
+    required this.id,
+    required this.leaveType,
+    required this.startDate,
+    required this.endDate,
+    required this.totalDays,
+    required this.reason,
+    required this.status,
+    required this.createdAt,
+    this.rejectionReason,
+    this.halfDay,
+    this.cancelRequestedAt,
+    this.cancelRequestReason,
+    this.employee,
+  });
+
+  final int id;
+  final LeaveType leaveType;
+  final String startDate;
+  final String endDate;
+  final double totalDays;
+  final String reason;
+  final String status;
+  final String createdAt;
+  final String? rejectionReason;
+
+  /// `MORNING` / `AFTERNOON` when a one-day request covers only one shift.
+  final String? halfDay;
+
+  /// Set while the employee's request to withdraw this approved leave waits
+  /// for a manager; the leave stays approved until then.
+  final String? cancelRequestedAt;
+  final String? cancelRequestReason;
+
+  /// Who asked for the leave; sent with a team's requests, not your own.
+  final Employee? employee;
+
+  bool get cancelRequested => status == 'APPROVED' && cancelRequestedAt != null;
+
+  factory LeaveRequest.fromJson(Map<String, dynamic> json) {
+    return LeaveRequest(
+      id: intOf(json['id']),
+      leaveType: LeaveType.fromJson(mapOf(json['leaveType'])),
+      startDate: textOf(json['startDate']),
+      endDate: textOf(json['endDate']),
+      totalDays: doubleOf(json['totalDays']) ?? 0,
+      reason: textOf(json['reason']),
+      status: textOf(json['status'], 'PENDING'),
+      createdAt: textOf(json['createdAt']),
+      rejectionReason: json['rejectionReason']?.toString(),
+      halfDay: json['halfDay']?.toString(),
+      cancelRequestedAt: json['cancelRequestedAt']?.toString(),
+      cancelRequestReason: json['cancelRequestReason']?.toString(),
+      employee: json['employee'] is Map
+          ? Employee.fromJson(mapOf(json['employee']))
+          : null,
+    );
+  }
+}
+
+class AttendanceRecord {
+  AttendanceRecord({
+    required this.id,
+    required this.workDate,
+    required this.recordType,
+    required this.recordedAt,
+    required this.source,
+    required this.isAdjustment,
+    this.shift,
+    this.attendanceStatus,
+    this.latitude,
+    this.longitude,
+    this.address,
+    this.distanceMeters,
+    this.note,
+  });
+
+  final int id;
+  final String workDate;
+  final String recordType;
+  final String recordedAt;
+  final String source;
+  final bool isAdjustment;
+  final String? shift;
+  final String? attendanceStatus;
+  final double? latitude;
+  final double? longitude;
+  final String? address;
+  final int? distanceMeters;
+  final String? note;
+
+  factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
+    return AttendanceRecord(
+      id: intOf(json['id']),
+      workDate: textOf(json['workDate']),
+      recordType: textOf(json['recordType']),
+      recordedAt: textOf(json['recordedAt']),
+      source: textOf(json['source']),
+      isAdjustment: json['isAdjustment'] == true,
+      shift: json['shift']?.toString(),
+      attendanceStatus: json['attendanceStatus']?.toString(),
+      latitude: doubleOf(json['latitude']),
+      longitude: doubleOf(json['longitude']),
+      address: json['address']?.toString(),
+      distanceMeters: json['distanceMeters'] == null
+          ? null
+          : intOf(json['distanceMeters']),
+      note: json['note']?.toString(),
+    );
+  }
+}
+
+class LocationPolicy {
+  LocationPolicy({
+    this.companyLatitude,
+    this.companyLongitude,
+    required this.attendanceRadiusMeters,
+    required this.requireAttendanceLocation,
+    this.workWeekdays = defaultWorkWeekdays,
+    this.holidays = const {},
+  });
+
+  /// Monday to Friday, as [DateTime.weekday] values.
+  static const defaultWorkWeekdays = {1, 2, 3, 4, 5};
+
+  static const _weekdayNumbers = {
+    'MONDAY': DateTime.monday,
+    'TUESDAY': DateTime.tuesday,
+    'WEDNESDAY': DateTime.wednesday,
+    'THURSDAY': DateTime.thursday,
+    'FRIDAY': DateTime.friday,
+    'SATURDAY': DateTime.saturday,
+    'SUNDAY': DateTime.sunday,
+  };
+
+  final double? companyLatitude;
+  final double? companyLongitude;
+  final double attendanceRadiusMeters;
+  final bool requireAttendanceLocation;
+
+  /// The company work week from system settings; other days are days off.
+  final Set<int> workWeekdays;
+
+  /// Public holidays around this year, by `yyyy-MM-dd`: days off even inside
+  /// the work week, so never shown as missed.
+  final Map<String, String> holidays;
+
+  factory LocationPolicy.fromJson(Map<String, dynamic> json) {
+    final workWeek = json['workWeek'];
+    final workWeekdays = workWeek is List
+        ? workWeek
+              .map((day) => _weekdayNumbers[day.toString().toUpperCase()])
+              .whereType<int>()
+              .toSet()
+        : <int>{};
+    final holidayList = json['holidays'];
+    final holidays = <String, String>{
+      if (holidayList is List)
+        for (final item in holidayList.whereType<Map>())
+          '${item['date']}': '${item['name'] ?? ''}',
+    };
+    return LocationPolicy(
+      companyLatitude: doubleOf(json['companyLatitude']),
+      companyLongitude: doubleOf(json['companyLongitude']),
+      attendanceRadiusMeters: doubleOf(json['attendanceRadiusMeters']) ?? 0,
+      requireAttendanceLocation: json['requireAttendanceLocation'] == true,
+      workWeekdays: workWeekdays.isEmpty ? defaultWorkWeekdays : workWeekdays,
+      holidays: holidays,
+    );
+  }
+}
+
+class Skill {
+  Skill({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.category,
+  });
+
+  final int id;
+  final String code;
+  final String name;
+  final String? category;
+
+  factory Skill.fromJson(Map<String, dynamic> json) {
+    return Skill(
+      id: intOf(json['id']),
+      code: textOf(json['code']),
+      name: textOf(json['name']),
+      category: json['category']?.toString(),
+    );
+  }
+}
+
+class EmployeeSkill {
+  EmployeeSkill({
+    required this.id,
+    required this.skill,
+    this.yearsExperience,
+    this.proficiency,
+    this.lastUsedAt,
+    this.note,
+  });
+
+  final int id;
+  final Skill skill;
+  final double? yearsExperience;
+  final String? proficiency;
+  final String? lastUsedAt;
+  final String? note;
+
+  factory EmployeeSkill.fromJson(Map<String, dynamic> json) {
+    return EmployeeSkill(
+      id: intOf(json['id']),
+      skill: Skill.fromJson(mapOf(json['skill'])),
+      yearsExperience: doubleOf(json['yearsExperience']),
+      proficiency: json['proficiency']?.toString(),
+      lastUsedAt: json['lastUsedAt']?.toString(),
+      note: json['note']?.toString(),
+    );
+  }
+}
+
+class TaskRequiredSkill {
+  TaskRequiredSkill({
+    required this.id,
+    required this.skill,
+    this.requiredProficiency,
+    this.weight,
+  });
+
+  final int id;
+  final Skill skill;
+  final String? requiredProficiency;
+  final double? weight;
+
+  factory TaskRequiredSkill.fromJson(Map<String, dynamic> json) {
+    return TaskRequiredSkill(
+      id: intOf(json['id']),
+      skill: Skill.fromJson(mapOf(json['skill'])),
+      requiredProficiency: json['requiredProficiency']?.toString(),
+      weight: doubleOf(json['weight']),
+    );
+  }
+}
+
+class TaskSummary {
+  TaskSummary({
+    required this.id,
+    required this.title,
+    required this.status,
+    this.startDate,
+    this.dueDate,
+  });
+
+  final int id;
+  final String title;
+  final String status;
+  final String? startDate;
+  final String? dueDate;
+
+  factory TaskSummary.fromJson(Map<String, dynamic> json) {
+    return TaskSummary(
+      id: intOf(json['id']),
+      title: textOf(json['title'], tx('Công việc chưa đặt tên')),
+      status: textOf(json['status'], 'TODO'),
+      startDate: json['startDate']?.toString(),
+      dueDate: json['dueDate']?.toString(),
+    );
+  }
+}
+
+class TaskItem {
+  TaskItem({
+    required this.id,
+    required this.title,
+    required this.priority,
+    required this.status,
+    this.parentTaskId,
+    this.description,
+    this.project,
+    this.department,
+    this.team,
+    this.assignee,
+    this.parentTask,
+    this.startDate,
+    this.dueDate,
+    this.estimatedHours,
+    this.actualHours,
+    this.requiredSkills = const [],
+    this.childTasks = const [],
+    this.allowedStatuses,
+    this.minLevel,
+    this.maxLevel,
+  });
+
+  final int id;
+  final String title;
+  final String priority;
+
+  /// The career levels the work suits (the team task's when the subtask has
+  /// none); both null means any level.
+  final String? minLevel;
+  final String? maxLevel;
+  final String status;
+  final int? parentTaskId;
+  final String? description;
+  final Project? project;
+  final Department? department;
+  final Team? team;
+  final Employee? assignee;
+  final TaskSummary? parentTask;
+  final String? startDate;
+  final String? dueDate;
+  final double? estimatedHours;
+  final double? actualHours;
+  final List<TaskRequiredSkill> requiredSkills;
+  final List<TaskItem> childTasks;
+
+  /// Statuses the signed-in user may move this task to, as the API decides
+  /// them. Null when the server did not say, so every status is offered.
+  final List<String>? allowedStatuses;
+
+  bool get isOpen => status != 'DONE' && status != 'CANCELLED';
+  bool get isOverdue {
+    final due = dateOf(dueDate);
+    if (!isOpen || due == null) return false;
+    final today = DateTime.now();
+    final dueOnly = DateTime(due.year, due.month, due.day);
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    return dueOnly.isBefore(todayOnly);
+  }
+
+  factory TaskItem.fromJson(Map<String, dynamic> json) {
+    final rawSkills = json['requiredSkills'] is List
+        ? json['requiredSkills'] as List
+        : const [];
+    final rawChildTasks = json['childTasks'] is List
+        ? json['childTasks'] as List
+        : const [];
+    final projectMap = mapOf(json['project']);
+    final departmentMap = mapOf(json['department']);
+    final teamMap = mapOf(json['team']);
+    final assigneeMap = mapOf(json['assignee']);
+    final parentTaskMap = mapOf(json['parentTask']);
+    return TaskItem(
+      id: intOf(json['id']),
+      title: textOf(json['title'], tx('Công việc chưa đặt tên')),
+      parentTaskId: json['parentTaskId'] == null
+          ? null
+          : intOf(json['parentTaskId']),
+      description: json['description']?.toString(),
+      priority: textOf(json['priority'], 'MEDIUM'),
+      minLevel: (json['minLevel'] ?? parentTaskMap['minLevel'])?.toString(),
+      maxLevel: (json['maxLevel'] ?? parentTaskMap['maxLevel'])?.toString(),
+      status: textOf(json['status'], 'TODO'),
+      project: projectMap.isEmpty ? null : Project.fromJson(projectMap),
+      department: departmentMap.isEmpty
+          ? null
+          : Department.fromJson(departmentMap),
+      team: teamMap.isEmpty ? null : Team.fromJson(teamMap),
+      assignee: assigneeMap.isEmpty ? null : Employee.fromJson(assigneeMap),
+      parentTask: parentTaskMap.isEmpty
+          ? null
+          : TaskSummary.fromJson(parentTaskMap),
+      startDate: json['startDate']?.toString(),
+      dueDate: json['dueDate']?.toString(),
+      estimatedHours: doubleOf(json['estimatedHours']),
+      actualHours: doubleOf(json['actualHours']),
+      requiredSkills: rawSkills
+          .map((item) => TaskRequiredSkill.fromJson(mapOf(item)))
+          .toList(),
+      childTasks: rawChildTasks
+          .map((item) => TaskItem.fromJson(mapOf(item)))
+          .toList(),
+      allowedStatuses: json['allowedStatuses'] is List
+          ? stringListOf(json['allowedStatuses'])
+          : null,
+    );
+  }
+}
+
+class AppNotification {
+  AppNotification({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  final int id;
+  final String type;
+  final String title;
+  final String message;
+  final bool isRead;
+  final String createdAt;
+
+  AppNotification copyWith({bool? isRead}) {
+    return AppNotification(
+      id: id,
+      type: type,
+      title: title,
+      message: message,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+    );
+  }
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) {
+    return AppNotification(
+      id: intOf(json['id']),
+      type: textOf(json['type']),
+      title: textOf(json['title']),
+      message: textOf(json['message']),
+      isRead: json['isRead'] == true,
+      createdAt: textOf(json['createdAt']),
+    );
+  }
+}

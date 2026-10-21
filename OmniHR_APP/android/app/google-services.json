@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "963990785773",
+    "project_id": "omnihr-76a9a",
+    "storage_bucket": "omnihr-76a9a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:963990785773:android:9a14bb0d4a58aee96986e4",
+        "android_client_info": {
+          "package_name": "com.example.omnihr_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoDOx2j4GWEgmcuqms9zZZh0NW7Yh5Ft0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

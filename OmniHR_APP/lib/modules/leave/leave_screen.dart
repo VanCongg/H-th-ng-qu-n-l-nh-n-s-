@@ -1,0 +1,586 @@
+import 'package:flutter/material.dart';
+
+import '../../core/i18n.dart';
+import '../../core/session.dart';
+import '../../core/utils.dart';
+import '../../models/omni_models.dart';
+import '../../shared/widgets/widgets.dart';
+
+/// Annual leave balance from the backend, which accrues it per full month worked.
+class AnnualLeaveBalance {
+  AnnualLeaveBalance({
+    required this.accruedDays,
+    required this.carriedOverDays,
+    required this.remainingDays,
+  });
+
+  final double accruedDays;
+  final double carriedOverDays;
+  final double remainingDays;
+
+  factory AnnualLeaveBalance.fromJson(Map<String, dynamic> json) {
+    return AnnualLeaveBalance(
+      accruedDays: doubleOf(json['accruedDays']) ?? 0,
+      carriedOverDays: doubleOf(json['carriedOverDays']) ?? 0,
+      remainingDays: doubleOf(json['remainingDays']) ?? 0,
+    );
+  }
+}
+
+class LeaveBundle {
+  LeaveBundle({
+    required this.types,
+    required this.requests,
+    this.annualBalance,
+  });
+
+  final List<LeaveType> types;
+  final List<LeaveRequest> requests;
+  final AnnualLeaveBalance? annualBalance;
+
+  double remainingFor(LeaveType type) {
+    final used = requests
+        .where(
+          (request) =>
+              request.leaveType.id == type.id && request.status == 'APPROVED',
+        )
+        .fold<double>(0, (sum, request) => sum + request.totalDays);
+    return (type.annualAllowance ?? 0) - used;
+  }
+}
+
+class LeaveScreen extends StatefulWidget {
+  const LeaveScreen({super.key, required this.session});
+
+  final AppSession session;
+
+  @override
+  State<LeaveScreen> createState() => _LeaveScreenState();
+}
+
+class _LeaveScreenState extends State<LeaveScreen> {
+  late Future<LeaveBundle> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<LeaveBundle> _load() async {
+    final types = await widget.session.api.getList(
+      '/leave-types',
+      LeaveType.fromJson,
+    );
+    final requests = await widget.session.api.getList(
+      '/leave-requests/self',
+      LeaveRequest.fromJson,
+      query: {'limit': 50},
+    );
+    AnnualLeaveBalance? annualBalance;
+    try {
+      final data = await widget.session.api.get('/leave-balances/self');
+      annualBalance = AnnualLeaveBalance.fromJson(mapOf(data));
+    } catch (_) {
+      annualBalance = null;
+    }
+    return LeaveBundle(
+      types: types,
+      requests: requests,
+      annualBalance: annualBalance,
+    );
+  }
+
+  Future<void> _refresh() async {
+    // Block body: an arrow would return the assigned Future to setState.
+    setState(() {
+      _future = _load();
+    });
+    try {
+      await _future;
+    } catch (_) {
+      // Lỗi tải đã được FutureBuilder hiển thị.
+    }
+  }
+
+  /// A pending request is withdrawn at once; an approved one can only be
+  /// asked for, and stays approved until the manager agrees.
+  Future<void> _cancel(LeaveRequest request) async {
+    final approved = request.status == 'APPROVED';
+    final period = {
+      'type': request.leaveType.name,
+      'start': formatDate(request.startDate),
+      'end': formatDate(request.endDate),
+    };
+    final confirmed = await showAppConfirm(
+      context,
+      icon: Icons.cancel_outlined,
+      destructive: true,
+      title: tx(approved ? 'Xin hủy đơn đã duyệt' : 'Hủy đơn nghỉ phép'),
+      message: approved
+          ? tx(
+              'Đơn {type} từ {start} đến {end} đã được duyệt. Yêu cầu hủy sẽ '
+              'được gửi cho quản lý; đơn vẫn giữ nguyên cho tới khi quản lý '
+              'đồng ý.',
+              period,
+            )
+          : tx('Bạn muốn hủy đơn {type} từ {start} đến {end}?', period),
+      cancelLabel: tx('Không hủy'),
+      confirmLabel: tx(approved ? 'Gửi yêu cầu hủy' : 'Xác nhận hủy'),
+    );
+    if (!confirmed) return;
+
+    try {
+      await widget.session.api.post('/leave-requests/${request.id}/cancel');
+      if (mounted) {
+        showAppSnack(
+          context,
+          tx(
+            approved
+                ? 'Đã gửi yêu cầu hủy, chờ quản lý duyệt.'
+                : 'Đã hủy đơn nghỉ phép.',
+          ),
+        );
+      }
+      await _refresh();
+    } catch (error) {
+      if (mounted) showAppSnack(context, error.toString(), error: true);
+    }
+  }
+
+  /// Pending: withdraw it. Approved and not started, with no request yet:
+  /// ask to withdraw it. Leave under way is settled with the manager.
+  bool _canCancel(LeaveRequest request) {
+    if (request.status == 'PENDING') return true;
+    if (request.status != 'APPROVED' || request.cancelRequested) return false;
+    final start = dateOf(request.startDate);
+    final now = DateTime.now();
+    return start != null &&
+        start.isAfter(DateTime(now.year, now.month, now.day));
+  }
+
+  Future<void> _openCreateSheet(LeaveBundle bundle) async {
+    if (bundle.types.isEmpty) {
+      showAppSnack(context, tx('Chưa có loại nghỉ khả dụng.'), error: true);
+      return;
+    }
+
+    final reasonController = TextEditingController();
+    int? leaveTypeId = bundle.types.first.id;
+    var startDate = nextWorkingDay(DateTime.now());
+    var endDate = nextWorkingDay(DateTime.now());
+    // null = the whole day; a half day only for a one-day request.
+    String? halfDay;
+    var submitting = false;
+
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return ControllerScope(
+          controllers: [reasonController],
+          child: StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> pickStart() async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: startDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2035),
+                );
+                if (picked != null) {
+                  setSheetState(() {
+                    startDate = picked;
+                    if (endDate.isBefore(startDate)) endDate = startDate;
+                  });
+                }
+              }
+
+              Future<void> pickEnd() async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: endDate,
+                  firstDate: startDate,
+                  lastDate: DateTime(2035),
+                );
+                if (picked != null) {
+                  setSheetState(() => endDate = picked);
+                }
+              }
+
+              Future<void> submit() async {
+                if (leaveTypeId == null) {
+                  showAppSnack(
+                    context,
+                    tx('Vui lòng chọn loại nghỉ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (endDate.isBefore(startDate)) {
+                  showAppSnack(
+                    context,
+                    tx('Ngày kết thúc không được trước ngày bắt đầu.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (workingDaysBetween(startDate, endDate) == 0) {
+                  showAppSnack(
+                    context,
+                    tx('Khoảng nghỉ không có ngày làm việc hợp lệ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                if (reasonController.text.trim().isEmpty) {
+                  showAppSnack(
+                    context,
+                    tx('Vui lòng nhập lý do nghỉ.'),
+                    error: true,
+                  );
+                  return;
+                }
+                setSheetState(() => submitting = true);
+                try {
+                  await widget.session.api.post(
+                    '/leave-requests',
+                    body: {
+                      'leaveTypeId': leaveTypeId,
+                      'startDate': apiDate(startDate),
+                      'endDate': apiDate(endDate),
+                      'reason': reasonController.text.trim(),
+                      if (halfDay != null && sameDate(startDate, endDate))
+                        'halfDay': halfDay,
+                    },
+                  );
+                  if (context.mounted) Navigator.pop(context, true);
+                } catch (error) {
+                  if (context.mounted) {
+                    showAppSnack(context, error.toString(), error: true);
+                  }
+                } finally {
+                  if (context.mounted) {
+                    setSheetState(() => submitting = false);
+                  }
+                }
+              }
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      tx('Tạo đơn nghỉ phép'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<int>(
+                      initialValue: leaveTypeId,
+                      decoration: InputDecoration(
+                        labelText: tx('Loại nghỉ'),
+                        prefixIcon: const Icon(Icons.category_outlined),
+                      ),
+                      items: bundle.types
+                          .map(
+                            (type) => DropdownMenuItem(
+                              value: type.id,
+                              child: Text(type.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: submitting
+                          ? null
+                          : (value) => setSheetState(() => leaveTypeId = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickStart,
+                            icon: const Icon(Icons.event),
+                            label: Text(formatDate(startDate)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: submitting ? null : pickEnd,
+                            icon: const Icon(Icons.event_available),
+                            label: Text(formatDate(endDate)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (sameDate(startDate, endDate)) ...[
+                      const SizedBox(height: 12),
+                      SegmentedButton<String?>(
+                        segments: [
+                          ButtonSegment(
+                            value: null,
+                            label: Text(tx('Cả ngày')),
+                          ),
+                          ButtonSegment(
+                            value: 'MORNING',
+                            label: Text(tx('Buổi sáng')),
+                          ),
+                          ButtonSegment(
+                            value: 'AFTERNOON',
+                            label: Text(tx('Buổi chiều')),
+                          ),
+                        ],
+                        selected: {halfDay},
+                        onSelectionChanged: submitting
+                            ? null
+                            : (value) =>
+                                  setSheetState(() => halfDay = value.first),
+                      ),
+                    ],
+                    if (workingDaysBetween(startDate, endDate) == 0) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: dangerColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.event_busy_outlined,
+                              size: 18,
+                              color: dangerColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tx(
+                                  'Khoảng ngày đã chọn không có ngày làm việc '
+                                  'nào. Vui lòng chọn ngày trong tuần.',
+                                ),
+                                style: TextStyle(color: dangerColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: reasonController,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: tx('Lý do'),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed:
+                          submitting ||
+                              workingDaysBetween(startDate, endDate) == 0
+                          ? null
+                          : submit,
+                      icon: submitting
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                      label: Text(tx(submitting ? 'Đang gửi...' : 'Gửi đơn')),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (created == true) {
+      if (mounted) showAppSnack(context, tx('Đã tạo đơn nghỉ phép.'));
+      await _refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<LeaveBundle>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LoadingView();
+        }
+        if (snapshot.hasError) {
+          return ErrorView(error: snapshot.error.toString(), onRetry: _refresh);
+        }
+
+        final bundle = snapshot.data!;
+        final pending = bundle.requests
+            .where((request) => request.status == 'PENDING')
+            .length;
+        final approved = bundle.requests
+            .where((request) => request.status == 'APPROVED')
+            .length;
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 104),
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Pill(
+                    label: '$pending ${tx('chờ duyệt')}',
+                    color: accentColor,
+                  ),
+                  Pill(label: '$approved ${tx('đã duyệt')}', color: brandGreen),
+                  Pill(
+                    label: '${bundle.requests.length} ${tx('tổng')}',
+                    color: brandColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: () => _openCreateSheet(bundle),
+                icon: const Icon(Icons.add_rounded),
+                label: Text(tx('Tạo đơn nghỉ')),
+              ),
+              const SizedBox(height: 20),
+              AppPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SectionTitle(
+                      title: tx('Số ngày phép còn lại'),
+                      subtitle: tx(
+                        'Phép năm cộng dồn theo tháng làm việc đủ; loại khác tính theo đơn đã duyệt',
+                      ),
+                    ),
+                    Builder(
+                      builder: (context) {
+                        final rows = bundle.types.map((type) {
+                          final annual = type.code == 'ANNUAL_LEAVE'
+                              ? bundle.annualBalance
+                              : null;
+                          if (annual != null) {
+                            return _LeaveBalanceRow(
+                              name: type.name,
+                              valueText:
+                                  '${annual.remainingDays.toStringAsFixed(1)}/${(annual.accruedDays + annual.carriedOverDays).toStringAsFixed(1)}',
+                              warn: annual.remainingDays <= 0,
+                            );
+                          }
+                          final isUnlimited = type.annualAllowance == null;
+                          final remaining = isUnlimited
+                              ? null
+                              : bundle.remainingFor(type);
+                          return _LeaveBalanceRow(
+                            name: type.name,
+                            valueText: isUnlimited
+                                ? tx('Không giới hạn')
+                                : '${remaining!.toStringAsFixed(1)}/${type.annualAllowance!.toStringAsFixed(0)}',
+                            warn: !isUnlimited && remaining! <= 0,
+                          );
+                        }).toList();
+
+                        if (rows.length <= 3) {
+                          return Column(children: rows);
+                        }
+                        return ExpandMoreToggle(
+                          collapsed: Column(children: rows.take(3).toList()),
+                          expandedExtra: Column(
+                            children: rows.skip(3).toList(),
+                          ),
+                          expandLabel: tx('Xem thêm ({count})', {
+                            'count': '${rows.length - 3}',
+                          }),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SectionTitle(title: tx('Đơn nghỉ của tôi')),
+              if (bundle.requests.isEmpty)
+                EmptyState(
+                  icon: Icons.beach_access_outlined,
+                  title: tx('Chưa có đơn nghỉ'),
+                  body: tx('Đơn nghỉ đã gửi sẽ xuất hiện tại đây.'),
+                )
+              else
+                ...bundle.requests.map(
+                  (request) => LeaveRequestCard(
+                    request: request,
+                    onCancel: _canCancel(request)
+                        ? () => _cancel(request)
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LeaveBalanceRow extends StatelessWidget {
+  const _LeaveBalanceRow({
+    required this.name,
+    required this.valueText,
+    required this.warn,
+  });
+
+  final String name;
+  final String valueText;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          AppIconBadge(
+            icon: Icons.beach_access_outlined,
+            color: warn ? dangerColor : brandColor,
+            size: 34,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Text(
+            valueText,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: warn ? dangerColor : inkColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
