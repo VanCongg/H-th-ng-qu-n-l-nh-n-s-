@@ -1,6 +1,8 @@
 .env
 .env.*
-!.env.example
+
+# Kept locally, not published
+CLAUDE.md
 
 .claude/
 

@@ -3,7 +3,6 @@ dist/
 dist-simulate/
 .env
 .env.*
-!.env.example
 *.log
 *.tsbuildinfo
 coverage/
